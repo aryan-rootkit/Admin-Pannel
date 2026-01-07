@@ -8,6 +8,7 @@ import { Plus, Mail } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { toast } from '@/components/ui/Toast';
 
 /**
  * Project Management Page
@@ -93,20 +94,45 @@ export default function ProjectsPage() {
       const url = selectedProject ? `/api/projects/${selectedProject._id}` : '/api/projects';
       const method = selectedProject ? 'PUT' : 'POST';
 
+      // Prepare request body
+      const requestBody = {
+        name: data.name.trim(),
+        description: data.description.trim(),
+        client: data.client.trim(),
+        startDate: data.startDate,
+        deadline: data.deadline,
+        budget: Number(data.budget),
+        status: data.status,
+        assignedTeam: selectedProject?.assignedTeam || [],
+      };
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestBody),
       });
 
       if (res.ok) {
+        const savedProject = await res.json();
         await fetchProjects();
         setIsModalOpen(false);
         reset();
         setSelectedProject(null);
+        toast(
+          selectedProject 
+            ? 'Project updated successfully!' 
+            : 'Project created successfully!',
+          'success'
+        );
+      } else {
+        const errorData = await res.json();
+        const errorMessage = errorData.error || 'Failed to save project. Please try again.';
+        toast(errorMessage, 'error');
+        console.error('API Error:', errorData);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving project:', error);
+      toast(error?.message || 'An error occurred. Please try again.', 'error');
     }
   };
 
@@ -129,9 +155,14 @@ export default function ProjectsPage() {
       const res = await fetch(`/api/projects/${project._id}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchProjects();
+        toast('Project deleted successfully!', 'success');
+      } else {
+        const errorData = await res.json();
+        toast(errorData.error || 'Failed to delete project.', 'error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting project:', error);
+      toast('An error occurred while deleting.', 'error');
     }
   };
 

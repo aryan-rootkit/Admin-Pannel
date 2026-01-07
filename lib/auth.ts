@@ -21,71 +21,84 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error('Please provide email and password');
-        }
-
-        // MOCK MODE: Hardcoded admin credentials (no database needed)
-        if (USE_MOCK_AUTH) {
-          // Mock admin credentials
-          const mockUsers = [
-            {
-              email: 'admin@rootkit.dev',
-              password: 'admin123',
-              id: '1',
-              name: 'Rootkit Admin',
-              role: 'admin',
-            },
-            {
-              email: 'admin@rootkit.com',
-              password: 'admin123',
-              id: '2',
-              name: 'Admin User',
-              role: 'admin',
-            },
-          ];
-
-          const user = mockUsers.find(
-            (u) => u.email.toLowerCase().trim() === credentials.email.toLowerCase().trim() && u.password === credentials.password
-          );
-
-          if (user) {
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              role: user.role,
-            };
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            console.error('Missing credentials');
+            return null;
           }
 
-          throw new Error('Invalid email or password');
-        }
+          // MOCK MODE: Hardcoded admin credentials (no database needed)
+          if (USE_MOCK_AUTH) {
+            // Mock admin credentials
+            const mockUsers = [
+              {
+                email: 'admin@rootkit.dev',
+                password: 'admin123',
+                id: '1',
+                name: 'Rootkit Admin',
+                role: 'admin',
+              },
+              {
+                email: 'admin@rootkit.com',
+                password: 'admin123',
+                id: '2',
+                name: 'Admin User',
+                role: 'admin',
+              },
+            ];
 
-        // REAL MODE: Database authentication (uncomment when ready)
-        /*
-        const { connectDB } = await import('./mongodb');
-        const User = (await import('@/models/User')).default;
-        
-        await connectDB();
-        const user = await User.findOne({ email: credentials.email }).select('+password');
-        
-        if (!user) {
-          throw new Error('No user found with this email');
+            const email = credentials.email.toLowerCase().trim();
+            const password = credentials.password.trim();
+
+            const user = mockUsers.find(
+              (u) => u.email.toLowerCase().trim() === email && u.password === password
+            );
+
+            if (user) {
+              console.log('Login successful for:', user.email);
+              return {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+              };
+            }
+
+            console.error('Invalid credentials:', email);
+            return null; // Return null instead of throwing error
+          }
+
+          // REAL MODE: Database authentication (uncomment when ready)
+          /*
+          const { connectDB } = await import('./mongodb');
+          const User = (await import('@/models/User')).default;
+          
+          await connectDB();
+          const user = await User.findOne({ email: credentials.email }).select('+password');
+          
+          if (!user) {
+            return null;
+          }
+          
+          const isPasswordValid = await user.comparePassword(credentials.password);
+          
+          if (!isPasswordValid) {
+            return null;
+          }
+          
+          return {
+            id: user._id.toString(),
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          };
+          */
+        } catch (error) {
+          console.error('Authorization error:', error);
+          return null;
         }
         
-        const isPasswordValid = await user.comparePassword(credentials.password);
-        
-        if (!isPasswordValid) {
-          throw new Error('Invalid password');
-        }
-        
-        return {
-          id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
-        */
+        return null; // Default return if USE_MOCK_AUTH is false
       },
     }),
   ],
@@ -94,6 +107,8 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
+        token.email = user.email;
+        token.name = user.name;
       }
       return token;
     },
@@ -101,8 +116,16 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string;
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      // Handle callbackUrl from query params
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
     },
   },
   pages: {
@@ -110,7 +133,16 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-key-change-in-production',
+  secret: process.env.NEXTAUTH_SECRET,
   debug: false,
+  events: {
+    async signIn({ user }) {
+      console.log('✅ User signed in:', user.email);
+    },
+    async signOut() {
+      console.log('👋 User signed out');
+    },
+  },
 };

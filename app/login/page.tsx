@@ -1,21 +1,34 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { signIn, getSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 
 /**
  * Modern Glass Effect Login Page
  * With detailed 3D abstract background shapes
  */
-export default function LoginPage() {
-  const [email, setEmail] = useState('admin@rootkit.dev');
+function LoginForm() {
+  const [email, setEmail] = useState('admin@rootkit.com');
   const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkSession = async () => {
+      const session = await getSession();
+      if (session) {
+        const callbackUrl = searchParams?.get('callbackUrl') || '/dashboard';
+        router.push(callbackUrl);
+      }
+    };
+    checkSession();
+  }, [router, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,10 +36,13 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const callbackUrl = searchParams?.get('callbackUrl') || '/dashboard';
+      
       const result = await signIn('credentials', {
         email: email.trim(),
         password: password.trim(),
         redirect: false,
+        callbackUrl: callbackUrl,
       });
 
       if (result?.error) {
@@ -41,9 +57,23 @@ export default function LoginPage() {
         setError(errorMessage);
         setLoading(false);
       } else if (result?.ok) {
-        // Success - redirect to dashboard
+        // Success - wait a moment for session to be set, then redirect
         setLoading(false);
-        window.location.href = '/dashboard';
+        
+        // Verify session was created
+        const session = await getSession();
+        if (session) {
+          // Use the callbackUrl from query params or default to dashboard
+          const redirectUrl = searchParams.get('callbackUrl') || '/dashboard';
+          router.push(redirectUrl);
+          router.refresh();
+        } else {
+          // If session not set, force redirect anyway
+          setTimeout(() => {
+            const redirectUrl = searchParams.get('callbackUrl') || '/dashboard';
+            window.location.href = redirectUrl;
+          }, 500);
+        }
       } else {
         setError('Login failed. Please try again.');
         setLoading(false);
@@ -230,11 +260,26 @@ export default function LoginPage() {
             {/* Default Credentials Hint */}
             <div className="text-center mt-4 p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
               <p className="text-white/80 text-xs mb-1">Default Credentials:</p>
-              <p className="text-white text-sm font-mono">admin@rootkit.dev / admin123</p>
+              <p className="text-white text-sm font-mono">admin@rootkit.com / admin123</p>
             </div>
           </form>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
