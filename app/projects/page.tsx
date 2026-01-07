@@ -80,9 +80,11 @@ export default function ProjectsPage() {
     try {
       const res = await fetch('/api/team');
       const data = await res.json();
-      setTeamMembers(data);
+      // Ensure data is always an array
+      setTeamMembers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching team members:', error);
+      setTeamMembers([]); // Set empty array on error
     }
   };
 
@@ -298,39 +300,42 @@ export default function ProjectsPage() {
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
               <input
                 {...register('name')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter project name"
               />
               {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
               <textarea
                 {...register('description')}
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter description"
               />
               {errors.description && <p className="text-red-600 text-sm mt-1">{errors.description.message}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Client</label>
                 <input
                   {...register('client')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter client name"
                 />
                 {errors.client && <p className="text-red-600 text-sm mt-1">{errors.client.message}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                 <select
                   {...register('status')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="Pending">Pending</option>
                   <option value="In Progress">In Progress</option>
@@ -342,32 +347,33 @@ export default function ProjectsPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
                 <input
                   type="date"
                   {...register('startDate')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 {errors.startDate && <p className="text-red-600 text-sm mt-1">{errors.startDate.message}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Deadline</label>
                 <input
                   type="date"
                   {...register('deadline')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 {errors.deadline && <p className="text-red-600 text-sm mt-1">{errors.deadline.message}</p>}
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Budget</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Budget</label>
               <input
                 type="number"
                 {...register('budget', { valueAsNumber: true })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="0.00"
               />
               {errors.budget && <p className="text-red-600 text-sm mt-1">{errors.budget.message}</p>}
             </div>
@@ -408,7 +414,8 @@ export default function ProjectsPage() {
           <div className="space-y-4">
             <p className="text-gray-600">Select team members to assign this project to. They will receive an email notification.</p>
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {teamMembers.map((member) => (
+              {teamMembers && Array.isArray(teamMembers) && teamMembers.length > 0 ? (
+                teamMembers.map((member) => (
                 <label key={member._id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <input
                     type="checkbox"
@@ -420,14 +427,17 @@ export default function ProjectsPage() {
                         setSelectedTeamMembers(selectedTeamMembers.filter((id) => id !== member._id));
                       }
                     }}
-                    className="w-4 h-4 text-primary-600"
+                    className="w-4 h-4 text-blue-600"
                   />
                   <div>
                     <p className="font-medium text-gray-900">{member.name}</p>
                     <p className="text-sm text-gray-500">{member.email}</p>
                   </div>
                 </label>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-gray-500 py-4">No team members available. Add team members first.</p>
+              )}
             </div>
             <div className="flex justify-end gap-3 pt-4">
               <button
