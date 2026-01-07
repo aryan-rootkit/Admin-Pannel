@@ -31,16 +31,41 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     await connectDB();
     const body = await request.json();
     
-    const revenue = await Revenue.findByIdAndUpdate(params.id, body, { new: true, runValidators: true });
+    // Convert date string to Date object if present
+    const updateData: any = { ...body };
+    if (body.date) {
+      updateData.date = new Date(body.date);
+    }
+    if (body.amount !== undefined) {
+      updateData.amount = Number(body.amount);
+    }
+    
+    const revenue = await Revenue.findByIdAndUpdate(params.id, updateData, { new: true, runValidators: true });
     
     if (!revenue) {
       return NextResponse.json({ error: 'Revenue record not found' }, { status: 404 });
     }
     
     return NextResponse.json(revenue);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating revenue:', error);
-    return NextResponse.json({ error: 'Failed to update revenue' }, { status: 500 });
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors || {}).map((e: any) => e.message).join(', ');
+      return NextResponse.json(
+        { error: `Validation error: ${messages}` },
+        { status: 400 }
+      );
+    }
+    
+    return NextResponse.json(
+      { 
+        error: error.message || 'Failed to update revenue',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
+      { status: 500 }
+    );
   }
 }
 

@@ -27,24 +27,39 @@ if (!global.mongoose) {
 }
 
 async function connectDB() {
+  // If already connected, return existing connection
   if (cached.conn) {
     return cached.conn;
   }
 
+  // If connection is in progress, wait for it
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
-    });
+    cached.promise = mongoose.connect(MONGODB_URI, opts)
+      .then((mongoose) => {
+        console.log('✅ MongoDB connected successfully');
+        return mongoose;
+      })
+      .catch((error) => {
+        console.error('❌ MongoDB connection error:', error.message);
+        cached.promise = null;
+        throw error;
+      });
   }
 
   try {
     cached.conn = await cached.promise;
-  } catch (e) {
+  } catch (e: any) {
     cached.promise = null;
+    // Provide more helpful error message
+    if (e.message?.includes('authentication failed') || e.message?.includes('bad auth')) {
+      throw new Error('MongoDB authentication failed. Please check your MONGODB_URI credentials in .env.local');
+    }
     throw e;
   }
 

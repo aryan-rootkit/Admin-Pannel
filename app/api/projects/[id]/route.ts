@@ -31,16 +31,49 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     await connectDB();
     const body = await request.json();
     
-    const project = await Project.findByIdAndUpdate(params.id, body, { new: true, runValidators: true });
+    // Convert date strings to Date objects if present
+    const updateData: any = { ...body };
+    if (body.startDate) {
+      updateData.startDate = new Date(body.startDate);
+    }
+    if (body.deadline) {
+      updateData.deadline = new Date(body.deadline);
+    }
+    if (body.budget !== undefined) {
+      updateData.budget = Number(body.budget);
+    }
+    
+    // Ensure assignedTeam is an array
+    if (!updateData.assignedTeam) {
+      updateData.assignedTeam = [];
+    }
+    
+    const project = await Project.findByIdAndUpdate(params.id, updateData, { new: true, runValidators: true });
     
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
     
     return NextResponse.json(project);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating project:', error);
-    return NextResponse.json({ error: 'Failed to update project' }, { status: 500 });
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors || {}).map((e: any) => e.message).join(', ');
+      return NextResponse.json(
+        { error: `Validation error: ${messages}` },
+        { status: 400 }
+      );
+    }
+    
+    return NextResponse.json(
+      { 
+        error: error.message || 'Failed to update project',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
+      { status: 500 }
+    );
   }
 }
 

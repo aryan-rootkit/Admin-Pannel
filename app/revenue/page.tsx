@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { toast } from '@/components/ui/Toast';
 
 /**
  * Revenue & Finance Page
@@ -124,17 +125,26 @@ export default function RevenuePage() {
       });
 
       if (res.ok) {
+        const savedRevenue = await res.json();
         await fetchRevenue();
         setIsModalOpen(false);
         reset();
         setSelectedRevenue(null);
+        toast(
+          selectedRevenue 
+            ? 'Revenue record updated successfully!' 
+            : 'Revenue record created successfully!',
+          'success'
+        );
       } else {
         const errorData = await res.json();
-        alert(errorData.error || 'Failed to save record. Please try again.');
+        const errorMessage = errorData.error || 'Failed to save record. Please try again.';
+        toast(errorMessage, 'error');
+        console.error('API Error:', errorData);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving revenue:', error);
-      alert('An error occurred. Please try again.');
+      toast(error?.message || 'An error occurred. Please try again.', 'error');
     }
   };
 
@@ -156,9 +166,14 @@ export default function RevenuePage() {
       const res = await fetch(`/api/revenue/${item._id}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchRevenue();
+        toast('Revenue record deleted successfully!', 'success');
+      } else {
+        const errorData = await res.json();
+        toast(errorData.error || 'Failed to delete record.', 'error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting revenue:', error);
+      toast('An error occurred while deleting.', 'error');
     }
   };
 

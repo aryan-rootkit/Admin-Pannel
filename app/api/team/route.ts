@@ -11,9 +11,24 @@ export async function GET() {
     await connectDB();
     const team = await Team.find().populate('assignedProjects').sort({ createdAt: -1 });
     return NextResponse.json(team);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching team:', error);
-    return NextResponse.json({ error: 'Failed to fetch team' }, { status: 500 });
+    
+    // Handle MongoDB connection errors
+    if (error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
+      return NextResponse.json(
+        { 
+          error: 'Database connection failed. Please check MongoDB credentials.',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 503 }
+      );
+    }
+    
+    return NextResponse.json(
+      { error: 'Failed to fetch team', details: process.env.NODE_ENV === 'development' ? error.message : undefined },
+      { status: 500 }
+    );
   }
 }
 
@@ -45,6 +60,17 @@ export async function POST(request: Request) {
     return NextResponse.json(teamMember, { status: 201 });
   } catch (error: any) {
     console.error('Error creating team member:', error);
+    
+    // Handle MongoDB connection errors
+    if (error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
+      return NextResponse.json(
+        { 
+          error: 'Database connection failed. Please check MongoDB credentials.',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 503 }
+      );
+    }
     
     // Handle duplicate email error
     if (error.code === 11000 || error.message?.includes('duplicate')) {
