@@ -183,21 +183,29 @@ export default function CalendarPage() {
     <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Calendar</h1>
-            <p className="text-gray-600 text-lg">Manage events, tasks, and deadlines</p>
+        {/* Header Card - Matching Revenue Page Design */}
+        <div className="card-premium py-4 px-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <CalendarIcon className="w-5 h-5 text-primary-500" />
+                <h1 className="text-xl font-bold text-text-primary font-display leading-tight">Calendar</h1>
+              </div>
+              <p className="text-xs text-text-secondary leading-tight">Manage events, tasks, and deadlines</p>
+            </div>
+            <button
+              onClick={() => {
+                reset();
+                setSelectedEvent(null);
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg transition-colors text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              New Event
+            </button>
           </div>
-          <button
-            onClick={() => {
-              reset();
-              setSelectedEvent(null);
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200"
-          >
-            <Plus className="w-5 h-5" />
-            New Event
-          </button>
+        </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4" style={{ height: '600px' }}>

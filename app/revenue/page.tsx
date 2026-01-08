@@ -3,11 +3,10 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
-import { Plus, Download, ChevronDown, ChevronUp, Edit, Trash2, Search, TrendingUp, TrendingDown, DollarSign, FileText, Mail, Send, Calculator, Users, Target } from 'lucide-react';
+import { Plus, Download, ChevronDown, ChevronUp, Edit, Trash2, Search, TrendingUp, TrendingDown, DollarSign, FileText, Mail, Send, Calculator, Users, Target, Wallet, Receipt, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { toast } from '@/components/ui/Toast';
@@ -127,11 +126,9 @@ export default function RevenuePage() {
   });
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [tableFilter, setTableFilter] = useState<string | null>(null);
-  const [showMonthlyChart, setShowMonthlyChart] = useState(false);
-  const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'week' | 'month' | 'quarter' | 'ytd' | 'custom'>('month');
-  const [showIncomeExpenseChart, setShowIncomeExpenseChart] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [showTooltip, setShowTooltip] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number } | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [developerSearchQuery, setDeveloperSearchQuery] = useState('');
@@ -198,17 +195,26 @@ export default function RevenuePage() {
   const paymentStatus = balanceDue <= 0 ? 'Paid' : 
     (advanceAmount > 0 || paymentsReceived.length > 0) ? 'Partial' : 'Pending';
 
-  // Handle delayed tooltip display (3 seconds)
+  // Handle delayed tooltip display and position calculation
   useEffect(() => {
     if (hoveredCard) {
       // Clear any existing timeout
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
       }
-      // Set new timeout for 3 seconds
+      // Set new timeout for 2 seconds
       hoverTimeoutRef.current = setTimeout(() => {
+        // Calculate tooltip position based on card position (fixed positioning uses viewport coordinates)
+        const cardElement = document.querySelector(`[data-card-id="${hoveredCard}"]`) as HTMLElement;
+        if (cardElement) {
+          const rect = cardElement.getBoundingClientRect();
+          setTooltipPosition({
+            top: rect.top - 10, // Position above the card (viewport coordinates for fixed)
+            left: rect.left + rect.width / 2, // Center horizontally
+          });
+        }
         setShowTooltip(hoveredCard);
-      }, 3000);
+      }, 2000);
     } else {
       // Clear timeout and hide tooltip when mouse leaves
       if (hoverTimeoutRef.current) {
@@ -216,6 +222,7 @@ export default function RevenuePage() {
         hoverTimeoutRef.current = null;
       }
       setShowTooltip(null);
+      setTooltipPosition(null);
     }
 
     // Cleanup on unmount
@@ -237,7 +244,7 @@ export default function RevenuePage() {
   useEffect(() => {
     calculateStats();
     calculateDeveloperPayouts();
-  }, [revenue, expenses, teamMembers, projects, timeFilter]);
+  }, [revenue, expenses, teamMembers, projects]);
 
   // Auto-fill client when project is selected
   useEffect(() => {
@@ -334,77 +341,28 @@ export default function RevenuePage() {
     }
   };
 
-  // Helper function to get date range based on time filter
-  const getDateRange = () => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    switch (timeFilter) {
-      case 'today':
-        return { start: today, end: new Date(today.getTime() + 24 * 60 * 60 * 1000) };
-      case 'week':
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-        return { start: weekStart, end: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000) };
-      case 'month':
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        return { start: monthStart, end: monthEnd };
-      case 'quarter':
-        const quarter = Math.floor(now.getMonth() / 3);
-        const quarterStart = new Date(now.getFullYear(), quarter * 3, 1);
-        const quarterEnd = new Date(now.getFullYear(), (quarter + 1) * 3, 1);
-        return { start: quarterStart, end: quarterEnd };
-      case 'ytd':
-        const ytdStart = new Date(now.getFullYear(), 0, 1);
-        const ytdEnd = new Date(now.getFullYear() + 1, 0, 1);
-        return { start: ytdStart, end: ytdEnd };
-      default:
-        return { start: null, end: null };
-    }
-  };
-
   const calculateStats = () => {
-    const dateRange = getDateRange();
-    let revenueArray = Array.isArray(revenue) ? revenue : [];
-    let expensesArray = Array.isArray(expenses) ? expenses : [];
+    // Use all revenue and expenses (no date filtering)
+    const revenueArray = Array.isArray(revenue) ? revenue : [];
+    const expensesArray = Array.isArray(expenses) ? expenses : [];
     
-    // Filter by date range if specified (for the 6 cards)
-    // Use expectedPaymentDate or advanceDate for revenue filtering
-    if (dateRange.start && dateRange.end) {
-      revenueArray = revenueArray.filter(r => {
-        // Use expectedPaymentDate as primary, fallback to advanceDate, then createdAt
-        const revenueDate = r.expectedPaymentDate 
-          ? new Date(r.expectedPaymentDate)
-          : r.advanceDate 
-          ? new Date(r.advanceDate)
-          : r.createdAt 
-          ? new Date(r.createdAt)
-          : null;
-        
-        if (!revenueDate) return false;
-        return revenueDate >= dateRange.start! && revenueDate < dateRange.end!;
-      });
-      expensesArray = expensesArray.filter(e => {
-        if (!e.date) return false;
-        const expenseDate = new Date(e.date);
-        return expenseDate >= dateRange.start! && expenseDate < dateRange.end!;
-      });
-    }
+    // Keep ALL revenue for all calculations
+    const allRevenueArray = [...revenueArray];
     
     // TODAY for date comparisons
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Card 1: Total Revenue = sum(all revenue amounts) - includes ALL (past + future)
-    const totalRevenue = revenueArray.reduce((sum, r) => sum + (r.totalContractValue || 0), 0);
+    // Card 1: Total Revenue = sum(ALL revenue amounts) - includes ALL (past + future) regardless of time filter
+    const totalRevenue = allRevenueArray.reduce((sum, r) => sum + (r.totalContractValue || 0), 0);
     
     // Calculate trend (mock: +12% for now, can be calculated from previous month)
     const totalRevenueTrend = 12; // Mock trend percentage
     
     // CORE FUTURE PAYMENTS LOGIC
     // Received Amount = sum(payments WHERE payment.date <= TODAY AND status = "Paid")
-    const receivedAmount = revenueArray.reduce((sum, r) => {
+    // Use allRevenueArray for receivedAmount to include all payments
+    const receivedAmount = allRevenueArray.reduce((sum, r) => {
       let received = 0;
       
       // Advance amount (if date <= today or no date)
@@ -441,7 +399,8 @@ export default function RevenuePage() {
     }, 0);
     
     // Future Payments = sum(payments WHERE payment.date > TODAY)
-    const futurePayments = revenueArray.reduce((sum, r) => {
+    // Use allRevenueArray for futurePayments to include all future payments
+    const futurePayments = allRevenueArray.reduce((sum, r) => {
       let future = 0;
       
       // Future advance amounts
@@ -477,7 +436,8 @@ export default function RevenuePage() {
     }, 0);
     
     // Pending Amount = sum(ALL payments WHERE: payment.date > TODAY OR (payment.date <= TODAY AND status != "Paid"))
-    const pendingAmount = revenueArray.reduce((sum, r) => {
+    // Use allRevenueArray for pendingAmount to include all pending amounts
+    const pendingAmount = allRevenueArray.reduce((sum, r) => {
       const totalValue = r.totalContractValue || 0;
       const advanceAmount = r.advanceAmount || 0;
       
@@ -513,12 +473,12 @@ export default function RevenuePage() {
       return sum + Math.max(0, pending);
     }, 0);
     
-    // Overdue count
-    const overdueCount = revenueArray.filter((r) => r.paymentStatus === 'Overdue').length;
+    // Overdue count (use allRevenueArray to count all overdue invoices)
+    const overdueCount = allRevenueArray.filter((r) => r.paymentStatus === 'Overdue').length;
     
-    // Card 2: Total Advances = sum(advance column)
-    const totalAdvances = revenueArray.reduce((sum, r) => sum + (r.advanceAmount || 0), 0);
-    const avgAdvance = revenueArray.length > 0 ? totalAdvances / revenueArray.length : 0;
+    // Card 2: Total Advances = sum(advance column) - use allRevenueArray for total advances
+    const totalAdvances = allRevenueArray.reduce((sum, r) => sum + (r.advanceAmount || 0), 0);
+    const avgAdvance = allRevenueArray.length > 0 ? totalAdvances / allRevenueArray.length : 0;
     
     // Card 3: Balance Due = Pending Amount
     const balanceDue = pendingAmount;
@@ -539,9 +499,9 @@ export default function RevenuePage() {
     // Net Revenue
     const netRevenue = totalEarnings;
     
-    // Card 6: Profit = Received - Expenses (ONLY actual cash)
-    const profitAmount = receivedAmount - totalExpenses;
-    const profitMargin = receivedAmount > 0 ? Math.round((profitAmount / receivedAmount) * 100) : 0;
+    // Card 6: Profit = Total Revenue - Total Expenses (for selected period)
+    const profitAmount = totalRevenue - totalExpenses;
+    const profitMargin = totalRevenue > 0 ? Math.round((profitAmount / totalRevenue) * 100 * 10) / 10 : 0; // Round to 1 decimal
     const profitMarginTrend = 8; // Mock trend
 
     // Card 4: Team Earnings = Developer/UIUX/Devams payouts only (ALL expenses, not filtered by date)
@@ -588,7 +548,7 @@ export default function RevenuePage() {
       balanceDue, // Card 3: Balance Due = Pending Amount
       collectionRate,
       totalExpenses, 
-      netRevenue: profitAmount, // Card 6: Profit = Received - Expenses
+      netRevenue: profitAmount, // Card 6: Profit = Total Revenue - Total Expenses
       profitMargin,
       profitMarginTrend,
       teamEarnings,
@@ -1120,59 +1080,13 @@ export default function RevenuePage() {
     a.click();
   };
 
-  // Prepare chart data
-  const revenueArray = Array.isArray(revenue) ? revenue : [];
-  const monthlyData = revenueArray.reduce((acc: any, r) => {
-    const month = new Date(r.expectedPaymentDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    if (!acc[month]) {
-      acc[month] = { month, received: 0, pending: 0 };
-    }
-    if (r.paymentStatus === 'Paid') {
-      acc[month].received += r.totalContractValue;
-    } else {
-      acc[month].pending += r.balanceDue;
-    }
-    return acc;
-  }, {});
-
-  const chartData = Object.values(monthlyData);
 
   const filteredProjects = projects.filter(p =>
     p.name.toLowerCase().includes(projectSearchQuery.toLowerCase()) ||
     p.client.toLowerCase().includes(projectSearchQuery.toLowerCase())
   );
 
-  // Helper function to get date range for filtering
-  const getDateRangeForFilter = () => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    switch (timeFilter) {
-      case 'today':
-        return { start: today, end: new Date(today.getTime() + 24 * 60 * 60 * 1000) };
-      case 'week':
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-        return { start: weekStart, end: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000) };
-      case 'month':
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        return { start: monthStart, end: monthEnd };
-      case 'quarter':
-        const quarter = Math.floor(now.getMonth() / 3);
-        const quarterStart = new Date(now.getFullYear(), quarter * 3, 1);
-        const quarterEnd = new Date(now.getFullYear(), (quarter + 1) * 3, 1);
-        return { start: quarterStart, end: quarterEnd };
-      case 'ytd':
-        const ytdStart = new Date(now.getFullYear(), 0, 1);
-        const ytdEnd = new Date(now.getFullYear() + 1, 0, 1);
-        return { start: ytdStart, end: ytdEnd };
-      default:
-        return { start: null, end: null };
-    }
-  };
-
-  // Filter revenue based on selected card, search, filters, sort (time filter only affects cards, not tables)
+  // Filter revenue based on selected card, search, filters, sort
   const filteredRevenue = useMemo(() => {
     let revenueArray = Array.isArray(revenue) ? revenue : [];
     
@@ -1300,7 +1214,7 @@ export default function RevenuePage() {
     });
     
     return revenueArray;
-  }, [revenue, tableFilter, revenueStatusFilter, revenueClientFilter, revenuePaymentFilter, revenueSearchQuery, revenueSortBy, revenueSortDirection, timeFilter]);
+  }, [revenue, tableFilter, revenueStatusFilter, revenueClientFilter, revenuePaymentFilter, revenueSearchQuery, revenueSortBy, revenueSortDirection]);
 
   if (loading) {
     return (
@@ -1315,15 +1229,15 @@ export default function RevenuePage() {
   return (
     <Layout>
       <div className="space-y-5">
-        {/* Header Card */}
-        <div className="card-premium p-5">
+        {/* Header Card - Compact */}
+        <div className="card-premium py-4 px-5">
           <div className="flex items-center justify-between">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="w-6 h-6 text-primary-500" />
-                <h1 className="text-2xl font-bold text-text-primary font-display">Revenue & Finance Overview</h1>
+              <div className="flex items-center gap-2 mb-0.5">
+                <DollarSign className="w-5 h-5 text-primary-500" />
+                <h1 className="text-xl font-bold text-text-primary font-display leading-tight">Revenue & Finance Overview</h1>
               </div>
-              <p className="text-sm text-text-secondary">Track payments, advances, and invoices</p>
+              <p className="text-xs text-text-secondary leading-tight">Track payments & expenses</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -1372,480 +1286,136 @@ export default function RevenuePage() {
               New Expense
             </button>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setTimeFilter('month')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                timeFilter === 'month'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-white border border-border text-text-secondary hover:bg-hover'
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setTimeFilter('week')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                timeFilter === 'week'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-white border border-border text-text-secondary hover:bg-hover'
-              }`}
-            >
-              Weekly
-            </button>
-            <button
-              onClick={() => setTimeFilter('ytd')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                timeFilter === 'ytd'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-white border border-border text-text-secondary hover:bg-hover'
-              }`}
-            >
-              Yearly
-            </button>
-          </div>
         </div>
 
-        {/* Enhanced Metrics Cards - 3x2 Grid - Perfect Layout */}
+        {/* Enhanced Metrics Cards - Single Row Auto-Layout */}
         <div 
-          className="grid cursor-pointer transition-all relative"
-          style={{ 
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '24px',
-            gridAutoRows: '1fr'
-          }}
+          className="flex items-stretch gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
+          style={{ minHeight: '140px', scrollbarWidth: 'thin' }}
         >
-          {/* Row 1: Card 1 - Revenue */}
+          {/* Card 1 - Revenue */}
           <div 
+            data-card-id="revenue"
             onClick={() => setTableFilter(tableFilter === 'totalRevenue' ? null : 'totalRevenue')}
             onMouseEnter={() => setHoveredCard('revenue')}
             onMouseLeave={() => setHoveredCard(null)}
-            className={`card-premium card-premium-hover transition-all hover:shadow-lg hover:-translate-y-1 relative z-10 ${
-              tableFilter === 'totalRevenue' ? 'ring-2 ring-primary-500' : ''
-            }`}
-            style={{ padding: '24px', height: '100%' }}
+            className={`card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer ${
+              tableFilter === 'totalRevenue' ? 'ring-2 ring-primary-500 ring-offset-2' : ''
+            } hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0`}
+            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="p-2 bg-secondary-500 rounded-lg flex-shrink-0">
-                  <DollarSign className="w-8 h-8 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-secondary mb-1 truncate">Revenue</p>
-                  <p className="text-2xl font-bold text-text-primary leading-tight break-words">{formatINR(stats.totalRevenue)}</p>
-                </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-emerald-600 rounded-xl flex-shrink-0 shadow-md">
+                <TrendingUp className="w-6 h-6 text-white" />
               </div>
+              <p className="text-sm font-semibold text-text-secondary">Revenue</p>
             </div>
-            <div className="flex items-center justify-between mt-3">
-              <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-                <TrendingUp className="w-3.5 h-3.5 text-secondary-500 flex-shrink-0" />
-                <span className="text-secondary-500 font-medium truncate">+{stats.totalRevenueTrend}% MoM</span>
-              </div>
-            </div>
-            {/* Enhanced Tooltip - Positioned below for first row */}
-            {showTooltip === 'revenue' && (
-              <div className="absolute z-[100] top-full left-1/2 transform -translate-x-1/2 mt-3 w-64 animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
-                <div className="bg-white border-2 border-primary-200 rounded-xl shadow-2xl overflow-hidden">
-                  <div className="bg-gradient-to-r from-secondary-500 to-secondary-600 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-5 h-5 text-white" />
-                      <h3 className="font-bold text-white text-sm">Total Revenue Details</h3>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-2.5 bg-white">
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Projects</span>
-                      <span className="text-sm font-semibold text-text-primary">{revenue.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Pending Invoices</span>
-                      <span className="text-sm font-semibold text-orange-600">{formatINR(stats.pendingInvoices)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Overdue</span>
-                      <span className="text-sm font-semibold text-red-600">{stats.overdueCount} invoices</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5">
-                      <span className="text-xs text-text-secondary">Collection Rate</span>
-                      <span className="text-sm font-bold text-green-600">{stats.collectionRate}%</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full">
-                  <div className="w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-primary-200"></div>
-                </div>
-              </div>
-            )}
+            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(stats.totalRevenue)}</p>
+            <p className="text-xs text-text-secondary truncate">+{stats.totalRevenueTrend}% MoM</p>
           </div>
 
-          {/* Row 1: Card 2 - Total Advances */}
+          {/* Card 2 - Advances */}
           <div 
+            data-card-id="advances"
             onClick={() => setTableFilter(tableFilter === 'totalAdvances' ? null : 'totalAdvances')}
             onMouseEnter={() => setHoveredCard('advances')}
             onMouseLeave={() => setHoveredCard(null)}
-            className={`card-premium card-premium-hover transition-all hover:shadow-lg hover:-translate-y-1 relative z-10 ${
-              tableFilter === 'totalAdvances' ? 'ring-2 ring-primary-500' : ''
-            }`}
-            style={{ padding: '24px', height: '100%' }}
+            className={`card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer ${
+              tableFilter === 'totalAdvances' ? 'ring-2 ring-primary-500 ring-offset-2' : ''
+            } hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0`}
+            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="p-2 bg-primary-500 rounded-lg flex-shrink-0">
-                  <DollarSign className="w-8 h-8 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-secondary mb-1 truncate">Advances</p>
-                  <p className="text-2xl font-bold text-text-primary leading-tight break-words">{formatINR(stats.totalAdvances)}</p>
-                </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-blue-600 rounded-xl flex-shrink-0 shadow-md">
+                <Wallet className="w-6 h-6 text-white" />
               </div>
+              <p className="text-sm font-semibold text-text-secondary">Advances</p>
             </div>
-            <div className="flex flex-col gap-1 mt-3">
-              <div className="text-xs text-text-secondary truncate">
-                {stats.upcomingAdvancesThisMonth > 0 && (
-                  <div className="text-green-600 font-medium">
-                    {formatINR(stats.upcomingAdvancesThisMonth)} this month
-                  </div>
-                )}
-                {stats.upcomingAdvancesNextMonth > 0 && (
-                  <div className="text-blue-600 font-medium">
-                    {formatINR(stats.upcomingAdvancesNextMonth)} next month
-                  </div>
-                )}
-                {stats.upcomingAdvancesThisMonth === 0 && stats.upcomingAdvancesNextMonth === 0 && (
-                  <div>Avg: {formatINR(Math.round(stats.avgAdvance))} per project</div>
-                )}
-              </div>
-            </div>
-            {/* Enhanced Tooltip - Positioned below for first row */}
-            {showTooltip === 'advances' && (
-              <div className="absolute z-[100] top-full left-1/2 transform -translate-x-1/2 mt-3 w-72 animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
-                <div className="bg-white border-2 border-primary-200 rounded-xl shadow-2xl overflow-hidden">
-                  <div className="bg-gradient-to-r from-primary-500 to-primary-600 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-5 h-5 text-white" />
-                      <h3 className="font-bold text-white text-sm">Advances Details</h3>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-2.5 bg-white">
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Total Advances</span>
-                      <span className="text-sm font-bold text-text-primary">{formatINR(stats.totalAdvances)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Average per Project</span>
-                      <span className="text-sm font-semibold text-text-primary">{formatINR(Math.round(stats.avgAdvance))}</span>
-                    </div>
-                    {stats.upcomingAdvancesThisMonth > 0 && (
-                      <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                        <span className="text-xs text-text-secondary">This Month</span>
-                        <span className="text-sm font-semibold text-green-600">{formatINR(stats.upcomingAdvancesThisMonth)}</span>
-                      </div>
-                    )}
-                    {stats.upcomingAdvancesNextMonth > 0 && (
-                      <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                        <span className="text-xs text-text-secondary">Next Month</span>
-                        <span className="text-sm font-semibold text-blue-600">{formatINR(stats.upcomingAdvancesNextMonth)}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between py-1.5">
-                      <span className="text-xs text-text-secondary">Projects with Advances</span>
-                      <span className="text-sm font-semibold text-text-primary">{revenue.filter(r => (r.advanceAmount || 0) > 0).length}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                  <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-primary-200"></div>
-                </div>
-              </div>
-            )}
+            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(stats.totalAdvances)}</p>
+            <p className="text-xs text-text-secondary truncate">
+              {stats.upcomingAdvancesThisMonth > 0 
+                ? `${formatINR(stats.upcomingAdvancesThisMonth)} this month`
+                : stats.upcomingAdvancesNextMonth > 0
+                ? `${formatINR(stats.upcomingAdvancesNextMonth)} next month`
+                : `Avg: ${formatINR(Math.round(stats.avgAdvance))} per project`}
+            </p>
           </div>
 
-          {/* Row 1: Card 3 - Balance Due */}
+          {/* Card 3 - Balance Due */}
           <div 
+            data-card-id="balance"
             onClick={() => setTableFilter(tableFilter === 'balanceDue' ? null : 'balanceDue')}
             onMouseEnter={() => setHoveredCard('balance')}
             onMouseLeave={() => setHoveredCard(null)}
-            className={`card-premium card-premium-hover transition-all hover:shadow-lg hover:-translate-y-1 relative z-10 ${
-              tableFilter === 'balanceDue' ? 'ring-2 ring-primary-500' : ''
-            }`}
-            style={{ padding: '24px', height: '100%' }}
+            className={`card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer ${
+              tableFilter === 'balanceDue' ? 'ring-2 ring-primary-500 ring-offset-2' : ''
+            } hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0`}
+            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="p-2 bg-purple-500 rounded-lg flex-shrink-0">
-                  <DollarSign className="w-8 h-8 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-secondary mb-1 truncate">Balance Due</p>
-                  <p className="text-2xl font-bold text-text-primary leading-tight break-words">{formatINR(stats.balanceDue)}</p>
-                </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-purple-500 rounded-xl flex-shrink-0 shadow-md">
+                <Receipt className="w-6 h-6 text-white" />
               </div>
+              <p className="text-sm font-semibold text-text-secondary">Balance Due</p>
             </div>
-            <div className="flex items-center justify-between mt-3">
-              <div className="text-xs text-text-secondary truncate">
-                {stats.collectionRate}% collected
-              </div>
-            </div>
-            {/* Enhanced Tooltip - Positioned below for first row */}
-            {showTooltip === 'balance' && (
-              <div className="absolute z-[100] top-full left-1/2 transform -translate-x-1/2 mt-3 w-72 animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
-                <div className="bg-white border-2 border-purple-200 rounded-xl shadow-2xl overflow-hidden">
-                  <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-5 h-5 text-white" />
-                      <h3 className="font-bold text-white text-sm">Balance Due Details</h3>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-2.5 bg-white">
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Balance Due</span>
-                      <span className="text-sm font-bold text-text-primary">{formatINR(stats.balanceDue)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Total Revenue</span>
-                      <span className="text-sm font-semibold text-text-primary">{formatINR(stats.totalRevenue)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Received</span>
-                      <span className="text-sm font-semibold text-green-600">{formatINR(stats.totalCollected)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Pending Amount</span>
-                      <span className="text-sm font-semibold text-orange-600">{formatINR(stats.pendingInvoices)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Collection Rate</span>
-                      <span className="text-sm font-bold text-green-600">{stats.collectionRate}%</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5">
-                      <span className="text-xs text-text-secondary italic">Formula</span>
-                      <span className="text-xs text-text-secondary">Balance Due = Pending Amount</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full">
-                  <div className="w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-purple-200"></div>
-                </div>
-              </div>
-            )}
+            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(stats.balanceDue)}</p>
+            <p className="text-xs text-text-secondary truncate">{stats.collectionRate}% collected</p>
           </div>
 
-          {/* Row 2: Card 4 - Team Earnings */}
+          {/* Card 4 - Team Earnings */}
           <div 
+            data-card-id="earnings"
             onMouseEnter={() => setHoveredCard('earnings')}
             onMouseLeave={() => setHoveredCard(null)}
-            className="card-premium card-premium-hover transition-all hover:shadow-lg hover:-translate-y-1 relative z-0"
-            style={{ padding: '24px', height: '100%' }}
+            className="card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
+            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="p-2 bg-blue-500 rounded-lg flex-shrink-0">
-                  <Users className="w-8 h-8 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-secondary mb-1 truncate">Team Earnings</p>
-                  <p className="text-2xl font-bold text-text-primary leading-tight break-words">{formatINR(stats.teamEarnings)}</p>
-                </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-blue-500 rounded-xl flex-shrink-0 shadow-md">
+                <Users className="w-6 h-6 text-white" />
               </div>
+              <p className="text-sm font-semibold text-text-secondary">Team Earnings</p>
             </div>
-            <div className="flex flex-col gap-1 mt-3">
-              <div className="text-xs text-text-secondary">
-                <div className="truncate">Dev: {formatINR(stats.teamEarningsDev)}</div>
-                <div className="truncate">UIUX: {formatINR(stats.teamEarningsUIUX)}</div>
-              </div>
-            </div>
-            {/* Enhanced Tooltip */}
-            {/* Enhanced Tooltip - Positioned above for second row */}
-            {showTooltip === 'earnings' && (
-              <div className="absolute z-[100] bottom-full left-1/2 transform -translate-x-1/2 mb-3 w-72 animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none">
-                <div className="bg-white border-2 border-blue-200 rounded-xl shadow-2xl overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-5 h-5 text-white" />
-                      <h3 className="font-bold text-white text-sm">Total Earnings Details</h3>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-2.5 bg-white">
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Total Earnings</span>
-                      <span className="text-sm font-bold text-text-primary">{formatINR(stats.totalEarnings)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Total Revenue</span>
-                      <span className="text-sm font-semibold text-text-primary">{formatINR(stats.totalRevenue)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Total Expenses</span>
-                      <span className="text-sm font-semibold text-red-600">{formatINR(stats.totalExpenses)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Cash Flow</span>
-                      <span className={`text-sm font-semibold ${stats.totalEarnings >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {stats.totalEarnings >= 0 ? 'Positive' : 'Negative'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Expense Count</span>
-                      <span className="text-sm font-semibold text-text-primary">{expenses.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5">
-                      <span className="text-xs text-text-secondary italic">Formula</span>
-                      <span className="text-xs text-text-secondary">Total Revenue - Total Expenses</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                  <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-blue-200"></div>
-                </div>
-              </div>
-            )}
+            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(stats.teamEarnings)}</p>
+            <p className="text-xs text-text-secondary truncate">Dev: {formatINR(stats.teamEarningsDev)} | UIUX: {formatINR(stats.teamEarningsUIUX)}</p>
           </div>
 
-          {/* Row 2: Card 5 - Total Expenses */}
+          {/* Card 5 - Total Expenses */}
           <div 
+            data-card-id="expenses"
             onMouseEnter={() => setHoveredCard('expenses')}
             onMouseLeave={() => setHoveredCard(null)}
-            className="card-premium card-premium-hover transition-all hover:shadow-lg hover:-translate-y-1 relative z-0"
-            style={{ padding: '24px', height: '100%' }}
+            className="card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
+            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="p-2 bg-red-500 rounded-lg flex-shrink-0">
-                  <DollarSign className="w-8 h-8 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-secondary mb-1 truncate">Total Expenses</p>
-                  <p className="text-2xl font-bold text-text-primary leading-tight break-words">{formatINR(stats.totalExpenses)}</p>
-                </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-red-500 rounded-xl flex-shrink-0 shadow-md">
+                <ArrowDownRight className="w-6 h-6 text-white" />
               </div>
+              <p className="text-sm font-semibold text-text-secondary">Total Expenses</p>
             </div>
-            <div className="flex items-center justify-between mt-3">
-              <div className="text-xs text-text-secondary truncate">
-                {expenses.length} expenses
-              </div>
-            </div>
-            {/* Enhanced Tooltip - Positioned above for second row */}
-            {showTooltip === 'expenses' && (
-              <div className="absolute z-[100] bottom-full left-1/2 transform -translate-x-1/2 mb-3 w-72 animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none">
-                <div className="bg-white border-2 border-red-200 rounded-xl shadow-2xl overflow-hidden">
-                  <div className="bg-gradient-to-r from-red-500 to-red-600 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-5 h-5 text-white" />
-                      <h3 className="font-bold text-white text-sm">Expenses Breakdown</h3>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-2.5 bg-white">
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Total Expenses</span>
-                      <span className="text-sm font-bold text-text-primary">{formatINR(stats.totalExpenses)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Total Count</span>
-                      <span className="text-sm font-semibold text-text-primary">{expenses.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Team Earnings</span>
-                      <span className="text-sm font-semibold text-blue-600">{formatINR(stats.teamEarnings)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Dev Payouts</span>
-                      <span className="text-sm font-semibold text-blue-600">{formatINR(stats.teamEarningsDev)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">UI/UX Costs</span>
-                      <span className="text-sm font-semibold text-indigo-600">{formatINR(stats.teamEarningsUIUX)}</span>
-                    </div>
-                    {stats.teamEarningsDevams > 0 && (
-                      <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                        <span className="text-xs text-text-secondary">Devams (Marketing)</span>
-                        <span className="text-sm font-semibold text-pink-600">{formatINR(stats.teamEarningsDevams)}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between py-1.5">
-                      <span className="text-xs text-text-secondary">Other Expenses</span>
-                      <span className="text-sm font-semibold text-text-primary">{formatINR(stats.totalExpenses - stats.teamEarnings)}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                  <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-red-200"></div>
-                </div>
-              </div>
-            )}
+            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(stats.totalExpenses)}</p>
+            <p className="text-xs text-text-secondary truncate">{expenses.length} expenses</p>
           </div>
 
-          {/* Row 2: Card 6 - Profit Margin */}
+          {/* Card 6 - Profit Margin */}
           <div 
+            data-card-id="profit"
             onMouseEnter={() => setHoveredCard('profit')}
             onMouseLeave={() => setHoveredCard(null)}
-            className="card-premium card-premium-hover transition-all hover:shadow-lg hover:-translate-y-1 relative z-0"
-            style={{ padding: '24px', height: '100%' }}
+            className="card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
+            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="p-2 bg-green-500 rounded-lg flex-shrink-0">
-                  <Target className="w-8 h-8 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-secondary mb-1 truncate">Profit Margin</p>
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    <p className={`text-2xl font-bold leading-tight ${stats.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {stats.profitMargin >= 0 ? '+' : ''}{stats.profitMargin}%
-                    </p>
-                    <p className="text-sm font-semibold text-text-secondary">
-                      | {formatINR(stats.netRevenue)}
-                    </p>
-                  </div>
-                </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-green-500 rounded-xl flex-shrink-0 shadow-md">
+                <Target className="w-6 h-6 text-white" />
               </div>
+              <p className="text-sm font-semibold text-text-secondary">Profit Margin</p>
             </div>
-            <div className="flex flex-col gap-1 mt-3">
-              <div className="text-xs text-text-secondary truncate">
-                Revenue {formatINR(stats.totalRevenue)} - {formatINR(stats.totalExpenses)} costs
-              </div>
-            </div>
-            {/* Enhanced Tooltip - Positioned above for second row */}
-            {showTooltip === 'profit' && (
-              <div className="absolute z-[100] bottom-full left-1/2 transform -translate-x-1/2 mb-3 w-72 animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none">
-                <div className="bg-white border-2 border-green-200 rounded-xl shadow-2xl overflow-hidden">
-                  <div className="bg-gradient-to-r from-green-500 to-green-600 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-5 h-5 text-white" />
-                      <h3 className="font-bold text-white text-sm">Profit Margin Details</h3>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-2.5 bg-white">
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Profit Margin</span>
-                      <span className="text-sm font-bold text-green-600">{stats.profitMargin}%</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Net Revenue</span>
-                      <span className="text-sm font-semibold text-text-primary">{formatINR(stats.netRevenue)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Total Revenue</span>
-                      <span className="text-sm font-semibold text-text-primary">{formatINR(stats.totalRevenue)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Total Expenses</span>
-                      <span className="text-sm font-semibold text-red-600">{formatINR(stats.totalExpenses)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                      <span className="text-xs text-text-secondary">Trend</span>
-                      <span className="text-sm font-semibold text-green-600">+{stats.profitMarginTrend}%</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5">
-                      <span className="text-xs text-text-secondary italic">Formula</span>
-                      <span className="text-xs text-text-secondary">(Revenue - Expenses) ÷ Revenue</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                  <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-green-200"></div>
-                </div>
-              </div>
-            )}
+            <p className={`text-2xl font-bold mb-3 leading-tight ${stats.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {stats.profitMargin >= 0 ? '+' : ''}{stats.profitMargin}%
+            </p>
+            <p className="text-xs text-text-secondary truncate">₹{formatINR(stats.netRevenue)} / ₹{formatINR(stats.totalRevenue)}</p>
           </div>
         </div>
 
@@ -1883,68 +1453,6 @@ export default function RevenuePage() {
             Expenses
           </button>
         </div>
-
-        {/* Collapsible Charts - Compact Header Only */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowMonthlyChart(!showMonthlyChart)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-hover rounded-lg transition-colors border border-border"
-          >
-            <span>Monthly Overview</span>
-            {showMonthlyChart ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={() => setShowIncomeExpenseChart(!showIncomeExpenseChart)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-hover rounded-lg transition-colors border border-border"
-          >
-            <span>Income vs Expenses</span>
-            {showIncomeExpenseChart ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-        </div>
-
-        {/* Charts - Only show when expanded */}
-        {(showMonthlyChart || showIncomeExpenseChart) && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {showMonthlyChart && (
-              <div className="card-premium p-4">
-                <h3 className="text-sm font-semibold text-text-primary mb-3">Monthly Overview</h3>
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                    <XAxis dataKey="month" stroke="#64748B" fontSize={12} />
-                    <YAxis stroke="#64748B" fontSize={12} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: '8px', fontSize: '12px' }} 
-                      itemStyle={{ color: '#1E293B', fontSize: '12px' }} 
-                    />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <Line type="monotone" dataKey="received" stroke="#10b981" strokeWidth={2} name="Received (₹)" />
-                    <Line type="monotone" dataKey="pending" stroke="#ef4444" strokeWidth={2} name="Pending (₹)" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-            {showIncomeExpenseChart && (
-              <div className="card-premium p-4">
-                <h3 className="text-sm font-semibold text-text-primary mb-3">Income vs Expenses</h3>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                    <XAxis dataKey="month" stroke="#64748B" fontSize={12} />
-                    <YAxis stroke="#64748B" fontSize={12} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: '8px', fontSize: '12px' }} 
-                      itemStyle={{ color: '#1E293B', fontSize: '12px' }} 
-                    />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <Bar dataKey="received" fill="#10b981" name="Received (₹)" />
-                    <Bar dataKey="pending" fill="#ef4444" name="Pending (₹)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Revenue Table or Developer Payouts Table */}
         {activeTab === 'revenue' ? (
@@ -2064,7 +1572,7 @@ export default function RevenuePage() {
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Total ₹</th>
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Advance ₹</th>
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Advance Date</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Balance ₹</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Balance Due ₹</th>
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Payment Status</th>
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Last Payment Date</th>
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
@@ -2072,8 +1580,56 @@ export default function RevenuePage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-border">
                 {filteredRevenue.length > 0 ? (
-                  filteredRevenue.map((row: Revenue) => (
-                    <tr key={row._id} className="hover:bg-hover transition-colors">
+                  filteredRevenue.map((row: Revenue) => {
+                    // Check if this row has future dates (only highlight if there are actual future payments)
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    let hasFutureDate = false;
+                    
+                    // Don't highlight if payment status is "Paid" - all payments are complete
+                    if (row.paymentStatus === 'Paid') {
+                      hasFutureDate = false;
+                    } else {
+                      // Check advance date (only if it's in the future, not today)
+                      if (row.advanceDate) {
+                        const advanceDate = new Date(row.advanceDate);
+                        advanceDate.setHours(0, 0, 0, 0);
+                        if (advanceDate > today) {
+                          hasFutureDate = true;
+                        }
+                      }
+                      
+                      // Check expected payment date (only if it's in the future, not today, and there's balance due)
+                      if (row.expectedPaymentDate && row.balanceDue > 0) {
+                        const expectedDate = new Date(row.expectedPaymentDate);
+                        expectedDate.setHours(0, 0, 0, 0);
+                        if (expectedDate > today) {
+                          hasFutureDate = true;
+                        }
+                      }
+                      
+                      // Check payments received for future dates (only if date is strictly in the future)
+                      if (row.paymentsReceived && row.paymentsReceived.length > 0) {
+                        const hasFuturePayment = row.paymentsReceived.some((p: { date: string }) => {
+                          if (!p.date) return false;
+                          const paymentDate = new Date(p.date);
+                          paymentDate.setHours(0, 0, 0, 0);
+                          return paymentDate > today; // Only future, not today
+                        });
+                        if (hasFuturePayment) {
+                          hasFutureDate = true;
+                        }
+                      }
+                    }
+                    
+                    return (
+                    <tr 
+                      key={row._id} 
+                      className={`hover:bg-hover transition-colors ${
+                        hasFutureDate ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                      }`}
+                    >
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm font-medium text-text-primary">{row.project}</div>
                       </td>
@@ -2125,7 +1681,9 @@ export default function RevenuePage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPaymentStatusColor(row.paymentStatus)}`}>
-                          {row.paymentStatus}
+                          {typeof row.paymentStatus === 'string' && ['Paid', 'Partial', 'Pending', 'Overdue'].includes(row.paymentStatus) 
+                            ? row.paymentStatus 
+                            : (row.balanceDue <= 0 ? 'Paid' : ((row.advanceAmount || 0) > 0 || (row.paymentsReceived && row.paymentsReceived.length > 0) ? 'Partial' : 'Pending'))}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -2212,7 +1770,8 @@ export default function RevenuePage() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan={9} className="px-6 py-12 text-center text-text-secondary">
@@ -2236,11 +1795,21 @@ export default function RevenuePage() {
                   <td className="px-4 py-3 text-sm font-semibold text-text-primary">
                     {formatINR(filteredRevenue.reduce((sum, r) => sum + (r.advanceAmount || 0), 0))}
                   </td>
-                  <td colSpan={2}></td>
+                  <td className="px-4 py-3 text-sm font-semibold text-text-primary">
+                    {/* Advance Date - empty */}
+                  </td>
                   <td className="px-4 py-3 text-sm font-semibold text-text-primary">
                     {formatINR(filteredRevenue.reduce((sum, r) => sum + r.balanceDue, 0))}
                   </td>
-                  <td colSpan={2}></td>
+                  <td className="px-4 py-3 text-sm font-semibold text-text-primary">
+                    {/* Payment Status - empty */}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-text-primary">
+                    {/* Last Payment Date - empty */}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-text-primary">
+                    {/* Actions - empty */}
+                  </td>
                 </tr>
               </tfoot>
             </table>
@@ -2252,6 +1821,24 @@ export default function RevenuePage() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-text-primary">People Earnings</h2>
             </div>
+            
+            {/* People Earnings Filters - Professional Card Layout */}
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Search Card */}
+              <div className="card-premium p-3 flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4" />
+                  <input
+                    type="text"
+                    value={developerSearchQuery}
+                    onChange={(e) => setDeveloperSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-secondary"
+                    placeholder="Search people..."
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="card-premium overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -2268,8 +1855,34 @@ export default function RevenuePage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-border">
                     {developerPayouts.length > 0 ? (
-                      developerPayouts.map((payout) => (
-                        <tr key={payout.developerId} className="hover:bg-hover transition-colors">
+                      developerPayouts.map((payout) => {
+                        // Check if this payout has future dates
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        
+                        let hasFutureDate = false;
+                        
+                        // Check if there are upcoming payments
+                        if (payout.upcomingPayments > 0) {
+                          hasFutureDate = true;
+                        }
+                        
+                        // Check last payout date if it's in the future
+                        if (payout.lastPayout && payout.lastPayout !== 'Never') {
+                          const lastPayoutDate = new Date(payout.lastPayout);
+                          lastPayoutDate.setHours(0, 0, 0, 0);
+                          if (lastPayoutDate >= today) {
+                            hasFutureDate = true;
+                          }
+                        }
+                        
+                        return (
+                        <tr 
+                          key={payout.developerId} 
+                          className={`hover:bg-hover transition-colors ${
+                            hasFutureDate ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                          }`}
+                        >
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="text-sm font-medium text-text-primary">{payout.developerName}</div>
                           </td>
@@ -2322,7 +1935,8 @@ export default function RevenuePage() {
                             </div>
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     ) : (
                       <tr>
                         <td colSpan={7} className="px-6 py-12 text-center text-text-secondary">
@@ -2361,21 +1975,30 @@ export default function RevenuePage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-text-primary">Expenses</h2>
-              <div className="flex items-center gap-3">
+            </div>
+            
+            {/* Expenses Filters - Professional Card Layout */}
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Search Card */}
+              <div className="card-premium p-3 flex-1 min-w-[200px]">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4" />
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4" />
                   <input
                     type="text"
                     value={expenseSearchQuery}
                     onChange={(e) => setExpenseSearchQuery(e.target.value)}
-                    className="input-premium pl-10 w-64"
+                    className="w-full pl-8 pr-3 py-2 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-secondary"
                     placeholder="Search expenses..."
                   />
                 </div>
+              </div>
+
+              {/* Category Filter Card */}
+              <div className="card-premium p-3">
                 <select
                   value={expenseFilter}
                   onChange={(e) => setExpenseFilter(e.target.value)}
-                  className="input-premium"
+                  className="w-full bg-transparent border-none outline-none text-sm text-text-primary cursor-pointer min-w-[140px]"
                 >
                   <option value="all">All Categories</option>
                   <option value="Developer Payout">Developer Payout</option>
@@ -2386,10 +2009,14 @@ export default function RevenuePage() {
                   <option value="UI/UX Design Cost">UI/UX Design Cost</option>
                   <option value="Miscellaneous">Miscellaneous</option>
                 </select>
+              </div>
+
+              {/* Sort By Card */}
+              <div className="card-premium p-3">
                 <select
                   value={expenseSortBy}
                   onChange={(e) => setExpenseSortBy(e.target.value as 'date' | 'amount')}
-                  className="input-premium"
+                  className="w-full bg-transparent border-none outline-none text-sm text-text-primary cursor-pointer min-w-[140px]"
                 >
                   <option value="date">Sort by Date</option>
                   <option value="amount">Sort by Amount</option>

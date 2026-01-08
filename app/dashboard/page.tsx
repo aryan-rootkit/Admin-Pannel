@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import StatCard from '@/components/StatCard';
-import { DollarSign, FolderKanban, Users, Calendar, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { DollarSign, FolderKanban, Users, Calendar, ArrowUpRight, ArrowDownRight, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 
 /**
@@ -117,10 +117,17 @@ export default function DashboardPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Page Header - Light Mode */}
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2 font-display">Dashboard</h1>
-          <p className="text-slate-600 text-base">Welcome back! Here's what's happening today.</p>
+        {/* Header Card - Matching Revenue Page Design */}
+        <div className="card-premium py-4 px-5 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <LayoutDashboard className="w-5 h-5 text-primary-500" />
+                <h1 className="text-xl font-bold text-text-primary font-display leading-tight">Dashboard</h1>
+              </div>
+              <p className="text-xs text-text-secondary leading-tight">Welcome back! Here's what's happening today.</p>
+            </div>
+          </div>
         </div>
 
         {/* KPI Cards Grid - Light Mode Colors */}

@@ -8,9 +8,13 @@ interface Client {
   email: string;
   phone?: string;
   company?: string;
+  contactPerson?: string;
+  address?: string;
   revenue?: number;
   assignedDevelopers?: string[];
-  status: 'Active' | 'Inactive' | 'Lead';
+  status: 'Lead' | 'Proposal' | 'Active' | 'Overdue' | 'Won' | 'Lost' | 'Inactive';
+  clientTier?: 'Platinum' | 'Gold' | 'Silver' | 'Bronze';
+  notes?: string;
 }
 
 interface Revenue {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Edit, Trash2 } from 'lucide-react';
 
 /**
  * Premium Enterprise Data Table Component
@@ -93,41 +93,38 @@ export default function DataTable<T extends { _id?: string; id?: string }>({
       {/* Table - Premium Styling */}
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-slate-50 border-b border-slate-200">
+          <thead className="bg-background border-b border-border">
             <tr>
               {columns.map((col) => (
                 <th
                   key={String(col.key)}
                   onClick={() => handleSort(col.key)}
-                  className={`px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider ${
+                  className={`px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider ${
                     sortable ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <span>{col.header}</span>
-                    {sortable && sortColumn === col.key && (
-                      <ArrowUpDown className={`w-4 h-4 text-orange-500 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                    )}
                   </div>
                 </th>
               ))}
               {(onEdit || onDelete) && (
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
                   Actions
                 </th>
               )}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-slate-200">
+          <tbody className="bg-white divide-y divide-border">
             {paginatedData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + (onEdit || onDelete ? 1 : 0)} className="px-6 py-12 text-center">
-                  <div className="flex flex-col items-center justify-center">
-                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                      <span className="text-2xl">📊</span>
+                <td colSpan={columns.length + (onEdit || onDelete ? 1 : 0)} className="px-6 py-12 text-center text-text-secondary">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 text-text-secondary opacity-50">
+                      <span className="text-4xl">📊</span>
                     </div>
-                    <p className="text-slate-600 font-medium">No data available</p>
-                    <p className="text-sm text-slate-500 mt-1">Try adjusting your search or filters</p>
+                    <p className="text-sm font-medium">No data available</p>
+                    <p className="text-xs">Try adjusting your search or filters</p>
                   </div>
                 </td>
               </tr>
@@ -135,32 +132,32 @@ export default function DataTable<T extends { _id?: string; id?: string }>({
               paginatedData.map((row, index) => (
                 <tr
                   key={row._id || row.id || index}
-                  className={`hover:bg-slate-50 transition-colors duration-200 ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
-                  }`}
+                  className="hover:bg-slate-50 transition-colors"
                 >
                   {columns.map((col) => (
-                    <td key={String(col.key)} className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                    <td key={String(col.key)} className="px-4 py-3 whitespace-nowrap text-sm text-text-primary">
                       {col.render ? col.render(row) : String(row[col.key as keyof T] || '-')}
                     </td>
                   ))}
                   {(onEdit || onDelete) && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
                         {onEdit && (
                           <button
                             onClick={() => onEdit(row)}
-                            className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105 shadow-sm"
+                            className="p-1.5 text-primary-500 hover:bg-primary-50 rounded transition-colors"
+                            title="Edit"
                           >
-                            Edit
+                            <Edit className="w-4 h-4" />
                           </button>
                         )}
                         {onDelete && (
                           <button
                             onClick={() => onDelete(row)}
-                            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Delete"
                           >
-                            Delete
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
-import { Plus, Search, Filter, Edit, Trash2, Bell, Users, Calendar, DollarSign, ChevronUp, ChevronDown, X } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Bell, Users, Calendar, DollarSign, ChevronUp, ChevronDown, X, FolderKanban, Copy, Archive, AlertTriangle, Link as LinkIcon, Tag, Info, Check } from 'lucide-react';
 import UnifiedSearchSelect from '@/components/UnifiedSearchSelect';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,6 +29,10 @@ const projectSchema = z.object({
   deadline: z.string().min(1, 'Deadline is required'),
   budget: z.number().min(0, 'Budget must be positive'),
   status: z.enum(['Pending', 'In Progress', 'Review', 'Completed', 'Delayed', 'Overdue']),
+  priority: z.enum(['High', 'Medium', 'Low']).optional(),
+  tags: z.array(z.string()).optional(),
+  revenueLink: z.string().optional(),
+  progressPercent: z.number().min(0).max(100).optional(),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -46,10 +50,14 @@ interface Project {
   budget: number; // Stored in USD
   budgetInr?: number; // Stored in INR
   status: 'Pending' | 'In Progress' | 'Review' | 'Completed' | 'Delayed' | 'Overdue';
+  priority?: 'High' | 'Medium' | 'Low';
+  tags?: string[];
+  revenueLink?: string;
   assignedTeam?: any[];
   createdAt?: string;
   updatedAt?: string;
   progress?: number;
+  progressPercent?: number;
 }
 
 type SortField = 'name' | 'deadline' | 'status' | 'budget' | 'created';
@@ -103,6 +111,15 @@ export default function ProjectsPage() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignSearchQuery, setAssignSearchQuery] = useState('');
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [selectedInfoProject, setSelectedInfoProject] = useState<Project | null>(null);
+  const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
+  const [bulkActionOpen, setBulkActionOpen] = useState(false);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [progressPercent, setProgressPercent] = useState<string>('');
+  const availableTags = ['React', 'Urgent', 'MVP', 'Flutter', 'Next.js', 'Node.js', 'Python', 'Mobile', 'Web', 'API'];
 
   const {
     register,
@@ -117,6 +134,9 @@ export default function ProjectsPage() {
       status: 'Pending',
       developers: [],
       startDate: new Date().toISOString().split('T')[0],
+      priority: 'Medium',
+      tags: [],
+      progressPercent: 0,
     },
   });
 
@@ -133,6 +153,35 @@ export default function ProjectsPage() {
   useEffect(() => {
     applyFiltersAndSort();
   }, [projects, searchQuery, statusFilter, typeFilter, sortField, sortDirection]);
+
+  // Close popup on outside click
+  useEffect(() => {
+    if (infoModalOpen) {
+      const handleClickOutside = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.project-info-popup') && !target.closest('button[title="View project details"]')) {
+          setInfoModalOpen(false);
+          setSelectedInfoProject(null);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [infoModalOpen]);
+
+  // Close client dropdown on outside click
+  useEffect(() => {
+    if (showClientDropdown) {
+      const handleClickOutside = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.client-dropdown-container')) {
+          setShowClientDropdown(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showClientDropdown]);
 
   const fetchProjects = async () => {
     try {
@@ -257,30 +306,54 @@ export default function ProjectsPage() {
     setCurrentPage(1);
   };
 
-  const getUrgencyColor = (deadline: string): string => {
+  const getDeadlineStatus = (deadline: string, status: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const deadlineDate = new Date(deadline);
     deadlineDate.setHours(0, 0, 0, 0);
     const diffDays = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 0) return 'text-red-600 font-bold animate-pulse'; // Overdue
-    if (diffDays === 0) return 'text-red-600 font-bold animate-pulse'; // Today
-    if (diffDays <= 7) return 'text-yellow-600 font-semibold'; // 1-7 days
-    return 'text-green-600'; // >7 days
-  };
+    // If completed, no warning
+    if (status === 'Completed') {
+      return {
+        type: 'completed',
+        color: 'text-green-600',
+        bg: 'bg-green-50 border-green-200',
+        text: '✅ Completed',
+        showWarning: false
+      };
+    }
 
-  const getUrgencyBg = (deadline: string): string => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const deadlineDate = new Date(deadline);
-    deadlineDate.setHours(0, 0, 0, 0);
-    const diffDays = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    // Overdue
+    if (diffDays < 0) {
+      return {
+        type: 'overdue',
+        color: 'text-red-600 font-bold animate-pulse',
+        bg: 'bg-red-50 border-red-200',
+        text: `🚨 Overdue (${Math.abs(diffDays)} days)`,
+        showWarning: true
+      };
+    }
 
-    if (diffDays < 0) return 'bg-red-50 border-red-200'; // Overdue
-    if (diffDays === 0) return 'bg-red-50 border-red-200'; // Today
-    if (diffDays <= 7) return 'bg-yellow-50 border-yellow-200'; // 1-7 days
-    return 'bg-green-50 border-green-200'; // >7 days
+    // Due today
+    if (diffDays === 0) {
+      return {
+        type: 'due-today',
+        color: 'text-yellow-600 font-semibold',
+        bg: 'bg-yellow-50 border-yellow-200',
+        text: '⚠️ Due Today',
+        showWarning: true
+      };
+    }
+
+    // On track
+    return {
+      type: 'on-track',
+      color: 'text-green-600',
+      bg: 'bg-green-50 border-green-200',
+      text: `🟢 ${diffDays} days left`,
+      showWarning: false
+    };
   };
 
   const handleSort = (field: SortField) => {
@@ -318,11 +391,15 @@ export default function ProjectsPage() {
           budget: budgetInDollars, // Store in USD
           budgetInr: budgetInRupeesNum, // Store in INR for display
           status: data.status,
+          priority: data.priority || 'Medium',
+          tags: data.tags || [],
+          revenueLink: data.revenueLink || '',
+          progressPercent: data.progressPercent || 0,
           assignedTeam: data.developers,
           _id: selectedProject?._id || undefined,
           createdAt: selectedProject?.createdAt || new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          progress: selectedProject?.progress || 0,
+          progress: data.progressPercent || selectedProject?.progress || 0,
         };
         
         localStorageUtils.saveProject(projectData);
@@ -331,6 +408,7 @@ export default function ProjectsPage() {
         reset();
         setBudgetInRupees('');
         setSelectedProject(null);
+        setSelectedTags([]);
         toast(
           selectedProject 
             ? 'Project updated successfully!' 
@@ -361,7 +439,52 @@ export default function ProjectsPage() {
     setBudgetInRupees(budgetInRupeesValue.toString());
     setValue('budget', project.budget);
     setValue('status', project.status);
+    setValue('priority', project.priority || 'Medium');
+    setValue('tags', project.tags || []);
+    setSelectedTags(project.tags || []);
+    setValue('revenueLink', project.revenueLink || '');
+    setValue('progressPercent', project.progressPercent || project.progress || 0);
+    setProgressPercent((project.progressPercent || project.progress || 0).toString());
     setIsModalOpen(true);
+  };
+
+  const handleDuplicate = async (project: Project) => {
+    setSelectedProject(null);
+    reset();
+    const developers = project.developers || project.assignedTeam?.map((t: any) => t._id || t) || [];
+    setValue('name', `${project.name} (Copy)`);
+    setValue('description', project.description);
+    setValue('client', project.client);
+    setValue('developers', developers);
+    setValue('projectType', project.projectType);
+    setValue('subType', project.subType || '');
+    setValue('startDate', new Date().toISOString().split('T')[0]);
+    setValue('deadline', new Date(project.deadline).toISOString().split('T')[0]);
+    const budgetInRupeesValue = (project as any).budgetInr || usdToInr(project.budget);
+    setBudgetInRupees(budgetInRupeesValue.toString());
+    setValue('budget', project.budget);
+    setValue('status', 'Pending');
+    setValue('priority', project.priority || 'Medium');
+    setValue('tags', project.tags || []);
+    setSelectedTags(project.tags || []);
+    setValue('revenueLink', project.revenueLink || '');
+    setIsModalOpen(true);
+  };
+
+  const handleArchive = async (project: Project) => {
+    if (!confirm('Are you sure you want to archive this project?')) return;
+    try {
+      if (typeof window !== 'undefined') {
+        const { localStorageUtils } = await import('@/lib/localStorage');
+        const updatedProject = { ...project, status: 'Completed' as const, archived: true };
+        localStorageUtils.saveProject(updatedProject);
+        await fetchProjects();
+        toast('Project archived successfully!', 'success');
+      }
+    } catch (error: any) {
+      console.error('Error archiving project:', error);
+      toast('An error occurred while archiving.', 'error');
+    }
   };
 
   const handleDelete = async (project: Project) => {
@@ -382,10 +505,15 @@ export default function ProjectsPage() {
   };
 
   const filteredClients = useMemo(() => {
-    if (!clientSearchQuery) return clients;
+    // Always return clients, filter if there's a search query
+    if (!clientSearchQuery || !clientSearchQuery.trim()) {
+      return clients; // Show all clients when no search query
+    }
+    const query = clientSearchQuery.toLowerCase().trim();
     return clients.filter(c =>
-      c.name.toLowerCase().includes(clientSearchQuery.toLowerCase()) ||
-      c.company?.toLowerCase().includes(clientSearchQuery.toLowerCase())
+      c.name.toLowerCase().includes(query) ||
+      c.company?.toLowerCase().includes(query) ||
+      c.email?.toLowerCase().includes(query)
     );
   }, [clients, clientSearchQuery]);
 
@@ -421,7 +549,7 @@ export default function ProjectsPage() {
 
   const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <th
-      className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+      className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
       onClick={() => handleSort(field)}
     >
       <div className="flex items-center gap-2">
@@ -446,23 +574,28 @@ export default function ProjectsPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-text-primary mb-2 font-display">Projects</h1>
-            <p className="text-text-secondary text-base">Manage all your projects with full control</p>
+        {/* Header Card - Matching Revenue Page Design */}
+        <div className="card-premium py-4 px-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <FolderKanban className="w-5 h-5 text-primary-500" />
+                <h1 className="text-xl font-bold text-text-primary font-display leading-tight">Projects</h1>
+              </div>
+              <p className="text-xs text-text-secondary leading-tight">Manage all your projects with full control</p>
+            </div>
+            <button
+              onClick={() => {
+                reset();
+                setSelectedProject(null);
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg transition-colors text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              New Project
+            </button>
           </div>
-          <button
-            onClick={() => {
-              reset();
-              setSelectedProject(null);
-              setIsModalOpen(true);
-            }}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            New Project
-          </button>
         </div>
 
         {/* Search and Filters */}
@@ -512,35 +645,72 @@ export default function ProjectsPage() {
         <div className="card-premium overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-background border-b border-border">
+              <thead className="bg-background border-b border-border sticky top-0 z-10">
                 <tr>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedProjects.size === paginatedProjects.length && paginatedProjects.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedProjects(new Set(paginatedProjects.map(p => p._id)));
+                        } else {
+                          setSelectedProjects(new Set());
+                        }
+                      }}
+                      className="rounded border-border"
+                    />
+                  </th>
                   <SortableHeader field="name">Project Name</SortableHeader>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Developers</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Start</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Developers</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Type</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Start</th>
                   <SortableHeader field="deadline">Deadline</SortableHeader>
                   <SortableHeader field="status">Status</SortableHeader>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Progress</th>
                   <SortableHeader field="budget">Budget</SortableHeader>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Info</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-text-primary uppercase tracking-wider w-12">Info</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-border">
                 {paginatedProjects.length > 0 ? (
                   paginatedProjects.map((project) => {
-                    const urgencyColor = getUrgencyColor(project.deadline);
-                    const urgencyBg = getUrgencyBg(project.deadline);
+                    const deadlineStatus = getDeadlineStatus(project.deadline, project.status);
                     const developerNames = getDeveloperNames(project.developers || project.assignedTeam?.map((t: any) => t._id || t) || []);
+                    const progressPercent = project.progressPercent || project.progress || 0;
                     
                     return (
-                      <tr key={project._id} className="hover:bg-hover transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                      <tr key={project._id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={selectedProjects.has(project._id)}
+                            onChange={(e) => {
+                              const newSet = new Set(selectedProjects);
+                              if (e.target.checked) {
+                                newSet.add(project._id);
+                              } else {
+                                newSet.delete(project._id);
+                              }
+                              setSelectedProjects(newSet);
+                            }}
+                            className="rounded border-border"
+                          />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-text-primary">{project.name}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-text-secondary">{project.client}</div>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <a 
+                            href={`/clients?search=${encodeURIComponent(project.client)}`}
+                            className="text-sm text-primary-600 hover:text-primary-800 hover:underline"
+                          >
+                            {project.client}
+                          </a>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             {developerNames.length > 0 ? (
                               <div className="flex items-center gap-1" title={developerNames.join(', ')}>
@@ -551,11 +721,14 @@ export default function ProjectsPage() {
                                   return (
                                     <div
                                       key={devId}
-                                      className="w-8 h-8 rounded-full bg-primary-500 text-white flex items-center justify-center text-xs font-medium border-2 border-white shadow-sm hover:scale-110 transition-transform cursor-pointer"
+                                      className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold border-2 border-gray-300 shadow-md hover:scale-110 transition-transform cursor-pointer"
                                       title={`${dev.name} - ${dev.role}`}
+                                      style={{
+                                        backgroundColor: avatar ? 'transparent' : '#2563eb'
+                                      }}
                                     >
                                       {avatar ? (
-                                        <img src={avatar} alt={dev.name} className="w-full h-full rounded-full object-cover" />
+                                        <img src={avatar} alt={dev.name} className="w-full h-full rounded-full object-cover border-2 border-gray-300" />
                                       ) : (
                                         dev.name.charAt(0).toUpperCase()
                                       )}
@@ -583,81 +756,113 @@ export default function ProjectsPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm text-text-secondary">
                             {project.projectType}
                             {project.subType && <span className="text-xs text-text-secondary"> ({project.subType})</span>}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm text-text-secondary">
                             {formatDate(project.startDate)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`text-sm px-3 py-1 rounded-lg border ${urgencyBg} ${urgencyColor}`}>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className={`text-sm px-3 py-1 rounded-md border ${deadlineStatus.bg} ${deadlineStatus.color}`}>
                             {formatDate(project.deadline)}
+                            {deadlineStatus.showWarning && project.status !== 'Completed' && (
+                              <span className="ml-2 text-xs">{deadlineStatus.type === 'overdue' ? '🚨' : '⚠️'}</span>
+                            )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            className={`px-3 py-1 rounded-md text-xs font-medium ${
                               project.status === 'Completed'
                                 ? 'bg-green-100 text-green-800'
                                 : project.status === 'In Progress'
                                 ? 'bg-blue-100 text-blue-800'
                                 : project.status === 'Review'
                                 ? 'bg-purple-100 text-purple-800'
-                                :                               project.status === 'Delayed'
-                                ? 'bg-red-100 text-red-800'
+                                : project.status === 'Delayed'
+                                ? 'bg-orange-100 text-orange-800'
                                 : project.status === 'Overdue'
-                                ? 'bg-red-200 text-red-900 font-bold animate-pulse'
+                                ? 'bg-red-200 text-red-900 font-bold'
                                 : 'bg-gray-100 text-gray-800'
                             }`}
                           >
-                            {project.status}
+                            {project.status === 'Completed' ? '🟢' : project.status === 'In Progress' ? '🔵' : project.status === 'Review' ? '🟠' : project.status === 'Delayed' ? '🟣' : project.status === 'Overdue' ? '🔴' : '🟡'} {project.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-text-primary">
-                            {formatINR((project as any).budgetInr || (project.budget ? usdToInr(project.budget) : 0))}
-                          </div>
-                          <div className="text-xs text-text-secondary">
-                            {formatUSD(project.budget || 0)} USD
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all ${
+                                  progressPercent >= 100 ? 'bg-green-500' :
+                                  progressPercent >= 75 ? 'bg-blue-500' :
+                                  progressPercent >= 50 ? 'bg-yellow-500' :
+                                  progressPercent >= 25 ? 'bg-orange-500' :
+                                  'bg-red-500'
+                                }`}
+                                style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium text-text-primary">
+                              {progressPercent >= 100 ? '✅' : progressPercent >= 75 ? '⏳' : progressPercent >= 50 ? '🚧' : '📋'} {progressPercent}%
+                            </span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2 text-xs text-text-secondary">
-                              <Users className="w-3 h-3" />
-                              <span>{developerNames.length} devs</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-text-secondary">
-                              <Calendar className="w-3 h-3" />
-                              <span>Last edit: {getLastEditTime(project.updatedAt, project.createdAt)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 mt-2">
-                              <button
-                                onClick={() => handleEdit(project)}
-                                className="p-1 text-primary-500 hover:bg-primary-50 rounded transition-colors"
-                                title="Edit"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(project)}
-                                className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                className="p-1 text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
-                                title="Notify"
-                              >
-                                <Bell className="w-4 h-4" />
-                              </button>
-                            </div>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <a
+                            href={`/revenue?search=${encodeURIComponent(project.name)}`}
+                            className="text-sm font-semibold text-primary-600 hover:text-primary-800 hover:underline"
+                          >
+                            {formatINR((project as any).budgetInr || (project.budget ? usdToInr(project.budget) : 0))}
+                          </a>
+                          <div className="text-xs text-text-secondary">
+                            {formatUSD(project.budget || 0)}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setPopupPosition({
+                                x: rect.left + rect.width / 2,
+                                y: rect.top + rect.height + 8
+                              });
+                              setSelectedInfoProject(project);
+                              setInfoModalOpen(true);
+                            }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors relative"
+                            title="View project details"
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleEdit(project)}
+                              className="p-1.5 text-primary-500 hover:bg-primary-50 rounded transition-colors"
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(project)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                              title="Notify"
+                            >
+                              <Bell className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -665,12 +870,49 @@ export default function ProjectsPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-text-secondary">
+                    <td colSpan={10} className="px-6 py-8 text-center text-text-secondary">
                       No projects found. Click "New Project" to create one.
                     </td>
                   </tr>
                 )}
               </tbody>
+              {filteredProjects.length > 0 && (
+                <tfoot className="bg-background border-t-2 border-border">
+                  <tr>
+                    <td colSpan={7} className="px-4 py-3 text-right text-xs font-semibold text-text-primary uppercase">
+                      Total Budget:
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-sm font-bold text-text-primary">
+                        {formatINR(
+                          filteredProjects.reduce((sum, p) => {
+                            const budgetInr = (p as any).budgetInr || (p.budget ? usdToInr(p.budget) : 0);
+                            return sum + budgetInr;
+                          }, 0)
+                        )}
+                      </div>
+                      <div className="text-xs text-text-secondary">
+                        {formatUSD(
+                          filteredProjects.reduce((sum, p) => sum + (p.budget || 0), 0)
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-xs text-text-secondary">
+                        Avg: {formatINR(
+                          Math.round(
+                            filteredProjects.reduce((sum, p) => {
+                              const budgetInr = (p as any).budgetInr || (p.budget ? usdToInr(p.budget) : 0);
+                              return sum + budgetInr;
+                            }, 0) / filteredProjects.length
+                          )
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3"></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
 
@@ -712,231 +954,574 @@ export default function ProjectsPage() {
             setBudgetInRupees('');
             setSelectedProject(null);
             setClientSearchQuery('');
+            setSelectedTags([]);
+            setProgressPercent('');
+            setShowClientDropdown(false);
           }}
           title={selectedProject ? 'Edit Project' : 'New Project'}
           size="lg"
         >
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">Project Name</label>
-              <input
-                {...register('name')}
-                className="input-premium"
-                placeholder="Enter project name"
-              />
-              {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">Client</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4" />
-                <input
-                  type="text"
-                  value={clientSearchQuery}
-                  onChange={(e) => setClientSearchQuery(e.target.value)}
-                  onFocus={() => setClientSearchQuery('')}
-                  className="input-premium pl-10"
-                  placeholder="Search clients..."
-                />
-              </div>
-              <select
-                {...register('client')}
-                className="input-premium mt-2"
-              >
-                <option value="">Select a client</option>
-                {filteredClients.map(client => (
-                  <option key={client._id} value={client.name}>{client.name} {client.company && `(${client.company})`}</option>
-                ))}
-              </select>
-              {errors.client && <p className="text-red-600 text-sm mt-1">{errors.client.message}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">Developers</label>
-              <UnifiedSearchSelect
-                options={team.map(m => ({ _id: m._id, name: m.name, role: m.role, avatar: (m as any).avatar }))}
-                selected={selectedDevelopers}
-                onChange={(selected) => {
-                  setValue('developers', selected, { shouldValidate: true });
-                }}
-                placeholder="Search or select developers..."
-                multiSelect={true}
-                error={errors.developers?.message}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Project Type</label>
-                <select
-                  {...register('projectType')}
-                  className="input-premium"
-                  onChange={(e) => {
-                    setValue('projectType', e.target.value);
-                    setValue('subType', '');
-                  }}
-                >
-                  <option value="">Select type</option>
-                  {Object.keys(PROJECT_TYPES).map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-                {errors.projectType && <p className="text-red-600 text-sm mt-1">{errors.projectType.message}</p>}
-              </div>
-
-              {projectType && PROJECT_TYPES[projectType as keyof typeof PROJECT_TYPES]?.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">Sub-Type</label>
-                  <select
-                    {...register('subType')}
-                    className="input-premium"
-                  >
-                    <option value="">Select sub-type</option>
-                    {PROJECT_TYPES[projectType as keyof typeof PROJECT_TYPES].map(subType => (
-                      <option key={subType} value={subType}>{subType}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Start Date</label>
-                <input
-                  type="date"
-                  {...register('startDate')}
-                  className="input-premium"
-                />
-                {errors.startDate && <p className="text-red-600 text-sm mt-1">{errors.startDate.message}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">End Date (Deadline)</label>
-                <input
-                  type="date"
-                  {...register('deadline')}
-                  className="input-premium"
-                  onChange={(e) => {
-                    setValue('deadline', e.target.value);
-                    // Check if deadline has passed
-                    const deadlineDate = new Date(e.target.value);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    deadlineDate.setHours(0, 0, 0, 0);
-                    if (deadlineDate < today) {
-                      setValue('status', 'Overdue');
-                    }
-                  }}
-                />
-                {watch('deadline') && (() => {
-                  const deadlineDate = new Date(watch('deadline'));
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  deadlineDate.setHours(0, 0, 0, 0);
-                  if (deadlineDate < today && watch('status') !== 'Completed') {
-                    return (
-                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-sm text-red-800 font-medium">⚠️ Deadline has passed!</p>
-                        <p className="text-xs text-red-600 mt-1">Status will be set to "Overdue" automatically.</p>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
+            {/* Deadline Warning Banner */}
+            {watch('deadline') && (() => {
+              const deadlineStatus = getDeadlineStatus(watch('deadline'), watch('status'));
+              if (deadlineStatus.showWarning && watch('status') !== 'Completed') {
+                return (
+                  <div className={`border-l-4 p-4 rounded-lg ${
+                    deadlineStatus.type === 'overdue' 
+                      ? 'bg-red-50 border-red-500' 
+                      : 'bg-yellow-50 border-yellow-500'
+                  }`}>
+                    <div className="flex items-start">
+                      <AlertTriangle className={`w-5 h-5 mt-0.5 mr-3 ${
+                        deadlineStatus.type === 'overdue' ? 'text-red-600' : 'text-yellow-600'
+                      }`} />
+                      <div className="flex-1">
+                        <p className={`text-sm font-semibold ${
+                          deadlineStatus.type === 'overdue' ? 'text-red-800' : 'text-yellow-800'
+                        }`}>
+                          {deadlineStatus.type === 'overdue' ? '🚨 Deadline has passed!' : '⚠️ Due Today!'}
+                        </p>
+                        <p className={`text-xs mt-1 ${
+                          deadlineStatus.type === 'overdue' ? 'text-red-600' : 'text-yellow-600'
+                        }`}>
+                          {deadlineStatus.type === 'overdue' 
+                            ? 'Status will be set to "Overdue" automatically.' 
+                            : 'Consider updating status or extending deadline.'}
+                        </p>
                         <div className="flex items-center gap-2 mt-2">
-                          <button
-                            type="button"
-                            onClick={() => setValue('status', 'Overdue')}
-                            className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
-                          >
-                            🔴 Mark as Overdue
-                          </button>
+                          {deadlineStatus.type === 'overdue' && (
+                            <button
+                              type="button"
+                              onClick={() => setValue('status', 'Overdue')}
+                              className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors"
+                            >
+                              🔴 Mark as Overdue
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setValue('status', 'Completed')}
-                            className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                            className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors"
                           >
                             🟢 Mark as Done
                           </button>
                         </div>
                       </div>
-                    );
-                  }
-                  return null;
-                })()}
-                {errors.deadline && <p className="text-red-600 text-sm mt-1">{errors.deadline.message}</p>}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Section 1: Basic Information */}
+            <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-300">
+                <FolderKanban className="w-4 h-4 text-primary-600" />
+                <h3 className="text-sm font-semibold text-text-primary">Basic Information</h3>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Project Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  {...register('name')}
+                  className="input-premium"
+                  placeholder="e.g., E-commerce Platform"
+                />
+                {errors.name && <p className="text-red-600 text-xs mt-1">{errors.name.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  {...register('description')}
+                  rows={3}
+                  className="input-premium"
+                  placeholder="Brief description of the project..."
+                />
+                {errors.description && <p className="text-red-600 text-xs mt-1">{errors.description.message}</p>}
+              </div>
+
+              <div className="relative client-dropdown-container">
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Client <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4 z-10 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={clientSearchQuery}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setClientSearchQuery(value);
+                      setShowClientDropdown(true);
+                      // If user clears the input, also clear the selected client
+                      if (!value.trim()) {
+                        setValue('client', '', { shouldValidate: true });
+                      }
+                    }}
+                    onFocus={() => {
+                      setShowClientDropdown(true);
+                    }}
+                    className="input-premium pl-10 pr-10"
+                    placeholder="Type to search clients..."
+                  />
+                  {watch('client') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setValue('client', '');
+                        setClientSearchQuery('');
+                        setShowClientDropdown(false);
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                  {showClientDropdown && (
+                    <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                      {filteredClients.length > 0 ? (
+                        filteredClients.map(client => (
+                          <button
+                            key={client._id}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setValue('client', client.name, { shouldValidate: true });
+                              setClientSearchQuery(client.name);
+                              setShowClientDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center justify-between border-b border-gray-200 last:border-b-0 ${
+                              watch('client') === client.name ? 'bg-blue-50' : ''
+                            }`}
+                          >
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-text-primary">{client.name}</p>
+                              {client.company && (
+                                <p className="text-xs text-text-secondary mt-0.5">{client.company}</p>
+                              )}
+                              {client.email && (
+                                <p className="text-xs text-text-secondary">{client.email}</p>
+                              )}
+                            </div>
+                            {watch('client') === client.name && (
+                              <Check className="w-4 h-4 text-green-600 ml-2 flex-shrink-0" />
+                            )}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-sm text-text-secondary text-center">
+                          {clientSearchQuery ? 'No clients found. Try a different search term.' : clients.length === 0 ? 'No clients available. Add clients first.' : 'Type to search clients...'}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {watch('client') && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="px-3 py-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-md flex items-center gap-2">
+                      <Check className="w-3 h-3" />
+                      {watch('client')}
+                    </span>
+                  </div>
+                )}
+                {errors.client && <p className="text-red-600 text-xs mt-1">{errors.client.message}</p>}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Section 2: Team & Project Type */}
+            <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-300">
+                <Users className="w-4 h-4 text-primary-600" />
+                <h3 className="text-sm font-semibold text-text-primary">Team & Project Type</h3>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Budget (₹)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={budgetInRupees}
-                  onChange={(e) => {
-                    setBudgetInRupees(e.target.value);
-                    // Auto-update USD amount for validation
-                    const inrValue = parseFloat(e.target.value) || 0;
-                    setValue('budget', inrToUsd(inrValue), { shouldValidate: true });
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Developers <span className="text-red-500">*</span>
+                </label>
+                <UnifiedSearchSelect
+                  options={team.map(m => ({ _id: m._id, name: m.name, role: m.role, avatar: (m as any).avatar }))}
+                  selected={selectedDevelopers}
+                  onChange={(selected) => {
+                    setValue('developers', selected, { shouldValidate: true });
                   }}
-                  className="input-premium"
-                  placeholder="Enter budget in rupees"
+                  placeholder="Search or select developers..."
+                  multiSelect={true}
+                  error={errors.developers?.message}
                 />
-                {budgetInRupees && parseFloat(budgetInRupees) > 0 && (
-                  <p className="text-sm text-text-secondary mt-2">
-                    ≈ {formatUSD(inrToUsd(parseFloat(budgetInRupees)))}
+                {selectedDevelopers.length > 0 && (
+                  <p className="text-xs text-text-secondary mt-1">
+                    {selectedDevelopers.length} developer{selectedDevelopers.length > 1 ? 's' : ''} selected
                   </p>
                 )}
-                {errors.budget && <p className="text-red-600 text-sm mt-1">{errors.budget.message}</p>}
-                {!budgetInRupees && <p className="text-xs text-text-secondary mt-1">Enter budget in Indian Rupees (₹)</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Project Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    {...register('projectType')}
+                    className="input-premium"
+                    onChange={(e) => {
+                      setValue('projectType', e.target.value);
+                      setValue('subType', '');
+                    }}
+                  >
+                    <option value="">Select type</option>
+                    {Object.keys(PROJECT_TYPES).map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                  {errors.projectType && <p className="text-red-600 text-xs mt-1">{errors.projectType.message}</p>}
+                </div>
+
+                {projectType && PROJECT_TYPES[projectType as keyof typeof PROJECT_TYPES]?.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">Sub-Type</label>
+                    <select
+                      {...register('subType')}
+                      className="input-premium"
+                    >
+                      <option value="">Select sub-type</option>
+                      {PROJECT_TYPES[projectType as keyof typeof PROJECT_TYPES].map(subType => (
+                        <option key={subType} value={subType}>{subType}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Section 3: Timeline */}
+            <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-300">
+                <Calendar className="w-4 h-4 text-primary-600" />
+                <h3 className="text-sm font-semibold text-text-primary">Timeline</h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Start Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    {...register('startDate')}
+                    className="input-premium"
+                  />
+                  {errors.startDate && <p className="text-red-600 text-xs mt-1">{errors.startDate.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Deadline <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    {...register('deadline')}
+                    className="input-premium"
+                    onChange={(e) => {
+                      setValue('deadline', e.target.value);
+                      const deadlineStatus = getDeadlineStatus(e.target.value, watch('status'));
+                      if (deadlineStatus.type === 'overdue' && watch('status') !== 'Completed') {
+                        setValue('status', 'Overdue');
+                      }
+                    }}
+                  />
+                  {watch('deadline') && watch('startDate') && (() => {
+                    const start = new Date(watch('startDate'));
+                    const end = new Date(watch('deadline'));
+                    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <p className="text-xs text-text-secondary mt-1">
+                        Duration: {diffDays} day{diffDays !== 1 ? 's' : ''}
+                      </p>
+                    );
+                  })()}
+                  {errors.deadline && <p className="text-red-600 text-xs mt-1">{errors.deadline.message}</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Budget & Status */}
+            <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-300">
+                <DollarSign className="w-4 h-4 text-primary-600" />
+                <h3 className="text-sm font-semibold text-text-primary">Budget & Status</h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Budget (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={budgetInRupees}
+                    onChange={(e) => {
+                      setBudgetInRupees(e.target.value);
+                      const inrValue = parseFloat(e.target.value) || 0;
+                      setValue('budget', inrToUsd(inrValue), { shouldValidate: true });
+                    }}
+                    className="input-premium"
+                    placeholder="Enter budget in rupees"
+                  />
+                  {budgetInRupees && parseFloat(budgetInRupees) > 0 && (
+                    <p className="text-xs text-text-secondary mt-1">
+                      ≈ {formatUSD(inrToUsd(parseFloat(budgetInRupees)))}
+                    </p>
+                  )}
+                  {errors.budget && <p className="text-red-600 text-xs mt-1">{errors.budget.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Status <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    {...register('status')}
+                    className="input-premium"
+                  >
+                    <option value="Pending">🟡 Pending</option>
+                    <option value="In Progress">🔵 In Progress</option>
+                    <option value="Review">🟠 Review</option>
+                    <option value="Delayed">🟣 Delayed</option>
+                    <option value="Overdue">🔴 Overdue</option>
+                    <option value="Completed">🟢 Completed</option>
+                  </select>
+                  {watch('status') && (
+                    <div className="mt-2">
+                      <span className={`px-3 py-1 rounded-md text-xs font-medium inline-block ${
+                        watch('status') === 'Completed'
+                          ? 'bg-green-100 text-green-800'
+                          : watch('status') === 'In Progress'
+                          ? 'bg-blue-100 text-blue-800'
+                          : watch('status') === 'Review'
+                          ? 'bg-purple-100 text-purple-800'
+                          : watch('status') === 'Delayed'
+                          ? 'bg-orange-100 text-orange-800'
+                          : watch('status') === 'Overdue'
+                          ? 'bg-red-200 text-red-900 font-bold'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {watch('status') === 'Completed' ? '🟢' : watch('status') === 'In Progress' ? '🔵' : watch('status') === 'Review' ? '🟠' : watch('status') === 'Delayed' ? '🟣' : watch('status') === 'Overdue' ? '🔴' : '🟡'} {watch('status')}
+                      </span>
+                    </div>
+                  )}
+                  {errors.status && <p className="text-red-600 text-xs mt-1">{errors.status.message}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Priority</label>
+                  <select
+                    {...register('priority')}
+                    className="input-premium"
+                  >
+                    <option value="Low">🟢 Low</option>
+                    <option value="Medium">🟡 Medium</option>
+                    <option value="High">🔴 High</option>
+                  </select>
+                  {errors.priority && <p className="text-red-600 text-xs mt-1">{errors.priority.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Progress (%)</label>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={progressPercent}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setProgressPercent(value);
+                          const numValue = parseFloat(value) || 0;
+                          const clampedValue = Math.min(100, Math.max(0, numValue));
+                          setValue('progressPercent', clampedValue, { shouldValidate: true });
+                        }}
+                        onBlur={() => {
+                          // Ensure value is set even if user doesn't type
+                          if (!progressPercent || progressPercent === '') {
+                            setProgressPercent('0');
+                            setValue('progressPercent', 0);
+                          }
+                        }}
+                        className="input-premium w-28"
+                        placeholder="0-100"
+                      />
+                      <span className="text-sm text-text-secondary">%</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            parseFloat(progressPercent || '0') >= 100 ? 'bg-green-500' :
+                            parseFloat(progressPercent || '0') >= 75 ? 'bg-blue-500' :
+                            parseFloat(progressPercent || '0') >= 50 ? 'bg-yellow-500' :
+                            parseFloat(progressPercent || '0') >= 25 ? 'bg-orange-500' :
+                            'bg-red-500'
+                          }`}
+                          style={{ width: `${Math.min(parseFloat(progressPercent || '0'), 100)}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-text-secondary">
+                          {parseFloat(progressPercent || '0') >= 100 ? '✅ Complete' : 
+                           parseFloat(progressPercent || '0') >= 75 ? '⏳ Almost Done' : 
+                           parseFloat(progressPercent || '0') >= 50 ? '🚧 In Progress' : 
+                           parseFloat(progressPercent || '0') >= 25 ? '📋 Started' : 
+                           '📝 Not Started'}
+                        </span>
+                        <span className="text-xs font-medium text-text-primary">
+                          {Math.round(parseFloat(progressPercent || '0'))}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Status</label>
-                <select
-                  {...register('status')}
-                  className="input-premium"
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Review">Review</option>
-                  <option value="Delayed">Delayed</option>
-                  <option value="Overdue">Overdue</option>
-                  <option value="Completed">Completed</option>
-                </select>
-                {errors.status && <p className="text-red-600 text-sm mt-1">{errors.status.message}</p>}
+                <label className="block text-sm font-medium text-text-primary mb-2">Revenue Link</label>
+                <div className="relative">
+                  <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4" />
+                  <input
+                    type="text"
+                    {...register('revenueLink')}
+                    className="input-premium pl-10"
+                    placeholder="Link to revenue entry (optional)"
+                  />
+                </div>
+                {errors.revenueLink && <p className="text-red-600 text-xs mt-1">{errors.revenueLink.message}</p>}
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">Description</label>
-              <textarea
-                {...register('description')}
-                rows={4}
-                className="input-premium"
-                placeholder="Enter project description"
-              />
-              {errors.description && <p className="text-red-600 text-sm mt-1">{errors.description.message}</p>}
+            {/* Section 5: Tags */}
+            <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-300">
+                <Tag className="w-4 h-4 text-primary-600" />
+                <h3 className="text-sm font-semibold text-text-primary">Tags & Labels</h3>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Project Tags</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {availableTags.map(tag => (
+                    <label key={tag} className="flex items-center gap-1.5 cursor-pointer px-3 py-1.5 border border-border rounded-md hover:bg-hover transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={selectedTags.includes(tag)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            const newTags = [...selectedTags, tag];
+                            setSelectedTags(newTags);
+                            setValue('tags', newTags);
+                          } else {
+                            const newTags = selectedTags.filter(t => t !== tag);
+                            setSelectedTags(newTags);
+                            setValue('tags', newTags);
+                          }
+                        }}
+                        className="rounded border-border"
+                      />
+                      <span className="text-sm text-text-secondary">{tag}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedTags.map(tag => (
+                      <span key={tag} className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-md flex items-center gap-1">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newTags = selectedTags.filter(t => t !== tag);
+                            setSelectedTags(newTags);
+                            setValue('tags', newTags);
+                          }}
+                          className="hover:text-primary-900"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsModalOpen(false);
-                  reset();
-                  setSelectedProject(null);
-                  setClientSearchQuery('');
-                }}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn-primary"
-              >
-                {selectedProject ? 'Update' : 'Create'} Project
-              </button>
+            {/* Form Actions */}
+            <div className="flex justify-between items-center pt-4 border-t-2 border-gray-300 bg-gradient-to-r from-gray-50 to-white -mx-6 -mb-6 px-6 py-4 rounded-b-lg sticky bottom-0 shadow-lg">
+              <div className="flex gap-2">
+                {selectedProject && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleDuplicate(selectedProject)}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Duplicate
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleArchive(selectedProject)}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+                    >
+                      <Archive className="w-4 h-4" />
+                      Archive
+                    </button>
+                  </>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    reset();
+                    setSelectedProject(null);
+                    setClientSearchQuery('');
+                    setSelectedTags([]);
+                    setProgressPercent('');
+                    setShowClientDropdown(false);
+                  }}
+                  className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-md hover:shadow-lg"
+                >
+                  {selectedProject ? (
+                    <>
+                      <Edit className="w-4 h-4" />
+                      Update Project
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      Create Project
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         </Modal>
@@ -1062,6 +1647,185 @@ export default function ProjectsPage() {
             </div>
           </div>
         </Modal>
+
+        {/* Project Info Popup Card */}
+        {infoModalOpen && selectedInfoProject && (() => {
+          const developerNames = getDeveloperNames(selectedInfoProject.developers || selectedInfoProject.assignedTeam?.map((t: any) => t._id || t) || []);
+          const budgetInr = (selectedInfoProject as any).budgetInr || (selectedInfoProject.budget ? usdToInr(selectedInfoProject.budget) : 0);
+          const deadlineStatus = getDeadlineStatus(selectedInfoProject.deadline, selectedInfoProject.status);
+          
+          return (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 bg-black bg-opacity-20 z-[9998]"
+                onClick={() => {
+                  setInfoModalOpen(false);
+                  setSelectedInfoProject(null);
+                }}
+              />
+              {/* Popup Card */}
+              <div
+                className="project-info-popup fixed z-[9999] bg-white rounded-lg shadow-2xl border border-gray-200 p-4 max-w-sm w-[380px] max-h-[85vh] overflow-y-auto"
+                style={{
+                  left: typeof window !== 'undefined' ? `${Math.min(popupPosition.x - 190, window.innerWidth - 400)}px` : `${popupPosition.x - 190}px`,
+                  top: typeof window !== 'undefined' ? `${Math.min(popupPosition.y, window.innerHeight - 100)}px` : `${popupPosition.y}px`,
+                  transform: 'translateX(-50%)'
+                }}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="text-sm font-bold text-text-primary">{selectedInfoProject.name}</h3>
+                  <button
+                    onClick={() => {
+                      setInfoModalOpen(false);
+                      setSelectedInfoProject(null);
+                    }}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                  >
+                    <X className="w-4 h-4 text-text-secondary" />
+                  </button>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  {/* Client */}
+                  <div>
+                    <span className="text-text-secondary font-medium">Client: </span>
+                    <a 
+                      href={`/clients?search=${encodeURIComponent(selectedInfoProject.client)}`}
+                      className="text-primary-600 hover:underline"
+                    >
+                      {selectedInfoProject.client}
+                    </a>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <span className="text-text-secondary font-medium">Description: </span>
+                    <p className="text-text-primary mt-0.5 line-clamp-2">{selectedInfoProject.description}</p>
+                  </div>
+
+                  {/* Type */}
+                  <div>
+                    <span className="text-text-secondary font-medium">Type: </span>
+                    <span className="text-text-primary">{selectedInfoProject.projectType}</span>
+                    {selectedInfoProject.subType && (
+                      <span className="text-text-secondary"> ({selectedInfoProject.subType})</span>
+                    )}
+                  </div>
+
+                  {/* Dates */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-text-secondary font-medium">Start: </span>
+                      <span className="text-text-primary">{formatDate(selectedInfoProject.startDate)}</span>
+                    </div>
+                    <div>
+                      <span className="text-text-secondary font-medium">Deadline: </span>
+                      <span className={`${deadlineStatus.color}`}>{formatDate(selectedInfoProject.deadline)}</span>
+                    </div>
+                  </div>
+
+                  {/* Status & Priority */}
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <span className="text-text-secondary font-medium">Status: </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          selectedInfoProject.status === 'Completed'
+                            ? 'bg-green-100 text-green-800'
+                            : selectedInfoProject.status === 'In Progress'
+                            ? 'bg-blue-100 text-blue-800'
+                            : selectedInfoProject.status === 'Review'
+                            ? 'bg-purple-100 text-purple-800'
+                            : selectedInfoProject.status === 'Delayed'
+                            ? 'bg-orange-100 text-orange-800'
+                            : selectedInfoProject.status === 'Overdue'
+                            ? 'bg-red-200 text-red-900 font-bold'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {selectedInfoProject.status === 'Completed' ? '🟢' : selectedInfoProject.status === 'In Progress' ? '🔵' : selectedInfoProject.status === 'Review' ? '🟠' : selectedInfoProject.status === 'Delayed' ? '🟣' : selectedInfoProject.status === 'Overdue' ? '🔴' : '🟡'} {selectedInfoProject.status}
+                      </span>
+                    </div>
+                    {selectedInfoProject.priority && (
+                      <div>
+                        <span className="text-text-secondary font-medium">Priority: </span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          selectedInfoProject.priority === 'High' ? 'bg-red-100 text-red-800' :
+                          selectedInfoProject.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {selectedInfoProject.priority === 'High' ? '🔴' : selectedInfoProject.priority === 'Medium' ? '🟡' : '🟢'} {selectedInfoProject.priority}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Budget */}
+                  <div>
+                    <span className="text-text-secondary font-medium">Budget: </span>
+                    <span className="text-text-primary font-semibold">{formatINR(budgetInr)}</span>
+                    <span className="text-text-secondary ml-1">({formatUSD(selectedInfoProject.budget || 0)})</span>
+                  </div>
+
+                  {/* Developers */}
+                  <div>
+                    <span className="text-text-secondary font-medium">Developers ({developerNames.length}): </span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {developerNames.slice(0, 5).map((name, idx) => {
+                        const dev = team.find(t => t.name === name);
+                        return (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
+                          >
+                            {name}
+                          </span>
+                        );
+                      })}
+                      {developerNames.length > 5 && (
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
+                          +{developerNames.length - 5} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  {selectedInfoProject.tags && selectedInfoProject.tags.length > 0 && (
+                    <div>
+                      <span className="text-text-secondary font-medium">Tags: </span>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {selectedInfoProject.tags.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Edit Button */}
+                  <div className="pt-2 border-t border-gray-200">
+                    <button
+                      onClick={() => {
+                        setInfoModalOpen(false);
+                        handleEdit(selectedInfoProject);
+                      }}
+                      className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Edit className="w-3 h-3" />
+                      Edit Project
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
       </div>
     </Layout>
   );
