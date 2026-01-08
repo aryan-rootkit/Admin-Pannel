@@ -1,8 +1,8 @@
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 /**
- * HRMS-Style Stat Card Component
- * Modern card design with light blue-gray background
+ * Light Mode Stat Card Component
+ * Readable colors, proper contrast
  */
 interface StatCardProps {
   title: string;
@@ -13,26 +13,48 @@ interface StatCardProps {
     isPositive: boolean;
   };
   subtitle?: string;
+  iconBg?: 'blue' | 'green' | 'orange' | 'slate';
 }
 
-export default function StatCard({ title, value, icon: Icon, trend, subtitle }: StatCardProps) {
+export default function StatCard({ 
+  title, 
+  value, 
+  icon: Icon, 
+  trend, 
+  subtitle,
+  iconBg = 'blue'
+}: StatCardProps) {
+  const iconBgClasses = {
+    blue: 'bg-blue-500',
+    green: 'bg-green-500',
+    orange: 'bg-orange-500',
+    slate: 'bg-slate-700',
+  };
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-md hover:shadow-lg transition-all duration-300">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 mb-2">{title}</p>
-          <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
-          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
-          {trend && (
-            <p className={`text-xs mt-2 font-medium ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-              {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}% from last month
-            </p>
-          )}
-        </div>
-        <div className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md">
+    <div className="card-premium card-premium-hover p-6">
+      <div className="flex items-start justify-between mb-4">
+        <div className={`p-3 ${iconBgClasses[iconBg]} rounded-xl shadow-md`}>
           <Icon className="w-6 h-6 text-white" />
         </div>
+        {trend && (
+          <div className={`flex items-center gap-1 text-sm font-medium ${
+            trend.isPositive ? 'text-green-600' : 'text-red-600'
+          }`}>
+            {trend.isPositive ? (
+              <ArrowUpRight className="w-4 h-4" />
+            ) : (
+              <ArrowDownRight className="w-4 h-4" />
+            )}
+            <span>{Math.abs(trend.value)}%</span>
+          </div>
+        )}
       </div>
+      <p className="text-sm font-medium text-slate-600 mb-2">{title}</p>
+      <p className="text-3xl font-bold text-slate-900 mb-1">{value}</p>
+      {subtitle && (
+        <p className="text-xs text-slate-500 mt-2">{subtitle}</p>
+      )}
     </div>
   );
 }

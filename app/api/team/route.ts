@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Team from '@/models/Team';
+import { localStorageUtils } from '@/lib/localStorage';
+
+const USE_MOCK = process.env.USE_MOCK_AUTH === 'true';
 
 /**
  * GET /api/team
@@ -8,21 +11,21 @@ import Team from '@/models/Team';
  */
 export async function GET() {
   try {
+    if (USE_MOCK) {
+      const team = localStorageUtils.getTeam();
+      return NextResponse.json(team);
+    }
+
     await connectDB();
     const team = await Team.find().populate('assignedProjects').sort({ createdAt: -1 });
     return NextResponse.json(team);
   } catch (error: any) {
     console.error('Error fetching team:', error);
     
-    // Handle MongoDB connection errors
-    if (error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
-      return NextResponse.json(
-        { 
-          error: 'Database connection failed. Please check MongoDB credentials.',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        },
-        { status: 503 }
-      );
+    // Fallback to localStorage
+    if (USE_MOCK || error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
+      const team = localStorageUtils.getTeam();
+      return NextResponse.json(team);
     }
     
     return NextResponse.json(
@@ -37,10 +40,18 @@ export async function GET() {
  * Creates a new team member
  */
 export async function POST(request: Request) {
+  // Read request body ONCE at the start
+  let body;
   try {
-    await connectDB();
-    const body = await request.json();
-    
+    body = await request.json();
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: 'Invalid JSON in request body' },
+      { status: 400 }
+    );
+  }
+  
+  try {
     // Validate required fields
     if (!body.name || !body.email || !body.role || body.hourlyRate === undefined) {
       return NextResponse.json(
@@ -53,7 +64,26 @@ export async function POST(request: Request) {
     if (!body.assignedProjects) {
       body.assignedProjects = [];
     }
+
+    if (USE_MOCK) {
+      const member = {
+        ...body,
+        hourlyRate: Number(body.hourlyRate),
+        availability: body.availability || 'Available',
+      };
+      const team = localStorageUtils.saveTeamMember(member);
+      // Ensure team is an array and has items
+      if (!Array.isArray(team) || team.length === 0) {
+        return NextResponse.json(
+          { error: 'Failed to save team member to localStorage' },
+          { status: 500 }
+        );
+      }
+      const savedMember = team[team.length - 1];
+      return NextResponse.json(savedMember, { status: 201 });
+    }
     
+    await connectDB();
     const teamMember = new Team(body);
     await teamMember.save();
     
@@ -61,15 +91,30 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Error creating team member:', error);
     
-    // Handle MongoDB connection errors
-    if (error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
-      return NextResponse.json(
-        { 
-          error: 'Database connection failed. Please check MongoDB credentials.',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        },
-        { status: 503 }
-      );
+    // Fallback to localStorage - use the body we already parsed
+    if (USE_MOCK || error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
+      try {
+        const member = {
+          ...body,
+          hourlyRate: Number(body.hourlyRate),
+          availability: body.availability || 'Available',
+        };
+        const team = localStorageUtils.saveTeamMember(member);
+        // Ensure team is an array and has items
+        if (!Array.isArray(team) || team.length === 0) {
+          return NextResponse.json(
+            { error: 'Failed to save team member to localStorage' },
+            { status: 500 }
+          );
+        }
+        const savedMember = team[team.length - 1];
+        return NextResponse.json(savedMember, { status: 201 });
+      } catch (e: any) {
+        return NextResponse.json(
+          { error: e.message || 'Failed to create team member' },
+          { status: 500 }
+        );
+      }
     }
     
     // Handle duplicate email error

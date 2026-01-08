@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown } from 'lucide-react';
 
 /**
- * Data Table Component
- * Reusable table with sorting, filtering, and pagination
+ * Premium Enterprise Data Table Component
+ * Zebra striping, hover effects, status badges
+ * Clean borders and perfect alignment
  */
 interface Column<T> {
   key: keyof T | string;
@@ -75,70 +76,81 @@ export default function DataTable<T extends { _id?: string; id?: string }>({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-md">
-      {/* Search Bar */}
+    <div className="card-premium overflow-hidden">
+      {/* Search Bar - Premium Style */}
       {searchable && (
-        <div className="p-4 border-b border-gray-200/50 bg-gray-50/50">
+        <div className="p-4 border-b border-slate-200 bg-slate-50/50">
           <input
             type="text"
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all"
+            className="input-premium w-full"
           />
         </div>
       )}
 
-      {/* Table */}
+      {/* Table - Premium Styling */}
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50">
+          <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               {columns.map((col) => (
                 <th
                   key={String(col.key)}
                   onClick={() => handleSort(col.key)}
-                  className={`px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider ${
-                    sortable ? 'cursor-pointer hover:bg-gray-100' : ''
+                  className={`px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider ${
+                    sortable ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    {col.header}
+                    <span>{col.header}</span>
                     {sortable && sortColumn === col.key && (
-                      <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                      <ArrowUpDown className={`w-4 h-4 text-orange-500 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                     )}
                   </div>
                 </th>
               ))}
               {(onEdit || onDelete) && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   Actions
                 </th>
               )}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-slate-200">
             {paginatedData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + (onEdit || onDelete ? 1 : 0)} className="px-6 py-8 text-center text-gray-500">
-                  No data found
+                <td colSpan={columns.length + (onEdit || onDelete ? 1 : 0)} className="px-6 py-12 text-center">
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                      <span className="text-2xl">📊</span>
+                    </div>
+                    <p className="text-slate-600 font-medium">No data available</p>
+                    <p className="text-sm text-slate-500 mt-1">Try adjusting your search or filters</p>
+                  </div>
                 </td>
               </tr>
             ) : (
-              paginatedData.map((row, idx) => (
-                <tr key={row._id || row.id || idx} className="hover:bg-blue-50 transition-colors">
+              paginatedData.map((row, index) => (
+                <tr
+                  key={row._id || row.id || index}
+                  className={`hover:bg-slate-50 transition-colors duration-200 ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
+                  }`}
+                >
                   {columns.map((col) => (
-                    <td key={String(col.key)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {col.render ? col.render(row) : String(row[col.key as keyof T] || '')}
+                    <td key={String(col.key)} className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                      {col.render ? col.render(row) : String(row[col.key as keyof T] || '-')}
                     </td>
                   ))}
                   {(onEdit || onDelete) && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-2">
                         {onEdit && (
                           <button
                             onClick={() => onEdit(row)}
-                            className="text-primary-600 hover:text-primary-900"
+                            className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105 shadow-sm"
                           >
                             Edit
                           </button>
@@ -146,7 +158,7 @@ export default function DataTable<T extends { _id?: string; id?: string }>({
                         {onDelete && (
                           <button
                             onClick={() => onDelete(row)}
-                            className="text-red-600 hover:text-red-900"
+                            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
                           >
                             Delete
                           </button>
@@ -161,43 +173,43 @@ export default function DataTable<T extends { _id?: string; id?: string }>({
         </table>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination - Premium Style */}
       {totalPages > 1 && (
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between">
+          <div className="text-sm text-slate-600">
             Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedData.length)} of {sortedData.length} results
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentPage(1)}
               disabled={currentPage === 1}
-              className="p-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="p-2 rounded-lg border border-slate-300 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-105"
             >
-              <ChevronsLeft className="w-4 h-4" />
+              <ChevronsLeft className="w-4 h-4 text-slate-600" />
             </button>
             <button
               onClick={() => setCurrentPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="p-2 rounded-lg border border-slate-300 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-105"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 text-slate-600" />
             </button>
-            <span className="px-4 py-2 text-sm text-gray-700">
+            <span className="px-4 py-2 text-sm font-medium text-slate-700">
               Page {currentPage} of {totalPages}
             </span>
             <button
               onClick={() => setCurrentPage(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="p-2 rounded-lg border border-slate-300 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-105"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 text-slate-600" />
             </button>
             <button
               onClick={() => setCurrentPage(totalPages)}
               disabled={currentPage === totalPages}
-              className="p-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="p-2 rounded-lg border border-slate-300 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-105"
             >
-              <ChevronsRight className="w-4 h-4" />
+              <ChevronsRight className="w-4 h-4 text-slate-600" />
             </button>
           </div>
         </div>

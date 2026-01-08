@@ -30,20 +30,43 @@ interface TeamMember {
   role: string;
 }
 
+interface Project {
+  _id: string;
+  name: string;
+  description: string;
+  client: string;
+  developers: string[];
+  projectType: string;
+  subType?: string;
+  startDate: string;
+  deadline: string;
+  budget: number;
+  status: 'Pending' | 'In Progress' | 'Review' | 'Completed' | 'Delayed';
+  assignedTeam?: any[];
+  createdAt?: string;
+  updatedAt?: string;
+  progress?: number;
+}
+
 interface AppState {
   clients: Client[];
   revenue: Revenue[];
   team: TeamMember[];
+  projects: Project[];
   monthlyTarget: number;
   setClients: (clients: Client[]) => void;
   setRevenue: (revenue: Revenue[]) => void;
   setTeam: (team: TeamMember[]) => void;
+  setProjects: (projects: Project[]) => void;
   setMonthlyTarget: (target: number) => void;
   addClient: (client: Client) => void;
   updateClient: (id: string, client: Partial<Client>) => void;
   deleteClient: (id: string) => void;
   addRevenue: (revenue: Revenue) => void;
   updateRevenue: (id: string, revenue: Partial<Revenue>) => void;
+  addProject: (project: Project) => void;
+  updateProject: (id: string, project: Partial<Project>) => void;
+  deleteProject: (id: string) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -52,6 +75,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [revenue, setRevenue] = useState<Revenue[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [monthlyTarget, setMonthlyTarget] = useState(10000);
 
   // Load initial data (only if in browser and not on login page)
@@ -60,6 +84,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchClients();
       fetchRevenue();
       fetchTeam();
+      fetchProjects();
       const savedTarget = localStorage.getItem('monthlyTarget');
       if (savedTarget) {
         setMonthlyTarget(Number(savedTarget));
@@ -89,11 +114,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchTeam = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        const { localStorageUtils } = await import('@/lib/localStorage');
+        const data = localStorageUtils.getTeam();
+        setTeam(Array.isArray(data) ? data : []);
+        return;
+      }
+      
       const res = await fetch('/api/team');
       const data = await res.json();
       setTeam(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching team:', error);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      if (typeof window !== 'undefined') {
+        const { localStorageUtils } = await import('@/lib/localStorage');
+        const data = localStorageUtils.getProjects();
+        setProjects(Array.isArray(data) ? data : []);
+        return;
+      }
+      
+      const res = await fetch('/api/projects');
+      const data = await res.json();
+      setProjects(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
     }
   };
 
@@ -117,22 +166,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRevenue(revenue.map(r => r._id === id ? { ...r, ...updates } : r));
   };
 
+  const addProject = (project: Project) => {
+    setProjects([...projects, project]);
+  };
+
+  const updateProject = (id: string, updates: Partial<Project>) => {
+    setProjects(projects.map(p => p._id === id ? { ...p, ...updates } : p));
+  };
+
+  const deleteProject = (id: string) => {
+    setProjects(projects.filter(p => p._id !== id));
+  };
+
   return (
     <AppContext.Provider
       value={{
         clients,
         revenue,
         team,
+        projects,
         monthlyTarget,
         setClients,
         setRevenue,
         setTeam,
+        setProjects,
         setMonthlyTarget,
         addClient,
         updateClient,
         deleteClient,
         addRevenue,
         updateRevenue,
+        addProject,
+        updateProject,
+        deleteProject,
       }}
     >
       {children}

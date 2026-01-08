@@ -9,7 +9,9 @@
     "lint": "next lint",
     "stop": "pkill -f 'next dev' || true",
     "clean": "rm -rf .next node_modules package-lock.json && npm install",
-    "fresh": "npm run stop && npm run clean && npm run dev"
+    "fresh": "npm run stop && npm run clean && npm run dev",
+    "commit": "bash scripts/git-auto.sh",
+    "git:auto": "bash scripts/git-auto.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

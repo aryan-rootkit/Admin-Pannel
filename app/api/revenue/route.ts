@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Revenue from '@/models/Revenue';
+import { localStorageUtils } from '@/lib/localStorage';
+
+const USE_MOCK = process.env.USE_MOCK_AUTH === 'true';
 
 /**
  * GET /api/revenue
@@ -8,21 +11,21 @@ import Revenue from '@/models/Revenue';
  */
 export async function GET() {
   try {
+    if (USE_MOCK) {
+      const revenue = localStorageUtils.getRevenue();
+      return NextResponse.json(revenue);
+    }
+
     await connectDB();
     const revenue = await Revenue.find().populate('project').sort({ date: -1 });
     return NextResponse.json(revenue);
   } catch (error: any) {
     console.error('Error fetching revenue:', error);
     
-    // Handle MongoDB connection errors
-    if (error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
-      return NextResponse.json(
-        { 
-          error: 'Database connection failed. Please check MongoDB credentials.',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        },
-        { status: 503 }
-      );
+    // Fallback to localStorage
+    if (USE_MOCK || error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
+      const revenue = localStorageUtils.getRevenue();
+      return NextResponse.json(revenue);
     }
     
     return NextResponse.json(
@@ -37,18 +40,50 @@ export async function GET() {
  * Creates a new revenue record
  */
 export async function POST(request: Request) {
+  // Read request body ONCE at the start
+  let body;
   try {
-    await connectDB();
-    const body = await request.json();
-    
+    const requestBody = await request.json();
+    body = requestBody;
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: 'Invalid JSON in request body' },
+      { status: 400 }
+    );
+  }
+  
+  try {
     // Validate required fields
-    if (!body.type || !body.amount || !body.description || !body.date) {
+    if (!body.type || body.amount === undefined || !body.description || !body.date) {
       return NextResponse.json(
         { error: 'Missing required fields: type, amount, description, and date are required' },
         { status: 400 }
       );
     }
 
+    if (USE_MOCK) {
+      const revenue = {
+        ...body,
+        date: body.date,
+        amount: Number(body.amount),
+        client: body.client || '',
+        status: body.status || 'pending',
+        invoiceNumber: body.invoiceNumber || '',
+      };
+      const revenues = localStorageUtils.saveRevenue(revenue);
+      // Ensure revenues is an array and has items
+      if (!Array.isArray(revenues) || revenues.length === 0) {
+        return NextResponse.json(
+          { error: 'Failed to save revenue to localStorage' },
+          { status: 500 }
+        );
+      }
+      const savedRevenue = revenues[revenues.length - 1];
+      return NextResponse.json(savedRevenue, { status: 201 });
+    }
+
+    await connectDB();
+    
     // Convert date string to Date object
     const revenueData = {
       ...body,
@@ -63,15 +98,33 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Error creating revenue:', error);
     
-    // Handle MongoDB connection errors
-    if (error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
-      return NextResponse.json(
-        { 
-          error: 'Database connection failed. Please check MongoDB credentials.',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        },
-        { status: 503 }
-      );
+    // Fallback to localStorage - use the body we already parsed
+    if (USE_MOCK || error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
+      try {
+        const revenue = {
+          ...body,
+          date: body.date,
+          amount: Number(body.amount),
+          client: body.client || '',
+          status: body.status || 'pending',
+          invoiceNumber: body.invoiceNumber || '',
+        };
+        const revenues = localStorageUtils.saveRevenue(revenue);
+        // Ensure revenues is an array and has items
+        if (!Array.isArray(revenues) || revenues.length === 0) {
+          return NextResponse.json(
+            { error: 'Failed to save revenue to localStorage' },
+            { status: 500 }
+          );
+        }
+        const savedRevenue = revenues[revenues.length - 1];
+        return NextResponse.json(savedRevenue, { status: 201 });
+      } catch (e: any) {
+        return NextResponse.json(
+          { error: e.message || 'Failed to create revenue' },
+          { status: 500 }
+        );
+      }
     }
     
     // Handle validation errors

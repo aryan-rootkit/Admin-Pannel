@@ -9,8 +9,9 @@ import Header from './Header';
 import { ToastContainer } from './ui/Toast';
 
 /**
- * Main Layout Component
- * Fixed header (64px), sidebar (256px), content area with page transitions
+ * Premium Enterprise Layout Component
+ * Fixed header (64px), sidebar (256px), content area with proper spacing
+ * NO OVERLAPS - Perfect alignment
  */
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
@@ -24,10 +25,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   if (status === 'loading') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-4 text-slate-600 font-medium">Loading...</p>
         </div>
       </div>
     );
@@ -38,17 +39,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-blue-50 via-gray-50 to-white overflow-hidden">
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
+      {/* Sidebar - Fixed 256px width */}
       <Sidebar />
+      
+      {/* Main Content Area - Properly offset by sidebar width */}
       <div className="flex-1 flex flex-col ml-64 overflow-hidden">
+        {/* Header - Fixed 64px height */}
         <Header />
+        
+        {/* Main Content - Scrollable, proper padding */}
         <motion.main
           key={typeof window !== 'undefined' ? window.location.pathname : 'main'}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.4, ease: 'easeInOut' }}
-          className="flex-1 overflow-y-auto bg-gradient-to-br from-blue-50/30 to-white"
+          className="flex-1 overflow-y-auto bg-slate-50"
+          style={{ paddingTop: '0' }}
         >
           <div className="max-w-7xl mx-auto p-6">
             {children}

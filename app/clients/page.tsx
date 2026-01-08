@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from '@/components/ui/Toast';
 import { useApp } from '@/lib/contexts/AppContext';
+import { formatINR } from '@/lib/utils/currency';
 
 /**
  * Clients Management Page
@@ -48,6 +49,7 @@ export default function ClientsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
+  const [revenue, setRevenue] = useState<any[]>([]);
 
   const {
     register,
@@ -64,10 +66,68 @@ export default function ClientsPage() {
 
   useEffect(() => {
     fetchClients();
+    fetchRevenue();
   }, []);
+
+  const fetchRevenue = async () => {
+    try {
+      if (typeof window !== 'undefined') {
+        const { localStorageUtils } = await import('@/lib/localStorage');
+        const data = localStorageUtils.getRevenue();
+        setRevenue(Array.isArray(data) ? data : []);
+        return;
+      }
+      
+      const res = await fetch('/api/revenue');
+      const data = await res.json();
+      setRevenue(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching revenue:', error);
+      setRevenue([]);
+    }
+  };
+
+  // Calculate pending amount for a client
+  // Formula: Total Contract Value - Advance Amount - (Past Payments Only)
+  // Future payments are NOT subtracted because they're still pending
+  const calculatePendingAmount = (clientName: string): number => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const clientRevenue = revenue.filter(r => r.client === clientName);
+    return clientRevenue.reduce((sum, r) => {
+      const totalValue = r.totalContractValue || 0;
+      const advanceAmount = r.advanceAmount || 0;
+      
+      // Only count past payments (received payments with date <= today)
+      // Future payments are NOT subtracted because they're still pending
+      const pastPayments = (r.paymentsReceived || []).filter((payment: { amount: number; date: string }) => {
+        if (!payment.date) return false;
+        const paymentDate = new Date(payment.date);
+        paymentDate.setHours(0, 0, 0, 0);
+        return paymentDate <= today;
+      });
+      
+      const pastPaymentsSum = pastPayments.reduce((s: number, p: { amount: number; date: string }) => s + (p.amount || 0), 0);
+      
+      // Pending = Total - Advance - Past Payments Only
+      // Future payments remain in pending amount
+      return sum + (totalValue - advanceAmount - pastPaymentsSum);
+    }, 0);
+  };
 
   const fetchClients = async () => {
     try {
+      // In mock mode, use localStorage directly
+      if (typeof window !== 'undefined') {
+        const { localStorageUtils } = await import('@/lib/localStorage');
+        const data = localStorageUtils.getClients();
+        setClients(Array.isArray(data) ? data : []);
+        setLoading(false);
+        return;
+      }
+      
+      // Fallback to API
       const res = await fetch('/api/clients');
       const data = await res.json();
       setClients(Array.isArray(data) ? data : []);
@@ -81,6 +141,30 @@ export default function ClientsPage() {
 
   const onSubmit = async (data: ClientFormData) => {
     try {
+      // In mock mode, use localStorage directly
+      if (typeof window !== 'undefined') {
+        const { localStorageUtils } = await import('@/lib/localStorage');
+        
+        const clientData = {
+          ...data,
+          _id: selectedClient?._id || undefined,
+        };
+        
+        localStorageUtils.saveClient(clientData);
+        await fetchClients();
+        setIsModalOpen(false);
+        reset();
+        setSelectedClient(null);
+        toast(
+          selectedClient 
+            ? 'Client updated successfully!' 
+            : 'Client added successfully!',
+          'success'
+        );
+        return;
+      }
+      
+      // Fallback to API
       const url = selectedClient ? `/api/clients/${selectedClient._id}` : '/api/clients';
       const method = selectedClient ? 'PUT' : 'POST';
 
@@ -131,6 +215,17 @@ export default function ClientsPage() {
     if (!confirm('Are you sure you want to delete this client?')) return;
 
     try {
+      // In mock mode, use localStorage directly
+      if (typeof window !== 'undefined') {
+        const { localStorageUtils } = await import('@/lib/localStorage');
+        localStorageUtils.deleteClient(client._id);
+        deleteClient(client._id);
+        await fetchClients();
+        toast('Client deleted successfully!', 'success');
+        return;
+      }
+      
+      // Fallback to API
       const res = await fetch(`/api/clients/${client._id}`, { method: 'DELETE' });
       if (res.ok) {
         deleteClient(client._id);
@@ -165,6 +260,18 @@ export default function ClientsPage() {
           {row.status}
         </span>
       ),
+    },
+    {
+      key: 'pendingAmount',
+      header: 'Pending Amount',
+      render: (row: Client) => {
+        const pendingAmount = calculatePendingAmount(row.name);
+        return (
+          <div className="text-sm font-semibold text-text-primary">
+            {pendingAmount > 0 ? formatINR(pendingAmount) : '₹0'}
+          </div>
+        );
+      },
     },
   ];
 

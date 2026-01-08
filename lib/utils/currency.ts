@@ -3,21 +3,33 @@
  * USD to INR conversion (1 USD = 84 INR)
  */
 
-const USD_TO_INR_RATE = 84;
+const USD_TO_INR_RATE = 83; // Updated rate: 1 USD = ₹83
 
-export function usdToInr(usd: number): number {
+export function usdToInr(usd: number | undefined | null): number {
+  if (usd === undefined || usd === null || isNaN(usd)) {
+    return 0;
+  }
   return usd * USD_TO_INR_RATE;
 }
 
-export function inrToUsd(inr: number): number {
+export function inrToUsd(inr: number | undefined | null): number {
+  if (inr === undefined || inr === null || isNaN(inr)) {
+    return 0;
+  }
   return inr / USD_TO_INR_RATE;
 }
 
-export function formatUSD(amount: number): string {
+export function formatUSD(amount: number | undefined | null): string {
+  if (amount === undefined || amount === null || isNaN(amount)) {
+    return '$0.00';
+  }
   return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function formatINR(amount: number): string {
+export function formatINR(amount: number | undefined | null): string {
+  if (amount === undefined || amount === null || isNaN(amount)) {
+    return '₹0.00';
+  }
   return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
