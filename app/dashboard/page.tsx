@@ -1,108 +1,345 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Layout from '@/components/Layout';
-import StatCard from '@/components/StatCard';
-import { DollarSign, FolderKanban, Users, Calendar, ArrowUpRight, ArrowDownRight, LayoutDashboard } from 'lucide-react';
+import { DollarSign, FolderKanban, Users, TrendingUp, Wallet, AlertCircle, UserPlus, TrendingDown, CheckCircle, Receipt, Activity, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { formatINR } from '@/lib/utils/currency';
+import { formatDate } from '@/lib/utils/date';
+import { useApp } from '@/lib/contexts/AppContext';
+import { useRouter } from 'next/navigation';
+import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 /**
- * Light Mode Dashboard
- * Clean layout, readable colors, proper spacing
+ * Home Page - Agency Command Center
+ * Executive overview with charts, financial snapshot, team pulse, and recent activity
  */
-export default function DashboardPage() {
+
+interface ActivityItem {
+  id: string;
+  type: 'project_complete' | 'new_client' | 'payment' | 'project_created' | 'client_updated' | 'revenue_added';
+  message: string;
+  timestamp: Date;
+  icon: string;
+  color: string;
+}
+
+const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#14B8A6', '#6366F1', '#EC4899'];
+
+export default function HomePage() {
+  const router = useRouter();
+  const { projects, clients } = useApp();
+  const [revenue, setRevenue] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [stats, setStats] = useState({
     totalRevenue: 0,
+    teamEarnings: 0,
+    expenses: 0,
+    profit: 0,
+    profitMargin: 0,
     totalProjects: 0,
     totalClients: 0,
-    activeDeadlines: 0,
-    newClients: 0,
-    growth: 0,
+    cashPosition: 0,
+    monthGrowth: 0,
+    overdueInvoices: 0,
+    utilizationRate: 0,
+    billableCount: 0,
+    topEarner: { name: 'N/A', amount: 0 },
+    availableDevs: 0,
   });
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  // Chart data
+  const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
+  const [projectStatusData, setProjectStatusData] = useState<any[]>([]);
+  const [expenseCategoryData, setExpenseCategoryData] = useState<any[]>([]);
+  const [revenueVsExpenses, setRevenueVsExpenses] = useState<any[]>([]);
+  const [clientStatusData, setClientStatusData] = useState<any[]>([]);
 
-  const fetchStats = async () => {
+  // Define calculation functions before fetchAllData
+  const calculateStats = (revenueData: any[], projectsData: any[], clientsData: any[], teamData: any[], expensesData: any[]) => {
+    // Total Revenue
+    const totalRevenue = revenueData.reduce((sum, r) => sum + (r.totalContractValue || 0), 0);
+    
+    // Total Expenses
+    const totalExpenses = expensesData.reduce((sum, e) => sum + (e.amount || 0), 0);
+    
+    // Team Earnings (from expenses with category "Developer Payout")
+    const teamEarnings = expensesData
+      .filter((e: any) => e.category === 'Developer Payout')
+      .reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+    
+    // Profit = Revenue - Expenses
+    const profit = totalRevenue - totalExpenses;
+    const profitMargin = totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0;
+    
+    // Cash Position = Received Amount - Expenses
+    const receivedAmount = revenueData.reduce((sum, r) => {
+      const advance = r.advanceAmount || 0;
+      const payments = (r.paymentsReceived || []).reduce((pSum: number, p: any) => {
+        const paymentDate = p.date ? new Date(p.date) : null;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (paymentDate && paymentDate <= today) {
+          return pSum + (p.amount || 0);
+        }
+        return pSum;
+      }, 0);
+      return sum + advance + payments;
+    }, 0);
+    const cashPosition = receivedAmount - totalExpenses;
+    
+    // Month Growth
+    const thisMonth = new Date().getMonth();
+    const thisYear = new Date().getFullYear();
+    const thisMonthRevenue = revenueData
+      .filter((r: any) => {
+        const date = r.createdAt ? new Date(r.createdAt) : new Date();
+        return date.getMonth() === thisMonth && date.getFullYear() === thisYear;
+      })
+      .reduce((sum: number, r: any) => sum + (r.totalContractValue || 0), 0);
+    const lastMonthRevenue = revenueData
+      .filter((r: any) => {
+        const date = r.createdAt ? new Date(r.createdAt) : new Date();
+        const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
+        const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear;
+        return date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear;
+      })
+      .reduce((sum: number, r: any) => sum + (r.totalContractValue || 0), 0);
+    const monthGrowth = lastMonthRevenue > 0 ? Math.round(((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100) : 0;
+    
+    // Overdue Invoices
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const overdueInvoices = revenueData.filter((r: any) => {
+      if (r.paymentStatus === 'Paid') return false;
+      const dueDate = r.expectedPaymentDate ? new Date(r.expectedPaymentDate) : null;
+      return dueDate && dueDate < today;
+    }).length;
+    
+    // Team Utilization
+    const billableCount = teamData.filter((t: any) => 
+      t.availability === 'Available' || t.availability === 'Busy'
+    ).length;
+    const totalTeamCount = teamData.length;
+    const utilizationRate = totalTeamCount > 0 ? Math.round((billableCount / totalTeamCount) * 100) : 0;
+    
+    // Top Earner
+    const earnerMap: Record<string, number> = {};
+    expensesData
+      .filter((e: any) => e.category === 'Developer Payout' && e.developerPaid)
+      .forEach((e: any) => {
+        const name = e.developerPaid;
+        earnerMap[name] = (earnerMap[name] || 0) + (e.amount || 0);
+      });
+    const topEarnerEntry = Object.entries(earnerMap).sort((a, b) => (b[1] as number) - (a[1] as number))[0];
+    const topEarner = topEarnerEntry 
+      ? { name: topEarnerEntry[0], amount: topEarnerEntry[1] as number }
+      : { name: 'N/A', amount: 0 };
+    
+    // Available Devs
+    const availableDevs = teamData.filter((t: any) => 
+      t.availability === 'Available'
+    ).length;
+    
+    setStats({
+      totalRevenue,
+      teamEarnings,
+      expenses: totalExpenses,
+      profit,
+      profitMargin,
+      totalProjects: projectsData.length,
+      totalClients: clientsData.length,
+      cashPosition,
+      monthGrowth,
+      overdueInvoices,
+      utilizationRate,
+      billableCount,
+      topEarner,
+      availableDevs,
+    });
+    
+    setTeamMembers(Array.isArray(teamData) ? teamData : []);
+
+    // Calculate chart data
+    calculateChartData(revenueData, projectsData, clientsData, expensesData);
+  };
+
+  const calculateChartData = (revenueData: any[], projectsData: any[], clientsData: any[], expensesData: any[]) => {
+    // Monthly Revenue (Last 6 months)
+    const monthlyData: Record<string, number> = {};
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      monthlyData[key] = 0;
+    }
+    revenueData.forEach((r: any) => {
+      const date = r.createdAt ? new Date(r.createdAt) : new Date();
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      if (monthlyData.hasOwnProperty(key)) {
+        monthlyData[key] += r.totalContractValue || 0;
+      }
+    });
+    setMonthlyRevenue(Object.entries(monthlyData).map(([name, value]) => ({ name, revenue: value })));
+
+    // Project Status Distribution
+    const statusCounts: Record<string, number> = {};
+    projectsData.forEach((p: any) => {
+      const status = p.status || 'Pending';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+    setProjectStatusData(Object.entries(statusCounts).map(([name, value]) => ({ name, value })));
+
+    // Expense Categories
+    const categoryCounts: Record<string, number> = {};
+    expensesData.forEach((e: any) => {
+      const category = e.category || 'Miscellaneous';
+      categoryCounts[category] = (categoryCounts[category] || 0) + (e.amount || 0);
+    });
+    setExpenseCategoryData(Object.entries(categoryCounts).map(([name, value]) => ({ name, value })));
+
+    // Revenue vs Expenses (Last 6 months)
+    const revenueExpenseData: Record<string, { revenue: number; expenses: number }> = {};
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      revenueExpenseData[key] = { revenue: 0, expenses: 0 };
+    }
+    revenueData.forEach((r: any) => {
+      const date = r.createdAt ? new Date(r.createdAt) : new Date();
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      if (revenueExpenseData[key]) {
+        revenueExpenseData[key].revenue += r.totalContractValue || 0;
+      }
+    });
+    expensesData.forEach((e: any) => {
+      const date = e.date ? new Date(e.date) : new Date();
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      if (revenueExpenseData[key]) {
+        revenueExpenseData[key].expenses += e.amount || 0;
+      }
+    });
+    setRevenueVsExpenses(Object.entries(revenueExpenseData).map(([name, data]) => ({ name, ...data })));
+
+    // Client Status Distribution
+    const clientStatusCounts: Record<string, number> = {};
+    clientsData.forEach((c: any) => {
+      const status = c.status || 'Lead';
+      clientStatusCounts[status] = (clientStatusCounts[status] || 0) + 1;
+    });
+    setClientStatusData(Object.entries(clientStatusCounts).map(([name, value]) => ({ name, value })));
+  };
+
+  const calculateRecentActivity = (projectsData: any[], clientsData: any[], revenueData: any[]) => {
+    const activities: ActivityItem[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    projectsData
+      .filter((p: any) => {
+        if (p.status !== 'Completed') return false;
+        const updatedAt = p.updatedAt ? new Date(p.updatedAt) : null;
+        return updatedAt && updatedAt >= yesterday;
+      })
+      .forEach((p: any) => {
+        activities.push({
+          id: `project_${p._id}`,
+          type: 'project_complete',
+          message: `${p.name} marked complete`,
+          timestamp: p.updatedAt ? new Date(p.updatedAt) : new Date(),
+          icon: '✅',
+          color: 'text-green-600',
+        });
+      });
+    
+    clientsData
+      .filter((c: any) => {
+        const createdAt = c.createdAt ? new Date(c.createdAt) : null;
+        return createdAt && createdAt >= yesterday;
+      })
+      .forEach((c: any) => {
+        activities.push({
+          id: `client_${c._id}`,
+          type: 'new_client',
+          message: `New client ${c.name} (${c.status || 'Lead'})`,
+          timestamp: c.createdAt ? new Date(c.createdAt) : new Date(),
+          icon: '➕',
+          color: 'text-blue-600',
+        });
+      });
+    
+    revenueData.forEach((r: any) => {
+      if (r.paymentsReceived && Array.isArray(r.paymentsReceived)) {
+        r.paymentsReceived.forEach((payment: any) => {
+          const paymentDate = payment.date ? new Date(payment.date) : null;
+          if (paymentDate && paymentDate >= yesterday && paymentDate < new Date()) {
+            activities.push({
+              id: `payment_${r._id}_${payment.date}`,
+              type: 'payment',
+              message: `Paid ${formatINR(payment.amount)} for ${r.project}`,
+              timestamp: paymentDate,
+              icon: '💰',
+              color: 'text-emerald-600',
+            });
+          }
+        });
+      }
+    });
+    
+    projectsData
+      .filter((p: any) => {
+        const createdAt = p.createdAt ? new Date(p.createdAt) : null;
+        return createdAt && createdAt >= yesterday;
+      })
+      .forEach((p: any) => {
+        activities.push({
+          id: `project_new_${p._id}`,
+          type: 'project_created',
+          message: `New project ${p.name} created`,
+          timestamp: p.createdAt ? new Date(p.createdAt) : new Date(),
+          icon: '📋',
+          color: 'text-purple-600',
+        });
+      });
+    
+    activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    setRecentActivity(activities.slice(0, 10));
+  };
+
+  const fetchAllData = async () => {
     try {
-      // In mock mode, use localStorage directly
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
         
-        const revenue = localStorageUtils.getRevenue();
-        const projects = localStorageUtils.getProjects();
-        const clients = localStorageUtils.getClients();
-        const events = localStorageUtils.getEvents();
+        const revenueData = localStorageUtils.getRevenue() || [];
+        const projectsData = localStorageUtils.getProjects() || [];
+        const clientsData = localStorageUtils.getClients() || [];
+        const teamData = localStorageUtils.getTeam() || [];
+        const expensesData = JSON.parse(localStorage.getItem('rootkit_expenses') || '[]');
+
+        setRevenue(Array.isArray(revenueData) ? revenueData : []);
+        setExpenses(Array.isArray(expensesData) ? expensesData : []);
+
+        calculateStats(revenueData, projectsData, clientsData, teamData, expensesData);
+        calculateRecentActivity(projectsData, clientsData, revenueData);
         
-        // Calculate stats from localStorage data
-        // Total Revenue = sum of all revenue.totalContractValue
-        const totalRevenue = Array.isArray(revenue) 
-          ? revenue.reduce((sum: number, r: any) => sum + (Number(r.totalContractValue) || 0), 0)
-          : 0;
-        const totalProjects = Array.isArray(projects) ? projects.length : 0;
-        const totalClients = Array.isArray(clients) ? clients.length : 0;
-        const activeDeadlines = Array.isArray(events) 
-          ? events.filter((e: any) => {
-              if (!e.deadline) return false;
-              const deadline = new Date(e.deadline);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              return deadline >= today;
-            }).length
-          : 0;
-        
-        // Calculate new clients (this month)
-        const thisMonth = new Date().getMonth();
-        const thisYear = new Date().getFullYear();
-        const newClients = Array.isArray(clients)
-          ? clients.filter((c: any) => {
-              if (!c.createdAt) return false;
-              const created = new Date(c.createdAt);
-              return created.getMonth() === thisMonth && created.getFullYear() === thisYear;
-            }).length
-          : 0;
-        
-        setStats({
-          totalRevenue,
-          totalProjects,
-          totalClients,
-          activeDeadlines,
-          newClients,
-          growth: totalClients > 0 ? Math.round((newClients / totalClients) * 100) : 0,
-        });
         setLoading(false);
-        return;
       }
-      
-      // Fallback to API
-      const [revenueRes, projectsRes, clientsRes, deadlinesRes] = await Promise.all([
-        fetch('/api/revenue/stats'),
-        fetch('/api/projects/stats'),
-        fetch('/api/clients/stats'),
-        fetch('/api/events/deadlines'),
-      ]);
-
-      const revenue = await revenueRes.json();
-      const projects = await projectsRes.json();
-      const clients = await clientsRes.json();
-      const deadlines = await deadlinesRes.json();
-
-      setStats({
-        totalRevenue: revenue.total || 0,
-        totalProjects: projects.total || 0,
-        totalClients: clients.total || 0,
-        activeDeadlines: deadlines.count || 0,
-        newClients: clients.leads || 0,
-        growth: clients.total > 0 ? Math.round((clients.leads / clients.total) * 100) : 0,
-      });
     } catch (error) {
-      console.error('Error fetching stats:', error);
-    } finally {
+      console.error('Error fetching data:', error);
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchAllData();
+  }, []);
 
   if (loading) {
     return (
@@ -117,210 +354,326 @@ export default function DashboardPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Header Card - Matching Revenue Page Design */}
-        <div className="card-premium py-4 px-5 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <LayoutDashboard className="w-5 h-5 text-primary-500" />
-                <h1 className="text-xl font-bold text-text-primary font-display leading-tight">Dashboard</h1>
+        {/* Section 1: Quick Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          {/* Revenue */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-blue-500 rounded-lg flex-shrink-0 shadow-sm">
+                <TrendingUp className="w-4 h-4 text-white" />
               </div>
-              <p className="text-xs text-text-secondary leading-tight">Welcome back! Here's what's happening today.</p>
+              <p className="text-xs font-semibold text-text-secondary">Revenue</p>
             </div>
+            <p className="text-lg font-bold text-text-primary leading-tight">{formatINR(stats.totalRevenue)}</p>
+            <p className="text-xs text-text-secondary mt-1 truncate">All time</p>
+          </div>
+
+          {/* Team Earnings */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/team')}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-purple-500 rounded-lg flex-shrink-0 shadow-sm">
+                <Users className="w-4 h-4 text-white" />
+              </div>
+              <p className="text-xs font-semibold text-text-secondary">Team</p>
+            </div>
+            <p className="text-lg font-bold text-text-primary leading-tight">{formatINR(stats.teamEarnings)}</p>
+            <p className="text-xs text-text-secondary mt-1 truncate">Payouts</p>
+          </div>
+
+          {/* Expenses */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-orange-500 rounded-lg flex-shrink-0 shadow-sm">
+                <Receipt className="w-4 h-4 text-white" />
+              </div>
+              <p className="text-xs font-semibold text-text-secondary">Expenses</p>
+            </div>
+            <p className="text-lg font-bold text-text-primary leading-tight">{formatINR(stats.expenses)}</p>
+            <p className="text-xs text-text-secondary mt-1 truncate">Total</p>
+          </div>
+
+          {/* Profit */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-green-500 rounded-lg flex-shrink-0 shadow-sm">
+                <DollarSign className="w-4 h-4 text-white" />
+              </div>
+              <p className="text-xs font-semibold text-text-secondary">Profit</p>
+            </div>
+            <p className="text-lg font-bold text-text-primary leading-tight">{stats.profitMargin}%</p>
+            <p className="text-xs text-text-secondary mt-1 truncate">{formatINR(stats.profit)}</p>
+          </div>
+
+          {/* Projects */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/projects')}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-indigo-500 rounded-lg flex-shrink-0 shadow-sm">
+                <FolderKanban className="w-4 h-4 text-white" />
+              </div>
+              <p className="text-xs font-semibold text-text-secondary">Projects</p>
+            </div>
+            <p className="text-lg font-bold text-text-primary leading-tight">{stats.totalProjects}</p>
+            <p className="text-xs text-text-secondary mt-1 truncate">Active</p>
+          </div>
+
+          {/* Clients */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/clients')}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-teal-500 rounded-lg flex-shrink-0 shadow-sm">
+                <Users className="w-4 h-4 text-white" />
+              </div>
+              <p className="text-xs font-semibold text-text-secondary">Clients</p>
+            </div>
+            <p className="text-lg font-bold text-text-primary leading-tight">{stats.totalClients}</p>
+            <p className="text-xs text-text-secondary mt-1 truncate">Total</p>
           </div>
         </div>
 
-        {/* KPI Cards Grid - Light Mode Colors */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Total Revenue Card */}
-          <div className="card-premium card-premium-hover p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-blue-500 rounded-xl shadow-md">
-                <DollarSign className="w-6 h-6 text-white" />
+        {/* Section 2: Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Monthly Revenue Chart */}
+          <div className="card-premium p-6">
+            <h3 className="text-lg font-bold text-text-primary mb-4">Monthly Revenue</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthlyRevenue}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" stroke="#6b7280" />
+                <YAxis stroke="#6b7280" />
+                <Tooltip 
+                  formatter={(value: number) => formatINR(value)}
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                />
+                <Bar dataKey="revenue" fill="#3B82F6" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Project Status Distribution */}
+          <div className="card-premium p-6">
+            <h3 className="text-lg font-bold text-text-primary mb-4">Project Status</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={projectStatusData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {projectStatusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Revenue vs Expenses */}
+          <div className="card-premium p-6">
+            <h3 className="text-lg font-bold text-text-primary mb-4">Revenue vs Expenses</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={revenueVsExpenses}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" stroke="#6b7280" />
+                <YAxis stroke="#6b7280" />
+                <Tooltip 
+                  formatter={(value: number) => formatINR(value)}
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                />
+                <Legend />
+                <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="Revenue" />
+                <Line type="monotone" dataKey="expenses" stroke="#F59E0B" strokeWidth={2} name="Expenses" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Expense Categories */}
+          <div className="card-premium p-6">
+            <h3 className="text-lg font-bold text-text-primary mb-4">Expense Categories</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={expenseCategoryData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {expenseCategoryData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number) => formatINR(value)} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Client Status Distribution */}
+          <div className="card-premium p-6 lg:col-span-2">
+            <h3 className="text-lg font-bold text-text-primary mb-4">Client Status Distribution</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={clientStatusData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" stroke="#6b7280" />
+                <YAxis stroke="#6b7280" />
+                <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
+                <Bar dataKey="value" fill="#14B8A6" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Section 3: Financial Snapshot (3 Key Metrics) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Cash Position */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-blue-500 rounded-xl flex-shrink-0 shadow-md">
+                <Wallet className="w-6 h-6 text-white" />
               </div>
-              <div className="flex items-center gap-1 text-green-600 text-sm font-medium">
-                <ArrowUpRight className="w-4 h-4" />
-                <span>+32%</span>
+              <div>
+                <p className="text-sm font-semibold text-text-secondary">Cash Position</p>
+                <p className="text-xs text-text-secondary">Available funds</p>
               </div>
             </div>
-            <p className="text-sm font-medium text-slate-600 mb-2">Total Revenue</p>
-            <p className="text-3xl font-bold text-slate-900 mb-1">
-              ${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <p className="text-3xl font-bold text-text-primary mb-2">{formatINR(stats.cashPosition)}</p>
+            <p className="text-xs text-text-secondary">After expenses</p>
+          </div>
+
+          {/* Month Growth */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-green-500 rounded-xl flex-shrink-0 shadow-md">
+                {stats.monthGrowth >= 0 ? (
+                  <TrendingUp className="w-6 h-6 text-white" />
+                ) : (
+                  <TrendingDown className="w-6 h-6 text-white" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-text-secondary">Month Growth</p>
+                <p className="text-xs text-text-secondary">Revenue change</p>
+              </div>
+            </div>
+            <p className={`text-3xl font-bold mb-2 ${stats.monthGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {stats.monthGrowth >= 0 ? '+' : ''}{stats.monthGrowth}%
             </p>
-            <p className="text-xs text-slate-500 mt-2">From last period</p>
+            <p className="text-xs text-text-secondary">vs Last month</p>
           </div>
 
-          {/* Total Projects Card */}
-          <div className="card-premium card-premium-hover p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-slate-700 rounded-xl shadow-md">
-                <FolderKanban className="w-6 h-6 text-white" />
+          {/* Action Items */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/revenue?status=Overdue')}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-red-500 rounded-xl flex-shrink-0 shadow-md">
+                <AlertCircle className="w-6 h-6 text-white" />
               </div>
-              <div className="flex items-center gap-1 text-green-600 text-sm font-medium">
-                <ArrowUpRight className="w-4 h-4" />
-                <span>+7%</span>
+              <div>
+                <p className="text-sm font-semibold text-text-secondary">Action Items</p>
+                <p className="text-xs text-text-secondary">Requires attention</p>
               </div>
             </div>
-            <p className="text-sm font-medium text-slate-600 mb-2">Total Projects</p>
-            <p className="text-3xl font-bold text-slate-900 mb-1">{stats.totalProjects}</p>
-            <p className="text-xs text-slate-500 mt-2">Active and completed</p>
+            <p className="text-3xl font-bold text-text-primary mb-2">{stats.overdueInvoices}</p>
+            <p className="text-xs text-text-secondary">Overdue invoices</p>
           </div>
+        </div>
 
-          {/* Total Customers Card */}
-          <div className="card-premium card-premium-hover p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-green-500 rounded-xl shadow-md">
+        {/* Section 4: Team Pulse (People Overview) */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Utilization */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/team')}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-indigo-500 rounded-xl flex-shrink-0 shadow-md">
                 <Users className="w-6 h-6 text-white" />
               </div>
-              <div className="flex items-center gap-1 text-green-600 text-sm font-medium">
-                <ArrowUpRight className="w-4 h-4" />
-                <span>+{stats.growth}%</span>
+              <div>
+                <p className="text-sm font-semibold text-text-secondary">Utilization</p>
+                <p className="text-xs text-text-secondary">Team capacity</p>
               </div>
             </div>
-            <p className="text-sm font-medium text-slate-600 mb-2">Total Customers</p>
-            <p className="text-3xl font-bold text-slate-900 mb-1">{stats.totalClients.toLocaleString()}</p>
-            <p className="text-xs text-slate-500 mt-2">vs Last Month</p>
+            <p className="text-3xl font-bold text-text-primary mb-2">{stats.utilizationRate}%</p>
+            <p className="text-xs text-text-secondary">{stats.billableCount}/{teamMembers.length} people billable</p>
           </div>
 
-          {/* Active Deadlines Card */}
-          <div className="card-premium card-premium-hover p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-orange-500 rounded-xl shadow-md">
-                <Calendar className="w-6 h-6 text-white" />
+          {/* Top Earner */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/team')}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-purple-500 rounded-xl flex-shrink-0 shadow-md">
+                <TrendingUp className="w-6 h-6 text-white" />
               </div>
-              <div className="flex items-center gap-1 text-red-600 text-sm font-medium">
-                <ArrowDownRight className="w-4 h-4" />
-                <span>-2%</span>
+              <div>
+                <p className="text-sm font-semibold text-text-secondary">Top Earner</p>
+                <p className="text-xs text-text-secondary">This period</p>
               </div>
             </div>
-            <p className="text-sm font-medium text-slate-600 mb-2">Active Deadlines</p>
-            <p className="text-3xl font-bold text-slate-900 mb-1">{stats.activeDeadlines}</p>
-            <p className="text-xs text-slate-500 mt-2">Requires attention</p>
+            <p className="text-lg font-bold text-text-primary mb-1">{stats.topEarner.name}</p>
+            <p className="text-xs text-text-secondary">{formatINR(stats.topEarner.amount)}</p>
           </div>
+
+          {/* Available */}
+          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/team?availability=Available')}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-green-500 rounded-xl flex-shrink-0 shadow-md">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-text-secondary">Available</p>
+                <p className="text-xs text-text-secondary">Ready to work</p>
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-text-primary mb-2">{stats.availableDevs}</p>
+            <p className="text-xs text-text-secondary">Devs free next week</p>
+          </div>
+
+          {/* View People Link */}
+          <Link href="/team" className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6 flex items-center justify-center flex-col">
+            <div className="p-3 bg-teal-500 rounded-xl flex-shrink-0 shadow-md mb-4">
+              <UserPlus className="w-6 h-6 text-white" />
+            </div>
+            <p className="text-sm font-semibold text-text-primary mb-2">View People</p>
+            <p className="text-xs text-text-secondary text-center">Manage team members</p>
+            <ArrowRight className="w-5 h-5 text-teal-500 mt-2" />
+          </Link>
         </div>
 
-        {/* Customer Overview Section - Light Mode */}
+        {/* Section 5: Recent Activity (Feed) */}
         <div className="card-premium p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-1 font-display">Customer Overview</h2>
-              <p className="text-sm text-slate-600">All time statistics</p>
+              <h2 className="text-lg font-bold text-text-primary font-display mb-1">Recent Activity</h2>
+              <p className="text-xs text-text-secondary">Last 24 hours</p>
             </div>
-            <select className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
-              <option>Month</option>
-              <option>Week</option>
-              <option>Year</option>
-            </select>
+            <Link href="/revenue" className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+              View All <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <p className="text-xs font-medium text-slate-600 mb-1">New Customer</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-slate-900">{stats.newClients}</p>
-                <div className="flex items-center gap-1 text-green-600 text-xs font-medium">
-                  <ArrowUpRight className="w-3 h-3" />
-                  <span>+7%</span>
+          <div className="space-y-3">
+            {recentActivity.length > 0 ? (
+              recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                  <span className="text-xl">{activity.icon}</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-text-primary">{activity.message}</p>
+                    <p className="text-xs text-text-secondary mt-0.5">
+                      {activity.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} • {formatDate(activity.timestamp)}
+                    </p>
+                  </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-text-secondary">
+                <Activity className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No recent activity</p>
+                <p className="text-xs mt-1">Activity will appear here as things happen</p>
               </div>
-              <p className="text-xs text-slate-500 mt-1">vs Last Month</p>
-            </div>
-
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <p className="text-xs font-medium text-slate-600 mb-1">Total Customer</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-slate-900">{stats.totalClients.toLocaleString()}</p>
-                <div className="flex items-center gap-1 text-green-600 text-xs font-medium">
-                  <ArrowUpRight className="w-3 h-3" />
-                  <span>+2%</span>
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">vs Last Year</p>
-            </div>
-
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <p className="text-xs font-medium text-slate-600 mb-1">Total Order</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-slate-900">{stats.totalProjects}</p>
-                <div className="flex items-center gap-1 text-green-600 text-xs font-medium">
-                  <ArrowUpRight className="w-3 h-3" />
-                  <span>+21%</span>
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">vs Last Month</p>
-            </div>
-
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <p className="text-xs font-medium text-slate-600 mb-1">Total Value</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-slate-900">${stats.totalRevenue.toLocaleString()}</p>
-                <div className="flex items-center gap-1 text-green-600 text-xs font-medium">
-                  <ArrowUpRight className="w-3 h-3" />
-                  <span>+51%</span>
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">vs Last Month</p>
-            </div>
+            )}
           </div>
-
-          {/* Chart Placeholder - Light Mode */}
-          <div className="h-64 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <DollarSign className="w-8 h-8 text-blue-600" />
-              </div>
-              <p className="text-slate-600 font-medium">Monthly Revenue Chart</p>
-              <p className="text-xs text-slate-500 mt-1">Coming soon</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions Grid - Light Mode */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link
-            href="/projects"
-            className="group card-premium card-premium-hover p-6"
-          >
-            <div className="p-4 bg-blue-500 rounded-xl w-fit mb-4 shadow-md group-hover:scale-110 transition-transform duration-300">
-              <FolderKanban className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2 font-display">Projects</h3>
-            <p className="text-slate-600 text-sm">Manage all your projects and track progress</p>
-            <div className="mt-4 flex items-center text-blue-600 text-sm font-medium group-hover:gap-2 transition-all">
-              <span>View Projects</span>
-              <ArrowUpRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
-
-          <Link
-            href="/clients"
-            className="group card-premium card-premium-hover p-6"
-          >
-            <div className="p-4 bg-green-500 rounded-xl w-fit mb-4 shadow-md group-hover:scale-110 transition-transform duration-300">
-              <Users className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2 font-display">Clients</h3>
-            <p className="text-slate-600 text-sm">Manage your clients and relationships</p>
-            <div className="mt-4 flex items-center text-blue-600 text-sm font-medium group-hover:gap-2 transition-all">
-              <span>View Clients</span>
-              <ArrowUpRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
-
-          <Link
-            href="/team"
-            className="group card-premium card-premium-hover p-6"
-          >
-            <div className="p-4 bg-orange-500 rounded-xl w-fit mb-4 shadow-md group-hover:scale-110 transition-transform duration-300">
-              <Users className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2 font-display">Team</h3>
-            <p className="text-slate-600 text-sm">View and manage team members</p>
-            <div className="mt-4 flex items-center text-blue-600 text-sm font-medium group-hover:gap-2 transition-all">
-              <span>View Team</span>
-              <ArrowUpRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
         </div>
       </div>
     </Layout>

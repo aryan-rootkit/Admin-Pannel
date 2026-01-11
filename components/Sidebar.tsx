@@ -61,19 +61,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* User Profile - Light Mode */}
-      <div className="p-4 border-b border-slate-200 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-semibold shadow-md flex-shrink-0">
-            {session?.user?.name?.charAt(0).toUpperCase() || 'A'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-900 truncate">{session?.user?.name || 'Admin User'}</p>
-            <p className="text-xs text-slate-500">Admin</p>
-          </div>
-        </div>
-      </div>
-
       {/* Navigation - Light Mode, All Links Functional */}
       <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
         {/* Features Section */}
