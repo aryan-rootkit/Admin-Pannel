@@ -3,10 +3,6 @@ import mongoose from 'mongoose';
 /**
  * MongoDB connection utility
  * Handles connection to MongoDB database with connection pooling
- */
-/**
- * MongoDB connection utility
- * Handles connection to MongoDB database with connection pooling
  * 
  * Uses environment variable MONGODB_URI if set, otherwise falls back to local MongoDB
  * for development purposes. The fallback allows local development without requiring
