@@ -135,7 +135,14 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || (() => {
+    // Fallback secret (set NEXTAUTH_SECRET in Vercel for production)
+    const fallback = process.env.VERCEL_URL 
+      ? `nextauth-secret-${process.env.VERCEL_URL.replace(/[^a-zA-Z0-9]/g, '')}` 
+      : 'dev-secret-key-change-in-production';
+    console.warn('⚠️  NEXTAUTH_SECRET not set. Using fallback. Add NEXTAUTH_SECRET in Vercel environment variables.');
+    return fallback;
+  })(),
   debug: false,
   events: {
     async signIn({ user }) {
