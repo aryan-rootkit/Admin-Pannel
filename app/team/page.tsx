@@ -5,6 +5,12 @@ import Layout from '@/components/Layout';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import { Plus, User, Search, Users, Calendar, DollarSign, Trophy, TrendingUp, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -197,8 +203,8 @@ export default function TeamPage() {
       // Prepare the request body
       const hourlyRateValue = Number(data.hourlyRate || data.totalRate || 0);
       
-      // Validate required fields
-      if (!data.name && !data.teamName) {
+      // Validate required fields - Name and Email are always required
+      if (!data.name) {
         toast('Name is required', 'error');
         return;
       }
@@ -216,9 +222,9 @@ export default function TeamPage() {
       }
 
       const requestBody: any = {
-        name: (data.name || data.teamName || '').trim(),
-        email: (data.email || '').trim().toLowerCase(),
-        role: (data.role || 'Team').trim(),
+        name: data.name.trim(),
+        email: data.email.trim().toLowerCase(),
+        role: data.role.trim(),
         hourlyRate: hourlyRateValue,
         availability: data.availability || 'Available',
         bio: data.bio?.trim() || '',
@@ -1061,76 +1067,161 @@ export default function TeamPage() {
           title={selectedMember ? 'Edit Team Member' : 'New Team Member'}
           size="md"
         >
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Contractor Type Toggle - Only show when Employment Type is Contractor */}
-            {watch('employmentType') === 'Contractor' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Contractor Type</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setContractorType('Individual');
-                      setValue('contractorType', 'Individual');
-                      // Clear team-specific fields when switching to Individual
-                      setValue('teamName', '');
-                      setValue('teamLead', '');
-                      setValue('teamSize', undefined);
-                      setValue('totalRate', undefined);
-                    }}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
-                      contractorType === 'Individual'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Individual
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setContractorType('Team');
-                      setValue('contractorType', 'Team');
-                      // Clear individual-specific fields when switching to Team
-                      setValue('name', '');
-                      setValue('email', '');
-                      setValue('hourlyRate', undefined);
-                    }}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
-                      contractorType === 'Team'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Team
-                  </button>
-                </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* Always Show: Name and Email (Required Fields) */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-medium">
+                  Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="name"
+                  {...register('name')}
+                  placeholder="Enter name"
+                />
+                {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
               </div>
-            )}
 
-            {/* Individual Mode Fields - Show for In-House or Individual Contractors */}
-            {(watch('employmentType') !== 'Contractor' || contractorType === 'Individual') && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name <span className="text-red-500">*</span></label>
-                  <input
-                    {...register('name')}
-                    className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter name"
-                  />
-                  {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>}
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">
+                  Email <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  {...register('email')}
+                  placeholder="Enter email"
+                />
+                {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
+              </div>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <input
-                    type="email"
-                    {...register('email')}
-                    className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter email"
-                  />
-                  {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>}
+            <Separator />
+
+            {/* Employment Type and Contractor Type */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="employmentType" className="text-sm font-medium">
+                  Employment Type
+                </Label>
+                <Select
+                  value={watch('employmentType') || 'In-House'}
+                  onValueChange={(value) => {
+                    setValue('employmentType', value as any);
+                    if (value === 'In-House') {
+                      setContractorType('Individual');
+                    }
+                  }}
+                >
+                  <SelectTrigger id="employmentType">
+                    <SelectValue placeholder="Select employment type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="In-House">In-House</SelectItem>
+                    <SelectItem value="Contractor">Contractor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Contractor Type Toggle - Only show when Contractor is selected */}
+              {watch('employmentType') === 'Contractor' && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Contractor Type</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={contractorType === 'Individual' ? 'default' : 'outline'}
+                      onClick={() => {
+                        setContractorType('Individual');
+                        setValue('contractorType', 'Individual');
+                        // Clear team-specific fields when switching to Individual
+                        setValue('teamName', '');
+                        setValue('teamLead', '');
+                        setValue('teamSize', undefined);
+                        setValue('totalRate', undefined);
+                      }}
+                      className="flex-1"
+                    >
+                      Individual
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={contractorType === 'Team' ? 'default' : 'outline'}
+                      onClick={() => {
+                        setContractorType('Team');
+                        setValue('contractorType', 'Team');
+                        // Don't clear name/email for Team mode - they're still required
+                      }}
+                      className="flex-1"
+                    >
+                      Team
+                    </Button>
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* Role and Rate Fields */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="role" className="text-sm font-medium">
+                  Role <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={watch('role') || ''}
+                  onValueChange={(value) => setValue('role', value)}
+                >
+                  <SelectTrigger id="role">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Frontend Developer">Frontend Developer</SelectItem>
+                    <SelectItem value="Backend Developer">Backend Developer</SelectItem>
+                    <SelectItem value="Full Stack Developer">Full Stack Developer</SelectItem>
+                    <SelectItem value="UI/UX Designer">UI/UX Designer</SelectItem>
+                    <SelectItem value="Project Manager">Project Manager</SelectItem>
+                    <SelectItem value="Marketing Specialist">Marketing Specialist</SelectItem>
+                    <SelectItem value="Contractor">Contractor</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.role && <p className="text-sm text-destructive mt-1">{errors.role.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="hourlyRate" className="text-sm font-medium">
+                  {contractorType === 'Team' ? 'Total Rate (₹)' : 'Hourly Rate (₹)'} <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="hourlyRate"
+                  type="number"
+                  step="0.01"
+                  {...register(contractorType === 'Team' ? 'totalRate' : 'hourlyRate', { valueAsNumber: true })}
+                  placeholder="0.00"
+                />
+                {(errors.hourlyRate || errors.totalRate) && <p className="text-sm text-destructive mt-1">{(errors.hourlyRate || errors.totalRate)?.message}</p>}
+              </div>
+            </div>
+
+            {/* Availability */}
+            <div className="space-y-2">
+              <Label htmlFor="availability" className="text-sm font-medium">
+                Availability
+              </Label>
+              <Select
+                value={watch('availability') || 'Available'}
+                onValueChange={(value) => setValue('availability', value as any)}
+              >
+                <SelectTrigger id="availability">
+                  <SelectValue placeholder="Select availability" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Available">Available</SelectItem>
+                  <SelectItem value="Busy">Busy</SelectItem>
+                  <SelectItem value="On Leave">On Leave</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
