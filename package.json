@@ -41,6 +41,7 @@
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.70.0",
     "recharts": "^2.10.3",
+    "reaviz": "^13.0.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "typescript": "^5.3.3",
