@@ -1062,8 +1062,8 @@ export default function TeamPage() {
           size="md"
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Contractor Type Toggle - Only show for Contractors */}
-            {(!selectedMember || selectedMember.employmentType === 'Contractor') && (
+            {/* Contractor Type Toggle - Only show when Employment Type is Contractor */}
+            {watch('employmentType') === 'Contractor' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Contractor Type</label>
                 <div className="flex gap-2">
@@ -1072,6 +1072,11 @@ export default function TeamPage() {
                     onClick={() => {
                       setContractorType('Individual');
                       setValue('contractorType', 'Individual');
+                      // Clear team-specific fields when switching to Individual
+                      setValue('teamName', '');
+                      setValue('teamLead', '');
+                      setValue('teamSize', undefined);
+                      setValue('totalRate', undefined);
                     }}
                     className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
                       contractorType === 'Individual'
@@ -1086,6 +1091,10 @@ export default function TeamPage() {
                     onClick={() => {
                       setContractorType('Team');
                       setValue('contractorType', 'Team');
+                      // Clear individual-specific fields when switching to Team
+                      setValue('name', '');
+                      setValue('email', '');
+                      setValue('hourlyRate', undefined);
                     }}
                     className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
                       contractorType === 'Team'
@@ -1099,11 +1108,11 @@ export default function TeamPage() {
               </div>
             )}
 
-            {/* Individual Mode Fields */}
-            {contractorType === 'Individual' && (
+            {/* Individual Mode Fields - Show for In-House or Individual Contractors */}
+            {(watch('employmentType') !== 'Contractor' || contractorType === 'Individual') && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name <span className="text-red-500">*</span></label>
                   <input
                     {...register('name')}
                     className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -1259,8 +1268,8 @@ export default function TeamPage() {
               </>
             )}
 
-            {/* Team Mode Fields */}
-            {contractorType === 'Team' && (
+            {/* Team Mode Fields - Only show for Team Contractors */}
+            {watch('employmentType') === 'Contractor' && contractorType === 'Team' && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Team Name</label>

@@ -98,18 +98,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchClients = async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getClients();
-        setClients(Array.isArray(data) ? data : []);
-        return;
-      }
-
+      // Use API route (fetches from MongoDB)
       const res = await fetch('/api/clients');
-      const data = await res.json();
-      setClients(Array.isArray(data) ? data : []);
+      if (res.ok) {
+        const data = await res.json();
+        setClients(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch clients from API');
+        setClients([]);
+      }
     } catch (error) {
       console.error('Error fetching clients:', error);
+      setClients([]);
     }
   };
 
@@ -132,18 +132,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchTeam = async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getTeam();
-        setTeam(Array.isArray(data) ? data : []);
-        return;
-      }
-      
+      // Use API route (fetches from MongoDB)
       const res = await fetch('/api/team');
-      const data = await res.json();
-      setTeam(Array.isArray(data) ? data : []);
+      if (res.ok) {
+        const data = await res.json();
+        setTeam(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch team from API');
+        setTeam([]);
+      }
     } catch (error) {
       console.error('Error fetching team:', error);
+      setTeam([]);
     }
   };
 
