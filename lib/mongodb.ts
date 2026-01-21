@@ -3,9 +3,14 @@ import mongoose from 'mongoose';
 /**
  * MongoDB connection utility
  * Handles connection to MongoDB database with connection pooling
+ */
+/**
+ * MongoDB connection utility
+ * Handles connection to MongoDB database with connection pooling
  * 
  * Uses environment variable MONGODB_URI if set, otherwise falls back to local MongoDB
- * for development purposes.
+ * for development purposes. The fallback allows local development without requiring
+ * environment variables to be set.
  */
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/admin-panel-rootkit';
 
