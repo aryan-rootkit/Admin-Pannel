@@ -146,71 +146,17 @@ export default function ClientsPage() {
   };
 
   const fetchClients = useCallback(async () => {
+    setLoading(true);
     try {
-      // In mock mode, use localStorage directly
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getClients();
-        
-        // Migrate old client data to new format for backward compatibility
-        const migratedData = (Array.isArray(data) ? data : []).map((client: any) => {
-          // Ensure status is valid (migrate old statuses to new ones)
-          let status = client.status || 'Lead';
-          if (!['Lead', 'Proposal', 'Active', 'Overdue', 'Won', 'Lost', 'Inactive'].includes(status)) {
-            // Map old statuses to new ones
-            if (status === 'Active') status = 'Active';
-            else if (status === 'Inactive') status = 'Inactive';
-            else status = 'Lead';
-          }
-          
-          // Ensure clientTier exists (default to Bronze)
-          if (!client.clientTier) {
-            client.clientTier = 'Bronze';
-          }
-          
-          // Ensure company exists (use name if company is missing for backward compatibility)
-          // This preserves old data where company might not exist
-          if (!client.company && client.name) {
-            client.company = client.name;
-          }
-          
-          return {
-            ...client,
-            status,
-            clientTier: client.clientTier || 'Bronze',
-            company: client.company || client.name || '',
-            assignedDevelopers: client.assignedDevelopers || [],
-            contactPerson: client.contactPerson || undefined,
-            notes: client.notes || undefined,
-            address: client.address || undefined,
-            phone: client.phone || undefined,
-            email: client.email || '',
-            name: client.name || '',
-          };
-        });
-        
-        // Save migrated data back to localStorage if migration occurred
-        if (migratedData.length > 0) {
-          const needsMigration = migratedData.some((c: any, i: number) => {
-            const original = data[i];
-            return !original?.clientTier || !original?.company || 
-                   !['Lead', 'Proposal', 'Active', 'Overdue', 'Won', 'Lost', 'Inactive'].includes(original.status);
-          });
-          
-          if (needsMigration) {
-            localStorage.setItem('rootkit_clients', JSON.stringify(migratedData));
-          }
-        }
-        
-        setClients(migratedData);
-        setLoading(false);
-        return;
-      }
-      
-      // Fallback to API
+      // Use API route (fetches from MongoDB)
       const res = await fetch('/api/clients');
-      const data = await res.json();
-      setClients(Array.isArray(data) ? data : []);
+      if (res.ok) {
+        const data = await res.json();
+        setClients(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch clients from API');
+        setClients([]);
+      }
     } catch (error) {
       console.error('Error fetching clients:', error);
       setClients([]);

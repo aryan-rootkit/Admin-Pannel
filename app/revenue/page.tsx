@@ -617,48 +617,27 @@ export default function RevenuePage() {
         status = 'Overdue';
       }
 
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        
-        // Use paymentDate if provided, otherwise fallback to advanceDate for backward compatibility
-        const paymentDateValue = data.paymentDate || data.advanceDate || '';
-        
-        const revenueData: any = {
-          project: data.project,
-          client: data.client,
-          totalContractValue: Number(data.totalContractValue),
-          paymentType: data.paymentType || 'advance',
-          advanceAmount: paymentAmount,
-          paymentDate: paymentDateValue, // New field
-          advanceDate: paymentDateValue, // Keep for backward compatibility
-          phaseName: data.phaseName || undefined,
-          paymentsReceived: data.paymentsReceived || [],
-          balanceDue: calculatedBalance,
-          paymentStatus: status,
-          expectedPaymentDate: data.expectedPaymentDate,
-          dueDate: data.expectedPaymentDate,
-          notes: data.notes || '',
-          _id: selectedRevenue?._id || `revenue_${Date.now()}`,
-          createdAt: selectedRevenue?.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        
-        // Edit mode: Update existing entry by ID
-        if (selectedRevenue?._id) {
-          // Preserve the original _id and createdAt
-          revenueData._id = selectedRevenue._id;
-          revenueData.createdAt = selectedRevenue.createdAt || new Date().toISOString();
-          
-          const existingRevenue = localStorageUtils.getRevenue();
-          const updatedRevenue = existingRevenue.map((r: any) => 
-            r._id === selectedRevenue._id ? revenueData : r
-          );
-          localStorage.setItem('rootkit_revenue', JSON.stringify(updatedRevenue));
-        } else {
-          // Create mode: Add new entry
-          localStorageUtils.saveRevenue(revenueData);
-        }
-        
+      // Use API route (saves to MongoDB)
+      // Map revenue form data to MongoDB Revenue model format
+      const revenueData = {
+        type: 'income' as const, // Revenue is income type
+        amount: paymentAmount,
+        description: `${data.client} - ${data.project || 'Payment'}`,
+        date: new Date(data.paymentDate || data.advanceDate || data.expectedPaymentDate),
+        status: status === 'Paid' ? 'paid' : status === 'Overdue' ? 'overdue' : 'pending',
+        invoiceNumber: data.invoiceNumber || undefined,
+      };
+
+      const url = selectedRevenue?._id ? `/api/revenue/${selectedRevenue._id}` : '/api/revenue';
+      const method = selectedRevenue?._id ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(revenueData),
+      });
+
+      if (res.ok) {
         await fetchRevenue();
         setIsModalOpen(false);
         reset();
@@ -671,7 +650,9 @@ export default function RevenuePage() {
             : 'Revenue record created successfully!',
           'success'
         );
-        return;
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to save revenue' }));
+        toast(errorData.error || 'Failed to save revenue. Please try again.', 'error');
       }
     } catch (error: any) {
       console.error('Error saving revenue:', error);
