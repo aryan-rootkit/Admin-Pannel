@@ -6,7 +6,7 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint --no-cache",
     "stop": "pkill -f 'next dev' || true",
     "clean": "rm -rf .next node_modules package-lock.json && npm install",
     "fresh": "npm run stop && npm run clean && npm run dev",
