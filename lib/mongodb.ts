@@ -3,12 +3,11 @@ import mongoose from 'mongoose';
 /**
  * MongoDB connection utility
  * Handles connection to MongoDB database with connection pooling
+ * 
+ * Uses environment variable MONGODB_URI if set, otherwise falls back to local MongoDB
+ * for development purposes.
  */
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/admin-panel-rootkit';
-
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
-}
 
 interface MongooseCache {
   conn: typeof mongoose | null;
@@ -27,14 +26,6 @@ if (!global.mongoose) {
 }
 
 async function connectDB() {
-  // Debug: Check if MONGODB_URI is set (especially important for Vercel)
-  if (!process.env.MONGODB_URI) {
-    console.error('❌ MONGODB_URI environment variable is not set!');
-    console.error('Environment:', process.env.NODE_ENV);
-    console.error('Vercel:', !!process.env.VERCEL);
-    throw new Error('MONGODB_URI environment variable is missing. Please add it to Vercel Environment Variables.');
-  }
-
   // If already connected, return existing connection
   if (cached.conn) {
     return cached.conn;
@@ -51,14 +42,10 @@ async function connectDB() {
     cached.promise = mongoose.connect(MONGODB_URI, opts)
       .then((mongoose) => {
         console.log('✅ MongoDB connected successfully');
-        console.log('Environment:', process.env.NODE_ENV);
-        console.log('Vercel:', !!process.env.VERCEL);
         return mongoose;
       })
       .catch((error) => {
         console.error('❌ MongoDB connection error:', error.message);
-        console.error('MONGODB_URI exists:', !!process.env.MONGODB_URI);
-        console.error('Environment:', process.env.NODE_ENV);
         cached.promise = null;
         throw error;
       });
