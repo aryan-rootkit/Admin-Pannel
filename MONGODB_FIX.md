@@ -1,5 +1,7 @@
 # 🔧 Fix "bad auth: authentication failed" Error
 
+> ⚠️ **SECURITY WARNING**: Never commit real MongoDB credentials to version control. Always use environment variables and placeholders in documentation.
+
 ## 🔍 Root Cause
 
 The error "bad auth: authentication failed" is a **MongoDB authentication error**, not a NextAuth error. This happens when:
@@ -18,22 +20,33 @@ The error "bad auth: authentication failed" is a **MongoDB authentication error*
 
 2. **Check Database Access:**
    - Go to "Database Access"
-   - Find user: `rootkitconsultancy_db_user`
+   - Find your database user (e.g., `your-username`)
    - Click "Edit" → Reset password if needed
    - Note the exact password
 
 3. **Check Network Access:**
    - Go to "Network Access"
    - Click "Add IP Address"
-   - Add your current IP or `0.0.0.0/0` (for development)
+   - Add your current IP or `0.0.0.0/0` (for development only)
 
 4. **Update .env.local:**
    ```env
-   MONGODB_URI=mongodb+srv://rootkitconsultancy_db_user:YOUR_PASSWORD@cluster0.whr61tg.mongodb.net/admin-panel-rootkit?appName=Cluster0
+   MONGODB_URI=mongodb+srv://your-username:your-password@cluster0.xxxxx.mongodb.net/admin-panel-rootkit?appName=YourClusterName
    ```
-   - Replace `YOUR_PASSWORD` with actual password
+   - Replace `your-username` with your actual MongoDB Atlas username
+   - Replace `your-password` with your actual password
+   - Replace `cluster0.xxxxx.mongodb.net` with your actual cluster hostname
+   - Replace `YourClusterName` with your actual cluster name
    - If password has `@`, encode it as `%40`
-   - If password has other special chars, URL-encode them
+   - If password has other special chars, URL-encode them:
+     - `@` → `%40`
+     - `#` → `%23`
+     - `$` → `%24`
+     - `%` → `%25`
+     - `&` → `%26`
+     - `/` → `%2F`
+     - `?` → `%3F`
+     - `=` → `%3D`
 
 ### Option 2: Use Local MongoDB (No Atlas)
 
@@ -72,15 +85,68 @@ This will show:
 
 3. **Should work now!** ✅
 
-## 📝 Current MongoDB URI Format
+## 📝 MongoDB URI Format
 
-Your current URI:
+Your connection string should follow this format:
 ```
-mongodb+srv://rootkitconsultancy_db_user:%40ryandubey45@cluster0.whr61tg.mongodb.net/admin-panel-rootkit?appName=Cluster0
+mongodb+srv://username:password@cluster-hostname.mongodb.net/database-name?appName=ClusterName
 ```
 
-This decodes to:
-- Username: `rootkitconsultancy_db_user`
-- Password: `@ryandubey45` (the %40 is @ encoded)
+**Example (DO NOT USE - Replace with YOUR credentials):**
+```
+mongodb+srv://your-username:your-password@cluster0.xxxxx.mongodb.net/admin-panel-rootkit?appName=YourClusterName
+```
 
-**If this password is wrong, update it in MongoDB Atlas and .env.local**
+**Password Encoding Example:**
+If your password is `@mypassword123`, encode it as `%40mypassword123`:
+```
+mongodb+srv://your-username:%40mypassword123@cluster0.xxxxx.mongodb.net/admin-panel-rootkit?appName=YourClusterName
+```
+
+---
+
+## 🔐 Security Best Practices
+
+### ✅ DO:
+- ✅ Store credentials in environment variables (`.env.local`)
+- ✅ Use placeholders in documentation
+- ✅ Rotate passwords regularly
+- ✅ Use strong, unique passwords
+- ✅ Restrict IP access in MongoDB Atlas (avoid `0.0.0.0/0` in production)
+- ✅ Use different credentials for dev/staging/production
+
+### ❌ DON'T:
+- ❌ Commit real credentials to Git
+- ❌ Share credentials in documentation or code
+- ❌ Use the same password for multiple services
+- ❌ Hardcode credentials in source code
+- ❌ Allow unrestricted IP access in production
+
+---
+
+## 🚨 If Credentials Were Exposed
+
+If you find that real credentials were committed to Git:
+
+1. **Immediately rotate credentials:**
+   - Go to MongoDB Atlas → Database Access
+   - Edit user → Reset password
+   - Save new password securely
+
+2. **Update environment variables:**
+   - Update `.env.local` with new credentials
+   - Update Vercel environment variables if deployed
+
+3. **Remove from Git history (if needed):**
+   ```bash
+   # Use git filter-branch or BFG Repo-Cleaner
+   # Or create a new repository without sensitive data
+   ```
+
+4. **Review access logs:**
+   - Check MongoDB Atlas → Activity Feed
+   - Look for unauthorized access attempts
+
+---
+
+**Need Help?** Check the `/api/test-db` endpoint for detailed error messages and suggestions.
