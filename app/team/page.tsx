@@ -589,9 +589,11 @@ export default function TeamPage() {
                   .reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
                 return formatINR(memberEarnings);
               }
+              return formatINR(0);
             }
           } catch (e) {
             console.error('Error calculating earnings:', e);
+            return formatINR(0);
           }
         }
         return formatINR(0);
