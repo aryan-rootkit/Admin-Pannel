@@ -195,14 +195,36 @@ export default function TeamPage() {
       const method = selectedMember ? 'PUT' : 'POST';
 
       // Prepare the request body
+      const hourlyRateValue = Number(data.hourlyRate || data.totalRate || 0);
+      
+      // Validate required fields
+      if (!data.name && !data.teamName) {
+        toast('Name is required', 'error');
+        return;
+      }
+      if (!data.email) {
+        toast('Email is required', 'error');
+        return;
+      }
+      if (!data.role) {
+        toast('Role is required', 'error');
+        return;
+      }
+      if (!hourlyRateValue || hourlyRateValue <= 0) {
+        toast('Hourly rate must be greater than 0', 'error');
+        return;
+      }
+
       const requestBody: any = {
         name: (data.name || data.teamName || '').trim(),
         email: (data.email || '').trim().toLowerCase(),
         role: (data.role || 'Team').trim(),
-        hourlyRate: Number(data.hourlyRate || data.totalRate || 0),
+        hourlyRate: hourlyRateValue,
         availability: data.availability || 'Available',
         bio: data.bio?.trim() || '',
       };
+      
+      console.log('Submitting team member:', requestBody);
 
       const res = await fetch(url, {
         method,
