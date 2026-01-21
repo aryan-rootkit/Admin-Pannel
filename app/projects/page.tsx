@@ -145,16 +145,6 @@ export default function ProjectsPage() {
   const selectedDevelopers = watch('developers') || [];
   const [devSearchQuery, setDevSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchProjects();
-    fetchTeamMembers();
-    fetchClients();
-  }, [fetchProjects, fetchTeamMembers, fetchClients]);
-
-  useEffect(() => {
-    applyFiltersAndSort();
-  }, [applyFiltersAndSort]);
-
   // Close popup on outside click
   useEffect(() => {
     if (infoModalOpen) {
@@ -306,6 +296,16 @@ export default function ProjectsPage() {
     setFilteredProjects(filtered);
     setCurrentPage(1);
   }, [projects, searchQuery, statusFilter, typeFilter, sortField, sortDirection]);
+
+  useEffect(() => {
+    fetchProjects();
+    fetchTeamMembers();
+    fetchClients();
+  }, [fetchProjects, fetchTeamMembers, fetchClients]);
+
+  useEffect(() => {
+    applyFiltersAndSort();
+  }, [applyFiltersAndSort]);
 
   const getDeadlineStatus = (deadline: string, status: string) => {
     const today = new Date();

@@ -37,10 +37,6 @@ export default function SettingsPage() {
     resolver: zodResolver(settingsSchema),
   });
 
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
-
   const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch('/api/settings');
@@ -61,6 +57,10 @@ export default function SettingsPage() {
       setLoading(false);
     }
   }, [reset]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const onSubmit = async (data: SettingsFormData) => {
     setSaving(true);

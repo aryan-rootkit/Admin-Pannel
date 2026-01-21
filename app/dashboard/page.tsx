@@ -58,6 +58,74 @@ export default function HomePage() {
   const [revenueVsExpenses, setRevenueVsExpenses] = useState<any[]>([]);
   const [clientStatusData, setClientStatusData] = useState<any[]>([]);
 
+  // Chart + stats helpers
+  const calculateChartData = useCallback((revenueData: any[], projectsData: any[], clientsData: any[], expensesData: any[]) => {
+    // Monthly Revenue (Last 6 months)
+    const monthlyData: Record<string, number> = {};
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      monthlyData[key] = 0;
+    }
+    revenueData.forEach((r: any) => {
+      const date = r.createdAt ? new Date(r.createdAt) : new Date();
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      if (monthlyData.hasOwnProperty(key)) {
+        monthlyData[key] += r.totalContractValue || 0;
+      }
+    });
+    setMonthlyRevenue(Object.entries(monthlyData).map(([name, value]) => ({ name, revenue: value })));
+
+    // Project Status Distribution
+    const statusCounts: Record<string, number> = {};
+    projectsData.forEach((p: any) => {
+      const status = p.status || 'Pending';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+    setProjectStatusData(Object.entries(statusCounts).map(([name, value]) => ({ name, value })));
+
+    // Expense Categories
+    const categoryCounts: Record<string, number> = {};
+    expensesData.forEach((e: any) => {
+      const category = e.category || 'Miscellaneous';
+      categoryCounts[category] = (categoryCounts[category] || 0) + (e.amount || 0);
+    });
+    setExpenseCategoryData(Object.entries(categoryCounts).map(([name, value]) => ({ name, value })));
+
+    // Revenue vs Expenses (Last 6 months)
+    const revenueExpenseData: Record<string, { revenue: number; expenses: number }> = {};
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      revenueExpenseData[key] = { revenue: 0, expenses: 0 };
+    }
+    revenueData.forEach((r: any) => {
+      const date = r.createdAt ? new Date(r.createdAt) : new Date();
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      if (revenueExpenseData[key]) {
+        revenueExpenseData[key].revenue += r.totalContractValue || 0;
+      }
+    });
+    expensesData.forEach((e: any) => {
+      const date = e.date ? new Date(e.date) : new Date();
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      if (revenueExpenseData[key]) {
+        revenueExpenseData[key].expenses += e.amount || 0;
+      }
+    });
+    setRevenueVsExpenses(Object.entries(revenueExpenseData).map(([name, data]) => ({ name, ...data })));
+
+    // Client Status Distribution
+    const clientStatusCounts: Record<string, number> = {};
+    clientsData.forEach((c: any) => {
+      const status = c.status || 'Lead';
+      clientStatusCounts[status] = (clientStatusCounts[status] || 0) + 1;
+    });
+    setClientStatusData(Object.entries(clientStatusCounts).map(([name, value]) => ({ name, value })));
+  }, []);
+
   // Define calculation functions before fetchAllData
   const calculateStats = useCallback((revenueData: any[], projectsData: any[], clientsData: any[], teamData: any[], expensesData: any[]) => {
     // Total Revenue
@@ -166,73 +234,6 @@ export default function HomePage() {
     // Calculate chart data
     calculateChartData(revenueData, projectsData, clientsData, expensesData);
   }, [calculateChartData]);
-
-  const calculateChartData = useCallback((revenueData: any[], projectsData: any[], clientsData: any[], expensesData: any[]) => {
-    // Monthly Revenue (Last 6 months)
-    const monthlyData: Record<string, number> = {};
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      monthlyData[key] = 0;
-    }
-    revenueData.forEach((r: any) => {
-      const date = r.createdAt ? new Date(r.createdAt) : new Date();
-      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      if (monthlyData.hasOwnProperty(key)) {
-        monthlyData[key] += r.totalContractValue || 0;
-      }
-    });
-    setMonthlyRevenue(Object.entries(monthlyData).map(([name, value]) => ({ name, revenue: value })));
-
-    // Project Status Distribution
-    const statusCounts: Record<string, number> = {};
-    projectsData.forEach((p: any) => {
-      const status = p.status || 'Pending';
-      statusCounts[status] = (statusCounts[status] || 0) + 1;
-    });
-    setProjectStatusData(Object.entries(statusCounts).map(([name, value]) => ({ name, value })));
-
-    // Expense Categories
-    const categoryCounts: Record<string, number> = {};
-    expensesData.forEach((e: any) => {
-      const category = e.category || 'Miscellaneous';
-      categoryCounts[category] = (categoryCounts[category] || 0) + (e.amount || 0);
-    });
-    setExpenseCategoryData(Object.entries(categoryCounts).map(([name, value]) => ({ name, value })));
-
-    // Revenue vs Expenses (Last 6 months)
-    const revenueExpenseData: Record<string, { revenue: number; expenses: number }> = {};
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      revenueExpenseData[key] = { revenue: 0, expenses: 0 };
-    }
-    revenueData.forEach((r: any) => {
-      const date = r.createdAt ? new Date(r.createdAt) : new Date();
-      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      if (revenueExpenseData[key]) {
-        revenueExpenseData[key].revenue += r.totalContractValue || 0;
-      }
-    });
-    expensesData.forEach((e: any) => {
-      const date = e.date ? new Date(e.date) : new Date();
-      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      if (revenueExpenseData[key]) {
-        revenueExpenseData[key].expenses += e.amount || 0;
-      }
-    });
-    setRevenueVsExpenses(Object.entries(revenueExpenseData).map(([name, data]) => ({ name, ...data })));
-
-    // Client Status Distribution
-    const clientStatusCounts: Record<string, number> = {};
-    clientsData.forEach((c: any) => {
-      const status = c.status || 'Lead';
-      clientStatusCounts[status] = (clientStatusCounts[status] || 0) + 1;
-    });
-    setClientStatusData(Object.entries(clientStatusCounts).map(([name, value]) => ({ name, value })));
-  }, []);
 
   const calculateRecentActivity = useCallback((projectsData: any[], clientsData: any[], revenueData: any[]) => {
     const activities: ActivityItem[] = [];
