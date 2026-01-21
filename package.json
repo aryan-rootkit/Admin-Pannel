@@ -11,7 +11,8 @@
     "clean": "rm -rf .next node_modules package-lock.json && npm install",
     "fresh": "npm run stop && npm run clean && npm run dev",
     "commit": "bash scripts/git-auto.sh",
-    "git:auto": "bash scripts/git-auto.sh"
+    "git:auto": "bash scripts/git-auto.sh",
+    "seed": "ts-node --esm scripts/seed.ts"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",

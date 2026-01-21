@@ -3,14 +3,12 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 
 /**
  * NextAuth configuration
- * MOCK MODE: Uses hardcoded credentials (no database required)
+ * MONGODB MODE: Uses MongoDB for authentication
  * 
- * To enable real database authentication later:
- * 1. Uncomment the MongoDB imports
- * 2. Replace the authorize function with database lookup
- * 3. Set USE_MOCK_AUTH=false in .env.local
+ * To use mock authentication (no database):
+ * Set USE_MOCK_AUTH=true in .env.local
  */
-const USE_MOCK_AUTH = process.env.USE_MOCK_AUTH !== 'false'; // Default to true
+const USE_MOCK_AUTH = process.env.USE_MOCK_AUTH === 'true'; // Default to false (use MongoDB)
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -27,9 +25,8 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          // MOCK MODE: Hardcoded admin credentials (no database needed)
+          // MOCK MODE: Hardcoded admin credentials (for development/testing)
           if (USE_MOCK_AUTH) {
-            // Mock admin credentials
             const mockUsers = [
               {
                 email: 'admin@rootkit.dev',
@@ -55,7 +52,7 @@ export const authOptions: NextAuthOptions = {
             );
 
             if (user) {
-              console.log('Login successful for:', user.email);
+              console.log('✅ Mock login successful for:', user.email);
               return {
                 id: user.id,
                 email: user.email,
@@ -64,41 +61,42 @@ export const authOptions: NextAuthOptions = {
               };
             }
 
-            console.error('Invalid credentials:', email);
-            return null; // Return null instead of throwing error
+            console.error('❌ Invalid mock credentials:', email);
+            return null;
           }
 
-          // REAL MODE: Database authentication (uncomment when ready)
-          /*
-          const { connectDB } = await import('./mongodb');
+          // MONGODB MODE: Database authentication (production)
+          const connectDB = (await import('./mongodb')).default;
           const User = (await import('@/models/User')).default;
           
           await connectDB();
-          const user = await User.findOne({ email: credentials.email }).select('+password');
+          
+          const email = credentials.email.toLowerCase().trim();
+          const user = await User.findOne({ email }).select('+password');
           
           if (!user) {
+            console.error('❌ User not found:', email);
             return null;
           }
           
           const isPasswordValid = await user.comparePassword(credentials.password);
           
           if (!isPasswordValid) {
+            console.error('❌ Invalid password for:', email);
             return null;
           }
           
+          console.log('✅ MongoDB login successful for:', user.email);
           return {
             id: user._id.toString(),
             email: user.email,
             name: user.name,
             role: user.role,
           };
-          */
         } catch (error) {
           console.error('Authorization error:', error);
           return null;
         }
-        
-        return null; // Default return if USE_MOCK_AUTH is false
       },
     }),
   ],
