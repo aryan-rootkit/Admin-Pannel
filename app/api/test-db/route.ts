@@ -8,11 +8,43 @@ import connectDB from '@/lib/mongodb';
  */
 export async function GET() {
   try {
+    // Debug info for Vercel
+    const hasMongoUri = !!process.env.MONGODB_URI;
+    const isVercel = !!process.env.VERCEL;
+    const nodeEnv = process.env.NODE_ENV;
+    
+    if (!hasMongoUri) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'MONGODB_URI environment variable is missing',
+          debug: {
+            hasMongoUri: false,
+            isVercel,
+            nodeEnv,
+            message: 'Add MONGODB_URI to Vercel Environment Variables → Settings → Environment Variables',
+          },
+          suggestions: [
+            'Go to Vercel Dashboard → Your Project → Settings → Environment Variables',
+            'Add MONGODB_URI with your MongoDB Atlas connection string',
+            'Select all environments (Production, Preview, Development)',
+            'Redeploy your project',
+          ],
+        },
+        { status: 503 }
+      );
+    }
+
     await connectDB();
     return NextResponse.json({
       success: true,
       message: '✅ MongoDB connection successful!',
       timestamp: new Date().toISOString(),
+      debug: {
+        hasMongoUri: true,
+        isVercel,
+        nodeEnv,
+      },
     });
   } catch (error: any) {
     console.error('MongoDB connection test failed:', error);
