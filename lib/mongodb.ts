@@ -6,9 +6,6 @@ import mongoose from 'mongoose';
  * 
  * Uses environment variable MONGODB_URI if set, otherwise falls back to local MongoDB
  * for development purposes. The fallback allows local development without requiring
-
-interface MongooseCache {
-  conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
 }
 
