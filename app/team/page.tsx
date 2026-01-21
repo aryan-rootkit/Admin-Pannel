@@ -202,47 +202,7 @@ export default function TeamPage() {
 
   const onSubmit = async (data: TeamFormData) => {
     try {
-      // In mock mode, use localStorage directly
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        
-        const memberData: any = {
-          name: (data.name || data.teamName || '').trim(),
-          email: (data.email || '').trim().toLowerCase(),
-          role: (data.role || 'Team').trim(),
-          hourlyRate: Number(data.hourlyRate || data.totalRate || 0),
-          availability: data.availability || 'Available',
-          employmentType: data.employmentType || (contractorType === 'Team' ? 'Contractor' : 'In-House'),
-          bio: data.bio?.trim() || '',
-          assignedProjects: updatedMember?.assignedProjects || selectedMember?.assignedProjects || [],
-          _id: selectedMember?._id || undefined,
-          contractorType: contractorType === 'Team' ? 'Team' : (data.employmentType === 'Contractor' ? 'Individual' : undefined),
-          teamName: data.teamName?.trim(),
-          teamLead: data.teamLead?.trim(),
-          teamSize: data.teamSize ? Number(data.teamSize) : undefined,
-          totalRate: data.totalRate ? Number(data.totalRate) : undefined,
-          specialization: data.specialization?.trim(),
-          contractorFor: data.contractorFor?.trim(),
-          skills: data.skills || [],
-          hoursWorkedThisWeek: data.hoursWorkedThisWeek || 0,
-          hoursAvailablePerWeek: data.hoursAvailablePerWeek || 40,
-        };
-        
-        localStorageUtils.saveTeamMember(memberData);
-        await fetchTeam();
-        setIsModalOpen(false);
-        reset();
-        setSelectedMember(null);
-        toast(
-          selectedMember 
-            ? 'Team member updated successfully!' 
-            : 'Team member added successfully!',
-          'success'
-        );
-        return;
-      }
-      
-      // Fallback to API
+      // Use API route (saves to MongoDB)
       const url = selectedMember ? `/api/team/${selectedMember._id}` : '/api/team';
       const method = selectedMember ? 'PUT' : 'POST';
 
@@ -254,18 +214,6 @@ export default function TeamPage() {
         hourlyRate: Number(data.hourlyRate || data.totalRate || 0),
         availability: data.availability || 'Available',
         bio: data.bio?.trim() || '',
-        assignedProjects: selectedMember?.assignedProjects || [],
-        employmentType: data.employmentType || (contractorType === 'Team' ? 'Contractor' : 'In-House'),
-        contractorType: contractorType === 'Team' ? 'Team' : (data.employmentType === 'Contractor' ? 'Individual' : undefined),
-        teamName: data.teamName?.trim(),
-        teamLead: data.teamLead?.trim(),
-        teamSize: data.teamSize ? Number(data.teamSize) : undefined,
-          totalRate: data.totalRate ? Number(data.totalRate) : undefined,
-          specialization: data.specialization?.trim(),
-          contractorFor: data.contractorFor?.trim(),
-          skills: data.skills || [],
-        hoursWorkedThisWeek: data.hoursWorkedThisWeek || 0,
-        hoursAvailablePerWeek: data.hoursAvailablePerWeek || 40,
       };
 
       const res = await fetch(url, {
@@ -287,9 +235,8 @@ export default function TeamPage() {
           'success'
         );
       } else {
-        const errorData = await res.json();
-        const errorMessage = errorData.error || 'Failed to save team member. Please try again.';
-        toast(errorMessage, 'error');
+        const errorData = await res.json().catch(() => ({ error: 'Failed to save team member' }));
+        toast(errorData.error || 'Failed to save team member. Please try again.', 'error');
         console.error('API Error:', errorData);
       }
     } catch (error: any) {

@@ -387,33 +387,28 @@ export default function ProjectsPage() {
         return;
       }
       
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        
-        const projectData: any = {
-          name: data.name.trim(),
-          description: data.description.trim(),
-          client: data.client,
-          developers: data.developers,
-          projectType: data.projectType,
-          subType: data.subType || '',
-          startDate: data.startDate,
-          deadline: data.deadline,
-          budget: budgetInDollars, // Store in USD
-          budgetInr: budgetInRupeesNum, // Store in INR for display
-          status: data.status,
-          priority: data.priority || 'Medium',
-          tags: data.tags || [],
-          revenueLink: data.revenueLink || '',
-          progressPercent: data.progressPercent || 0,
-          assignedTeam: data.developers,
-          _id: selectedProject?._id || undefined,
-          createdAt: selectedProject?.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          progress: data.progressPercent || selectedProject?.progress || 0,
-        };
-        
-        localStorageUtils.saveProject(projectData);
+      // Use API route (saves to MongoDB)
+      const url = selectedProject ? `/api/projects/${selectedProject._id}` : '/api/projects';
+      const method = selectedProject ? 'PUT' : 'POST';
+      
+      const projectData: any = {
+        name: data.name.trim(),
+        description: data.description.trim(),
+        client: data.client,
+        assignedTeam: data.developers || [],
+        startDate: data.startDate,
+        deadline: data.deadline,
+        budget: budgetInDollars, // Store in USD
+        status: data.status || 'Pending',
+      };
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(projectData),
+      });
+
+      if (res.ok) {
         await fetchProjects();
         setIsModalOpen(false);
         reset();
@@ -426,7 +421,9 @@ export default function ProjectsPage() {
             : 'Project created successfully!',
           'success'
         );
-        return;
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to save project' }));
+        toast(errorData.error || 'Failed to save project. Please try again.', 'error');
       }
     } catch (error: any) {
       console.error('Error saving project:', error);

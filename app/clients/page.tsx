@@ -227,44 +227,25 @@ export default function ClientsPage() {
 
   const onSubmit = async (data: ClientFormData) => {
     try {
-      // In mock mode, use localStorage directly
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        
-        // Ensure company is set (use name if company is empty for backward compatibility)
-        const companyName = data.company || data.name || '';
-        
-        const clientData = {
-          ...data,
-          company: companyName,
-          status: data.status || 'Lead',
-          clientTier: data.clientTier || 'Bronze',
-          assignedDevelopers: data.assignedDevelopers || [],
-          _id: selectedClient?._id || undefined,
-        };
-        
-        localStorageUtils.saveClient(clientData);
-        await fetchClients();
-        setIsModalOpen(false);
-        reset();
-        setSelectedClient(null);
-        toast(
-          selectedClient 
-            ? 'Client updated successfully!' 
-            : 'Client added successfully!',
-          'success'
-        );
-        return;
-      }
-      
-      // Fallback to API
+      // Use API route (saves to MongoDB)
       const url = selectedClient ? `/api/clients/${selectedClient._id}` : '/api/clients';
       const method = selectedClient ? 'PUT' : 'POST';
+
+      // Ensure company is set (use name if company is empty for backward compatibility)
+      const companyName = data.company || data.name || '';
+      
+      const clientData = {
+        ...data,
+        company: companyName,
+        status: data.status || 'Lead',
+        clientTier: data.clientTier || 'Bronze',
+        assignedDevelopers: data.assignedDevelopers || [],
+      };
 
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(clientData),
       });
 
       if (res.ok) {
@@ -281,7 +262,7 @@ export default function ClientsPage() {
         reset();
         setSelectedClient(null);
       } else {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({ error: 'Failed to save client' }));
         toast(errorData.error || 'Failed to save client. Please try again.', 'error');
       }
     } catch (error) {
