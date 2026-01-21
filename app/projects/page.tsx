@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import Image from 'next/image';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import { Plus, Search, Filter, Edit, Trash2, Bell, Users, Calendar, DollarSign, ChevronUp, ChevronDown, X, FolderKanban, Copy, Archive, AlertTriangle, Link as LinkIcon, Tag, Info, Check } from 'lucide-react';
@@ -148,11 +149,11 @@ export default function ProjectsPage() {
     fetchProjects();
     fetchTeamMembers();
     fetchClients();
-  }, []);
+  }, [fetchProjects, fetchTeamMembers, fetchClients]);
 
   useEffect(() => {
     applyFiltersAndSort();
-  }, [projects, searchQuery, statusFilter, typeFilter, sortField, sortDirection]);
+  }, [applyFiltersAndSort]);
 
   // Close popup on outside click
   useEffect(() => {
@@ -183,7 +184,7 @@ export default function ProjectsPage() {
     }
   }, [showClientDropdown]);
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
@@ -210,9 +211,9 @@ export default function ProjectsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchTeamMembers = async () => {
+  const fetchTeamMembers = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
@@ -227,9 +228,9 @@ export default function ProjectsPage() {
     } catch (error) {
       console.error('Error fetching team members:', error);
     }
-  };
+  }, []);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
@@ -244,9 +245,9 @@ export default function ProjectsPage() {
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
-  };
+  }, [setClients]);
 
-  const applyFiltersAndSort = () => {
+  const applyFiltersAndSort = useCallback(() => {
     let filtered = [...projects];
 
     // Search filter
@@ -304,7 +305,7 @@ export default function ProjectsPage() {
 
     setFilteredProjects(filtered);
     setCurrentPage(1);
-  };
+  }, [projects, searchQuery, statusFilter, typeFilter, sortField, sortDirection]);
 
   const getDeadlineStatus = (deadline: string, status: string) => {
     const today = new Date();
@@ -547,10 +548,11 @@ export default function ProjectsPage() {
     return formatDate(date);
   };
 
-  const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+  const SortableHeader = ({ field, children, className = '', style }: { field: SortField; children: React.ReactNode; className?: string; style?: React.CSSProperties }) => (
     <th
-      className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+      className={`px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none ${className}`}
       onClick={() => handleSort(field)}
+      style={style}
     >
       <div className="flex items-center gap-2">
         {children}
@@ -575,14 +577,16 @@ export default function ProjectsPage() {
     <Layout>
       <div className="space-y-6">
         {/* Header Card - Matching Revenue Page Design */}
-        <div className="card-premium py-4 px-5">
+        <div className="bg-white rounded-xl py-4 px-5 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <FolderKanban className="w-5 h-5 text-primary-500" />
-                <h1 className="text-xl font-bold text-text-primary font-display leading-tight">Projects</h1>
+                <div className="p-1.5 bg-indigo-100 rounded-lg">
+                  <FolderKanban className="w-5 h-5 text-indigo-600" />
+                </div>
+                <h1 className="text-xl font-bold text-slate-900 font-display leading-tight">Projects</h1>
               </div>
-              <p className="text-xs text-text-secondary leading-tight">Manage all your projects with full control</p>
+              <p className="text-xs text-slate-500 leading-tight">Manage all your projects with full control</p>
             </div>
             <button
               onClick={() => {
@@ -599,7 +603,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Search and Filters */}
-        <div className="card-premium p-4">
+        <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary w-5 h-5" />
@@ -642,12 +646,12 @@ export default function ProjectsPage() {
         </div>
 
         {/* Projects Table */}
-        <div className="card-premium overflow-hidden">
+        <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full" style={{ tableLayout: 'fixed' }}>
               <thead className="bg-background border-b border-border sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider w-12">
+                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '3%' }}>
                     <input
                       type="checkbox"
                       checked={selectedProjects.size === paginatedProjects.length && paginatedProjects.length > 0}
@@ -661,17 +665,17 @@ export default function ProjectsPage() {
                       className="rounded border-border"
                     />
                   </th>
-                  <SortableHeader field="name">Project Name</SortableHeader>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Client</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Developers</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Type</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Start</th>
-                  <SortableHeader field="deadline">Deadline</SortableHeader>
-                  <SortableHeader field="status">Status</SortableHeader>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Progress</th>
-                  <SortableHeader field="budget">Budget</SortableHeader>
-                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-text-primary uppercase tracking-wider w-12">Info</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                  <SortableHeader field="name" style={{ width: '15%' }}>Project</SortableHeader>
+                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '12%' }}>Client</th>
+                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '10%' }}>Devs</th>
+                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '10%' }}>Type</th>
+                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '8%' }}>Start</th>
+                  <SortableHeader field="deadline" style={{ width: '8%' }}>Deadline</SortableHeader>
+                  <SortableHeader field="status" style={{ width: '10%' }}>Status</SortableHeader>
+                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '8%' }}>Progress</th>
+                  <SortableHeader field="budget" style={{ width: '10%' }}>Budget</SortableHeader>
+                  <th className="px-2 py-2.5 text-center text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '3%' }}>Info</th>
+                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '6%' }}>Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-border">
@@ -683,7 +687,7 @@ export default function ProjectsPage() {
                     
                     return (
                       <tr key={project._id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-2 py-2">
                           <input
                             type="checkbox"
                             checked={selectedProjects.has(project._id)}
@@ -699,45 +703,52 @@ export default function ProjectsPage() {
                             className="rounded border-border"
                           />
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-text-primary">{project.name}</div>
+                        <td className="px-2 py-2">
+                          <div className="text-sm font-medium text-text-primary truncate" title={project.name}>{project.name}</div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-2 py-2">
                           <a 
                             href={`/clients?search=${encodeURIComponent(project.client)}`}
-                            className="text-sm text-primary-600 hover:text-primary-800 hover:underline"
+                            className="text-sm text-primary-600 hover:text-primary-800 hover:underline truncate block"
+                            title={project.client}
                           >
                             {project.client}
                           </a>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-0.5">
                             {developerNames.length > 0 ? (
-                              <div className="flex items-center gap-1" title={developerNames.join(', ')}>
-                                {project.developers.slice(0, 5).map((devId) => {
+                              <div className="flex items-center gap-0.5" title={developerNames.join(', ')}>
+                                {project.developers.slice(0, 3).map((devId) => {
                                   const dev = team.find(t => t._id === devId);
                                   if (!dev) return null;
                                   const avatar = (dev as any).avatar;
                                   return (
                                     <div
                                       key={devId}
-                                      className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold border-2 border-gray-300 shadow-md hover:scale-110 transition-transform cursor-pointer"
+                                      className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold border border-gray-300 shadow-sm hover:scale-110 transition-transform cursor-pointer"
                                       title={`${dev.name} - ${dev.role}`}
                                       style={{
                                         backgroundColor: avatar ? 'transparent' : '#2563eb'
                                       }}
                                     >
                                       {avatar ? (
-                                        <img src={avatar} alt={dev.name} className="w-full h-full rounded-full object-cover border-2 border-gray-300" />
+                                        <Image
+                                          src={avatar}
+                                          alt={dev.name}
+                                          width={24}
+                                          height={24}
+                                          className="w-full h-full rounded-full object-cover border border-gray-300"
+                                        />
                                       ) : (
                                         dev.name.charAt(0).toUpperCase()
                                       )}
                                     </div>
                                   );
                                 })}
-                                {developerNames.length > 5 && (
-                                  <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-medium border-2 border-white shadow-sm">
-                                    +{developerNames.length - 5}
+                                {developerNames.length > 3 && (
+                                  <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-medium border border-white shadow-sm">
+                                    +{developerNames.length - 3}
                                   </div>
                                 )}
                               </div>
@@ -748,36 +759,36 @@ export default function ProjectsPage() {
                                   setSelectedTeamMembers([]);
                                   setIsAssignModalOpen(true);
                                 }}
-                                className="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center text-xs hover:bg-gray-200 transition-colors"
+                                className="w-6 h-6 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center text-xs hover:bg-gray-200 transition-colors"
                                 title="Assign Developers"
                               >
-                                <Users className="w-4 h-4" />
+                                <Users className="w-3 h-3" />
                               </button>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-text-secondary">
+                        <td className="px-2 py-2">
+                          <div className="text-xs text-text-secondary truncate" title={`${project.projectType}${project.subType ? ` - ${project.subType}` : ''}`}>
                             {project.projectType}
-                            {project.subType && <span className="text-xs text-text-secondary"> ({project.subType})</span>}
+                            {project.subType && <span className="text-xs"> ({project.subType})</span>}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-text-secondary">
+                        <td className="px-2 py-2">
+                          <div className="text-xs text-text-secondary">
                             {formatDate(project.startDate)}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className={`text-sm px-3 py-1 rounded-md border ${deadlineStatus.bg} ${deadlineStatus.color}`}>
+                        <td className="px-2 py-2">
+                          <div className={`text-xs px-2 py-0.5 rounded-md border ${deadlineStatus.bg} ${deadlineStatus.color}`}>
                             {formatDate(project.deadline)}
                             {deadlineStatus.showWarning && project.status !== 'Completed' && (
-                              <span className="ml-2 text-xs">{deadlineStatus.type === 'overdue' ? '🚨' : '⚠️'}</span>
+                              <span className="ml-1 text-xs">{deadlineStatus.type === 'overdue' ? '🚨' : '⚠️'}</span>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-2 py-2">
                           <span
-                            className={`px-3 py-1 rounded-md text-xs font-medium ${
+                            className={`px-2 py-0.5 rounded-md text-xs font-medium ${
                               project.status === 'Completed'
                                 ? 'bg-green-100 text-green-800'
                                 : project.status === 'In Progress'
@@ -794,9 +805,9 @@ export default function ProjectsPage() {
                             {project.status === 'Completed' ? '🟢' : project.status === 'In Progress' ? '🔵' : project.status === 'Review' ? '🟠' : project.status === 'Delayed' ? '🟣' : project.status === 'Overdue' ? '🔴' : '🟡'} {project.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <div className="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-1">
+                            <div className="w-10 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                               <div
                                 className={`h-full transition-all ${
                                   progressPercent >= 100 ? 'bg-green-500' :
@@ -809,20 +820,18 @@ export default function ProjectsPage() {
                               />
                             </div>
                             <span className="text-xs font-medium text-text-primary">
-                              {progressPercent >= 100 ? '✅' : progressPercent >= 75 ? '⏳' : progressPercent >= 50 ? '🚧' : '📋'} {progressPercent}%
+                              {progressPercent}%
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-2 py-2">
                           <a
                             href={`/revenue?search=${encodeURIComponent(project.name)}`}
-                            className="text-sm font-semibold text-primary-600 hover:text-primary-800 hover:underline"
+                            className="text-xs font-semibold text-primary-600 hover:text-primary-800 hover:underline block truncate"
+                            title={formatINR((project as any).budgetInr || (project.budget ? usdToInr(project.budget) : 0))}
                           >
                             {formatINR((project as any).budgetInr || (project.budget ? usdToInr(project.budget) : 0))}
                           </a>
-                          <div className="text-xs text-text-secondary">
-                            {formatUSD(project.budget || 0)}
-                          </div>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <button
@@ -841,27 +850,27 @@ export default function ProjectsPage() {
                             <Info className="w-4 h-4" />
                           </button>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleEdit(project)}
-                              className="p-1.5 text-primary-500 hover:bg-primary-50 rounded transition-colors"
+                              className="p-1 text-primary-500 hover:bg-primary-50 rounded transition-colors"
                               title="Edit"
                             >
-                              <Edit className="w-4 h-4" />
+                              <Edit className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleDelete(project)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
                               title="Delete"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                              className="p-1 text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
                               title="Notify"
                             >
-                              <Bell className="w-4 h-4" />
+                              <Bell className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
@@ -871,7 +880,7 @@ export default function ProjectsPage() {
                 ) : (
                   <tr>
                     <td colSpan={10} className="px-6 py-8 text-center text-text-secondary">
-                      No projects found. Click "New Project" to create one.
+                      No projects found. Click &quot;New Project&quot; to create one.
                     </td>
                   </tr>
                 )}

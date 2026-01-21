@@ -184,14 +184,16 @@ export default function CalendarPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
         {/* Header Card - Matching Revenue Page Design */}
-        <div className="card-premium py-4 px-5">
+        <div className="bg-white rounded-xl py-4 px-5 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <CalendarIcon className="w-5 h-5 text-primary-500" />
-                <h1 className="text-xl font-bold text-text-primary font-display leading-tight">Calendar</h1>
+                <div className="p-1.5 bg-blue-100 rounded-lg">
+                  <CalendarIcon className="w-5 h-5 text-blue-600" />
+                </div>
+                <h1 className="text-xl font-bold text-slate-900 font-display leading-tight">Calendar</h1>
               </div>
-              <p className="text-xs text-text-secondary leading-tight">Manage events, tasks, and deadlines</p>
+              <p className="text-xs text-slate-500 leading-tight">Manage events, tasks, and deadlines</p>
             </div>
             <button
               onClick={() => {

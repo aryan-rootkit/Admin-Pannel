@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { Search, ChevronDown, X } from 'lucide-react';
 
 interface Option {
@@ -86,7 +87,13 @@ export default function UnifiedSearchSelect({
                 className="inline-flex items-center gap-1 px-2 py-1 bg-primary-100 text-primary-700 rounded-md text-xs font-medium"
               >
                 {opt.avatar ? (
-                  <img src={opt.avatar} alt={opt.name} className="w-4 h-4 rounded-full" />
+                  <Image
+                    src={opt.avatar}
+                    alt={opt.name}
+                    width={16}
+                    height={16}
+                    className="w-4 h-4 rounded-full"
+                  />
                 ) : (
                   <span className="w-4 h-4 rounded-full bg-primary-500 text-white text-[10px] flex items-center justify-center">
                     {opt.name.charAt(0).toUpperCase()}
@@ -147,9 +154,11 @@ export default function UnifiedSearchSelect({
                     }`}
                   >
                     {option.avatar ? (
-                      <img
+                      <Image
                         src={option.avatar}
                         alt={option.name}
+                        width={32}
+                        height={32}
                         className="w-8 h-8 rounded-full flex-shrink-0"
                       />
                     ) : (

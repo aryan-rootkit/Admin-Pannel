@@ -650,14 +650,16 @@ export default function TeamPage() {
     <Layout>
       <div className="space-y-6">
         {/* Header Card - Matching Revenue Page Design */}
-        <div className="card-premium py-4 px-5">
+        <div className="bg-white rounded-xl py-4 px-5 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <Users className="w-5 h-5 text-primary-500" />
-                <h1 className="text-xl font-bold text-text-primary font-display leading-tight">People Management</h1>
+                <div className="p-1.5 bg-purple-100 rounded-lg">
+                  <Users className="w-5 h-5 text-purple-600" />
+                </div>
+                <h1 className="text-xl font-bold text-slate-900 font-display leading-tight">People Management</h1>
               </div>
-              <p className="text-xs text-text-secondary leading-tight">Manage your team members and contractors</p>
+              <p className="text-xs text-slate-500 leading-tight">Manage your team members and contractors</p>
             </div>
             <button
               onClick={() => {
@@ -738,7 +740,7 @@ export default function TeamPage() {
           {filteredInHouseMembers.slice(0, 6).map(member => {
             const capacity = calculateCapacity(member);
             return (
-              <div key={member._id} className="card-premium p-4">
+              <div key={member._id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold">
@@ -785,7 +787,7 @@ export default function TeamPage() {
 
         {/* Project Assignment Board - Tier 1 Feature */}
         {showProjectBoard && (
-          <div className="card-premium p-6">
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
             <h2 className="text-xl font-bold text-text-primary mb-4">Project Assignment Board</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {projects.slice(0, 6).map(project => (
@@ -901,7 +903,7 @@ export default function TeamPage() {
         {showTopPerformers && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Revenue Leaderboard */}
-          <div className="card-premium p-6">
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
             <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-orange-500" />
               🏆 Top Performers (This Month)
@@ -988,7 +990,7 @@ export default function TeamPage() {
         {/* Filters - Professional Card Layout */}
         <div className="flex items-center gap-4 flex-wrap">
           {/* Search Card */}
-          <div className="card-premium p-3 flex-1 min-w-[200px]">
+          <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex-1 min-w-[200px]">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4" />
               <input
@@ -1002,7 +1004,7 @@ export default function TeamPage() {
           </div>
 
           {/* Role Filter Card */}
-          <div className="card-premium p-3">
+          <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
@@ -1016,7 +1018,7 @@ export default function TeamPage() {
           </div>
 
           {/* Skills Filter Card - Tier 1 Feature */}
-          <div className="card-premium p-3">
+          <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
             <select
               value={skillsFilter}
               onChange={(e) => setSkillsFilter(e.target.value)}
@@ -1030,7 +1032,7 @@ export default function TeamPage() {
           </div>
 
           {/* Availability Filter Card */}
-          <div className="card-premium p-3">
+          <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
             <select
               value={availabilityFilter}
               onChange={(e) => setAvailabilityFilter(e.target.value)}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -39,9 +39,9 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+  }, [fetchSettings]);
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch('/api/settings');
       const data = await res.json();
@@ -60,7 +60,7 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [reset]);
 
   const onSubmit = async (data: SettingsFormData) => {
     setSaving(true);
@@ -106,9 +106,14 @@ export default function SettingsPage() {
   return (
     <Layout>
       <div className="space-y-6 max-w-4xl">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Settings</h1>
-          <p className="text-gray-600 text-lg">Configure your agency settings and preferences</p>
+        <div className="bg-white rounded-xl py-4 px-5 border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 mb-0.5">
+            <div className="p-1.5 bg-slate-100 rounded-lg">
+              <Save className="w-5 h-5 text-slate-600" />
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 font-display leading-tight">Settings</h1>
+          </div>
+          <p className="text-xs text-slate-500 leading-tight">Configure your agency settings and preferences</p>
         </div>
 
         {success && (
@@ -119,7 +124,7 @@ export default function SettingsPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Agency Details */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-6">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Agency Details</h2>
             <div className="space-y-4">
               <div>
@@ -145,7 +150,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Tax & Invoice Settings */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-6">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Tax & Invoice Settings</h2>
             <div className="space-y-4">
               <div>

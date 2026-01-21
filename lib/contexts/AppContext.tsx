@@ -98,6 +98,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchClients = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        const { localStorageUtils } = await import('@/lib/localStorage');
+        const data = localStorageUtils.getClients();
+        setClients(Array.isArray(data) ? data : []);
+        return;
+      }
+
       const res = await fetch('/api/clients');
       const data = await res.json();
       setClients(Array.isArray(data) ? data : []);
@@ -108,6 +115,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchRevenue = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        const { localStorageUtils } = await import('@/lib/localStorage');
+        const data = localStorageUtils.getRevenue();
+        setRevenue(Array.isArray(data) ? data : []);
+        return;
+      }
+
       const res = await fetch('/api/revenue');
       const data = await res.json();
       setRevenue(Array.isArray(data) ? data : []);

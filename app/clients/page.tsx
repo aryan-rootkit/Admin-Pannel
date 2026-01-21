@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
@@ -80,13 +80,7 @@ export default function ClientsPage() {
 
   const selectedDevelopers = watch('assignedDevelopers') || [];
 
-  useEffect(() => {
-    fetchClients();
-    fetchRevenue();
-    fetchProjects();
-  }, []);
-
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
@@ -102,9 +96,9 @@ export default function ClientsPage() {
       console.error('Error fetching projects:', error);
       setProjects([]);
     }
-  };
+  }, []);
 
-  const fetchRevenue = async () => {
+  const fetchRevenue = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
@@ -120,7 +114,7 @@ export default function ClientsPage() {
       console.error('Error fetching revenue:', error);
       setRevenue([]);
     }
-  };
+  }, []);
 
   // Calculate pending amount for a client
   // Formula: Total Contract Value - Advance Amount - (Past Payments Only)
@@ -151,7 +145,7 @@ export default function ClientsPage() {
     }, 0);
   };
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       // In mock mode, use localStorage directly
       if (typeof window !== 'undefined') {
@@ -223,7 +217,13 @@ export default function ClientsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setClients]);
+
+  useEffect(() => {
+    fetchClients();
+    fetchRevenue();
+    fetchProjects();
+  }, [fetchClients, fetchRevenue, fetchProjects]);
 
   const onSubmit = async (data: ClientFormData) => {
     try {
@@ -670,14 +670,16 @@ export default function ClientsPage() {
     <Layout>
       <div className="space-y-6">
         {/* Header Card - Matching Revenue Page Design */}
-        <div className="card-premium py-4 px-5">
+        <div className="bg-white rounded-xl py-4 px-5 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <UserCircle className="w-5 h-5 text-primary-500" />
-                <h1 className="text-xl font-bold text-text-primary font-display leading-tight">Clients</h1>
+                <div className="p-1.5 bg-teal-100 rounded-lg">
+                  <UserCircle className="w-5 h-5 text-teal-600" />
+                </div>
+                <h1 className="text-xl font-bold text-slate-900 font-display leading-tight">Clients</h1>
               </div>
-              <p className="text-xs text-text-secondary leading-tight">Manage your clients and customers</p>
+              <p className="text-xs text-slate-500 leading-tight">Manage your clients and customers</p>
             </div>
             <button
               onClick={() => {
@@ -700,62 +702,62 @@ export default function ClientsPage() {
         >
           {/* Card 1 - Top Client */}
           <div
-            className="card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
+            className="bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] active:translate-y-0 p-4"
+            style={{ display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-emerald-600 rounded-xl flex-shrink-0 shadow-md">
-                <TrendingUp className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-emerald-100 rounded-xl flex-shrink-0">
+                <TrendingUp className="w-6 h-6 text-emerald-600" />
               </div>
-              <p className="text-sm font-semibold text-text-secondary">Top Client</p>
+              <p className="text-sm font-semibold text-slate-500">Top Client</p>
             </div>
-            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{kpiMetrics.topClient.name}</p>
-            <p className="text-xs text-text-secondary truncate">{formatINR(kpiMetrics.topClient.revenue)}</p>
+            <p className="text-2xl font-bold text-slate-900 mb-3 leading-tight">{kpiMetrics.topClient.name}</p>
+            <p className="text-xs text-slate-500 truncate">{formatINR(kpiMetrics.topClient.revenue)}</p>
           </div>
 
           {/* Card 2 - Overdue Amount */}
           <div
-            className="card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
+            className="bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] active:translate-y-0 p-4"
+            style={{ display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-red-500 rounded-xl flex-shrink-0 shadow-md">
-                <AlertCircle className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-red-100 rounded-xl flex-shrink-0">
+                <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
-              <p className="text-sm font-semibold text-text-secondary">Overdue Amount</p>
+              <p className="text-sm font-semibold text-slate-500">Overdue Amount</p>
             </div>
-            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(kpiMetrics.overdueAmount)}</p>
-            <p className="text-xs text-text-secondary truncate">{kpiMetrics.overdueCount} invoices</p>
+            <p className="text-2xl font-bold text-slate-900 mb-3 leading-tight">{formatINR(kpiMetrics.overdueAmount)}</p>
+            <p className="text-xs text-slate-500 truncate">{kpiMetrics.overdueCount} invoices</p>
           </div>
 
           {/* Card 3 - New Clients */}
           <div
-            className="card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
+            className="bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] active:translate-y-0 p-4"
+            style={{ display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-green-500 rounded-xl flex-shrink-0 shadow-md">
-                <UserPlus className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-green-100 rounded-xl flex-shrink-0">
+                <UserPlus className="w-6 h-6 text-green-600" />
               </div>
-              <p className="text-sm font-semibold text-text-secondary">New Clients</p>
+              <p className="text-sm font-semibold text-slate-500">New Clients</p>
             </div>
-            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">+{kpiMetrics.newClients}</p>
-            <p className="text-xs text-text-secondary truncate">This month</p>
+            <p className="text-2xl font-bold text-slate-900 mb-3 leading-tight">+{kpiMetrics.newClients}</p>
+            <p className="text-xs text-slate-500 truncate">This month</p>
           </div>
 
           {/* Card 4 - Retention %} */}
           <div
-            className="card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
+            className="bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] active:translate-y-0 p-4"
+            style={{ display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-purple-500 rounded-xl flex-shrink-0 shadow-md">
-                <Users className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-purple-100 rounded-xl flex-shrink-0">
+                <Users className="w-6 h-6 text-purple-600" />
               </div>
-              <p className="text-sm font-semibold text-text-secondary">Retention %</p>
+              <p className="text-sm font-semibold text-slate-500">Retention %</p>
             </div>
-            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{kpiMetrics.retentionRate}%</p>
-            <p className="text-xs text-text-secondary truncate">Active clients</p>
+            <p className="text-2xl font-bold text-slate-900 mb-3 leading-tight">{kpiMetrics.retentionRate}%</p>
+            <p className="text-xs text-slate-500 truncate">Active clients</p>
           </div>
         </div>
 
@@ -819,7 +821,7 @@ export default function ClientsPage() {
         </div>
 
         {/* DataTable with Custom Search Bar (includes Select All) */}
-        <div className="card-premium overflow-hidden">
+        <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm">
           {/* Custom Search Bar with Select All */}
           <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex items-center gap-3">
             {selectedClients.size > 0 && (
@@ -883,18 +885,18 @@ export default function ClientsPage() {
 
           {/* Table - Matching Revenue Page Design */}
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full" style={{ tableLayout: 'fixed' }}>
               <thead className="bg-background border-b border-border">
                 <tr>
                   {columns.map((col) => (
                     <th
                       key={String(col.key)}
-                      className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider"
+                      className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider"
                     >
                       {col.header}
                     </th>
                   ))}
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider w-20">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-border">
@@ -904,7 +906,7 @@ export default function ClientsPage() {
                       <div className="flex flex-col items-center gap-2">
                         <UserCircle className="w-12 h-12 text-text-secondary opacity-50" />
                         <p className="text-sm font-medium">No clients found</p>
-                        <p className="text-xs">Click "New Client" to create your first client</p>
+                        <p className="text-xs">Click &quot;New Client&quot; to create your first client</p>
                       </div>
                     </td>
                   </tr>
@@ -915,25 +917,27 @@ export default function ClientsPage() {
                       className="hover:bg-slate-50 transition-colors"
                     >
                       {columns.map((col) => (
-                        <td key={String(col.key)} className="px-4 py-3 whitespace-nowrap text-sm text-text-primary">
-                          {col.render ? col.render(row) : String(row[col.key as keyof typeof row] || '')}
+                        <td key={String(col.key)} className="px-2 py-2 text-sm text-text-primary">
+                          <div className="truncate" title={col.render ? String(col.render(row)) : String(row[col.key as keyof typeof row] || '')}>
+                            {col.render ? col.render(row) : String(row[col.key as keyof typeof row] || '')}
+                          </div>
                         </td>
                       ))}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
+                      <td className="px-2 py-2">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => handleEdit(row)}
-                            className="p-1.5 text-primary-500 hover:bg-primary-50 rounded transition-colors"
+                            className="p-1 text-primary-500 hover:bg-primary-50 rounded transition-colors"
                             title="Edit"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDelete(row)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="Delete"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Layout from '@/components/Layout';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -98,7 +99,13 @@ export default function ProfilePage() {
               <div className="relative">
                 <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-4xl font-semibold shadow-lg">
                   {profileImage ? (
-                    <img src={profileImage} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                    <Image
+                      src={profileImage}
+                      alt="Profile"
+                      width={128}
+                      height={128}
+                      className="w-full h-full rounded-full object-cover"
+                    />
                   ) : (
                     session?.user?.name?.charAt(0).toUpperCase() || 'A'
                   )}

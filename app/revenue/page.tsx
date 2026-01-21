@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import { Plus, Download, ChevronDown, ChevronUp, Edit, Trash2, Search, TrendingUp, TrendingDown, DollarSign, FileText, Mail, Send, Calculator, Users, Target, Wallet, Receipt, ArrowUpRight, ArrowDownRight } from 'lucide-react';
@@ -23,8 +23,10 @@ const revenueSchema = z.object({
   project: z.string().min(1, 'Project is required'),
   client: z.string().min(1, 'Client is required'),
   totalContractValue: z.number().min(0, 'Total contract value must be positive'),
+  paymentType: z.enum(['advance', 'phase']).optional(),
   advanceAmount: z.number().min(0, 'Advance amount must be positive').optional(),
-  advanceDate: z.string().optional(),
+  paymentDate: z.string().optional(), // Changed from advanceDate
+  phaseName: z.string().optional(), // For phase-wise payments (Phase 1, Phase 2, etc.)
   paymentsReceived: z.array(z.object({
     amount: z.number().min(0, 'Payment amount must be positive'),
     date: z.string().min(1, 'Payment date is required'),
@@ -58,8 +60,11 @@ interface Revenue {
   project: string;
   client: string;
   totalContractValue: number; // In INR
+  paymentType?: 'advance' | 'phase'; // Payment type
   advanceAmount?: number; // In INR
-  advanceDate?: string;
+  advanceDate?: string; // Keep for backward compatibility
+  paymentDate?: string; // New field - Date of Payment
+  phaseName?: string; // For phase-wise payments
   paymentsReceived?: Array<{ amount: number; date: string }>; // In INR
   balanceDue: number; // In INR (auto-calculated)
   paymentStatus: 'Paid' | 'Partial' | 'Pending' | 'Overdue';
@@ -141,9 +146,11 @@ export default function RevenuePage() {
   const [revenueSearchQuery, setRevenueSearchQuery] = useState('');
   const [revenueStatusFilter, setRevenueStatusFilter] = useState<string>('all');
   const [revenueClientFilter, setRevenueClientFilter] = useState<string>('all');
-  const [revenueSortBy, setRevenueSortBy] = useState<'amount' | 'date'>('date');
+  const [revenueSortBy, setRevenueSortBy] = useState<'amount' | 'date' | 'entries'>('entries');
   const [revenueSortDirection, setRevenueSortDirection] = useState<'asc' | 'desc'>('desc');
   const [revenuePaymentFilter, setRevenuePaymentFilter] = useState<'all' | 'today' | 'future' | 'overdue' | 'paid'>('all');
+  const [paymentType, setPaymentType] = useState<'advance' | 'phase'>('advance');
+  const [hasExistingAdvance, setHasExistingAdvance] = useState(false);
 
   const {
     register,
@@ -184,9 +191,42 @@ export default function RevenuePage() {
   });
 
   const selectedProject = watch('project');
+  const selectedClient = watch('client');
   const totalContractValue = watch('totalContractValue') || 0;
   const advanceAmount = watch('advanceAmount') || 0;
   const paymentsReceived = watch('paymentsReceived') || [];
+  const watchedPaymentType = watch('paymentType');
+
+  // Check if client has existing advance payment
+  useEffect(() => {
+    if (selectedClient && !selectedRevenue) {
+      const existingRevenue = revenue.filter(r => r.client === selectedClient);
+      const hasAdvance = existingRevenue.some(r => (r.advanceAmount || 0) > 0 || (r.paymentDate && r.advanceAmount));
+      setHasExistingAdvance(hasAdvance);
+      if (hasAdvance && !watchedPaymentType) {
+        // Auto-set to phase if client already has advance
+        setValue('paymentType', 'phase');
+        setPaymentType('phase');
+      }
+    } else if (selectedRevenue) {
+      // Editing mode - check if this entry has advance
+      const hasAdvance = (selectedRevenue.advanceAmount || 0) > 0 || selectedRevenue.advanceDate;
+      setHasExistingAdvance(hasAdvance);
+      if (selectedRevenue.paymentType) {
+        setPaymentType(selectedRevenue.paymentType);
+      } else if (hasAdvance) {
+        setPaymentType('phase');
+      } else {
+        setPaymentType('advance');
+      }
+    } else {
+      setHasExistingAdvance(false);
+      if (!watchedPaymentType) {
+        setValue('paymentType', 'advance');
+        setPaymentType('advance');
+      }
+    }
+  }, [selectedClient, selectedRevenue, revenue, watchedPaymentType, setValue]);
 
   // Auto-calculate balance
   const balanceDue = totalContractValue - advanceAmount - (paymentsReceived.reduce((sum, p) => sum + (p.amount || 0), 0));
@@ -239,12 +279,12 @@ export default function RevenuePage() {
     fetchClients();
     fetchExpenses();
     fetchTeamMembers();
-  }, []);
+  }, [fetchRevenue, fetchProjects, fetchClients, fetchExpenses, fetchTeamMembers]);
 
   useEffect(() => {
     calculateStats();
     calculateDeveloperPayouts();
-  }, [revenue, expenses, teamMembers, projects]);
+  }, [calculateDeveloperPayouts, calculateStats]);
 
   // Auto-fill client when project is selected
   useEffect(() => {
@@ -256,7 +296,7 @@ export default function RevenuePage() {
     }
   }, [selectedProject, projects, setValue]);
 
-  const fetchRevenue = async () => {
+  const fetchRevenue = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
@@ -285,9 +325,9 @@ export default function RevenuePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
@@ -297,9 +337,9 @@ export default function RevenuePage() {
     } catch (error) {
       console.error('Error fetching projects:', error);
     }
-  };
+  }, []);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
@@ -309,9 +349,9 @@ export default function RevenuePage() {
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
-  };
+  }, []);
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const data = localStorage.getItem('rootkit_expenses');
@@ -326,9 +366,9 @@ export default function RevenuePage() {
       console.error('Error fetching expenses:', error);
       setExpenses([]);
     }
-  };
+  }, []);
 
-  const fetchTeamMembers = async () => {
+  const fetchTeamMembers = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
@@ -339,9 +379,9 @@ export default function RevenuePage() {
       console.error('Error fetching team members:', error);
       setTeamMembers([]);
     }
-  };
+  }, []);
 
-  const calculateStats = () => {
+  const calculateStats = useCallback(() => {
     // Use all revenue and expenses (no date filtering)
     const revenueArray = Array.isArray(revenue) ? revenue : [];
     const expensesArray = Array.isArray(expenses) ? expenses : [];
@@ -562,19 +602,20 @@ export default function RevenuePage() {
       futurePayments, // New metric
       receivedAmount, // New metric
     });
-  };
+  }, [expenses, revenue]);
 
   const onSubmit = async (data: RevenueFormData) => {
     try {
       // Calculate balance and status
       const totalPayments = (data.paymentsReceived || []).reduce((sum, p) => sum + p.amount, 0);
-      const calculatedBalance = data.totalContractValue - (data.advanceAmount || 0) - totalPayments;
+      const paymentAmount = data.advanceAmount || 0;
+      const calculatedBalance = data.totalContractValue - paymentAmount - totalPayments;
       
       // Determine payment status
       let status: 'Paid' | 'Partial' | 'Pending' | 'Overdue' = 'Pending';
       if (calculatedBalance <= 0) {
         status = 'Paid';
-      } else if ((data.advanceAmount || 0) > 0 || (data.paymentsReceived || []).length > 0) {
+      } else if (paymentAmount > 0 || (data.paymentsReceived || []).length > 0) {
         status = 'Partial';
       } else {
         status = 'Pending';
@@ -591,12 +632,18 @@ export default function RevenuePage() {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
         
+        // Use paymentDate if provided, otherwise fallback to advanceDate for backward compatibility
+        const paymentDateValue = data.paymentDate || data.advanceDate || '';
+        
         const revenueData: any = {
           project: data.project,
           client: data.client,
           totalContractValue: Number(data.totalContractValue),
-          advanceAmount: data.advanceAmount ? Number(data.advanceAmount) : 0,
-          advanceDate: data.advanceDate || '',
+          paymentType: data.paymentType || 'advance',
+          advanceAmount: paymentAmount,
+          paymentDate: paymentDateValue, // New field
+          advanceDate: paymentDateValue, // Keep for backward compatibility
+          phaseName: data.phaseName || undefined,
           paymentsReceived: data.paymentsReceived || [],
           balanceDue: calculatedBalance,
           paymentStatus: status,
@@ -628,6 +675,8 @@ export default function RevenuePage() {
         setIsModalOpen(false);
         reset();
         setSelectedRevenue(null);
+        setPaymentType('advance');
+        setHasExistingAdvance(false);
         toast(
           selectedRevenue 
             ? 'Revenue record updated successfully!' 
@@ -649,13 +698,24 @@ export default function RevenuePage() {
     setValue('project', item.project);
     setValue('client', item.client);
     setValue('totalContractValue', item.totalContractValue);
+    setValue('paymentType', item.paymentType || (item.advanceAmount ? 'advance' : 'phase'));
     setValue('advanceAmount', item.advanceAmount || 0);
-    setValue('advanceDate', item.advanceDate || '');
+    // Use paymentDate if available, otherwise fallback to advanceDate
+    setValue('paymentDate', item.paymentDate || item.advanceDate || '');
+    setValue('advanceDate', item.paymentDate || item.advanceDate || ''); // Keep for backward compatibility
+    setValue('phaseName', item.phaseName || '');
     setValue('paymentsReceived', item.paymentsReceived || []);
     setValue('expectedPaymentDate', item.expectedPaymentDate);
     setValue('notes', item.notes || '');
-    setValue('notes', item.notes || '');
-    setIsModalOpen(true);
+    
+    // Set payment type state
+    if (item.paymentType) {
+      setPaymentType(item.paymentType);
+    } else if (item.advanceAmount) {
+      setPaymentType('advance');
+    } else {
+      setPaymentType('phase');
+    }
   };
 
   const handleDelete = async (item: Revenue) => {
@@ -860,7 +920,7 @@ export default function RevenuePage() {
   };
 
   // Calculate Developer Payouts
-  const calculateDeveloperPayouts = () => {
+  const calculateDeveloperPayouts = useCallback(() => {
     const payouts: any[] = [];
     const peopleMap = new Map<string, { 
       name: string; 
@@ -956,7 +1016,7 @@ export default function RevenuePage() {
       .sort((a, b) => b.totalEarned - a.totalEarned);
     
     setDeveloperPayouts(payoutsArray);
-  };
+  }, [expenses, teamMembers]);
 
   // GST Calculation
   const calculateGST = () => {
@@ -1160,7 +1220,7 @@ export default function RevenuePage() {
       );
     }
     
-    // Sort - Simplified to only Amount and Date
+    // Sort - Amount, Date, or Entries (most recent entry first)
     revenueArray = [...revenueArray].sort((a, b) => {
       let comparison = 0;
       
@@ -1169,8 +1229,43 @@ export default function RevenuePage() {
         const amountA = a.totalContractValue || 0;
         const amountB = b.totalContractValue || 0;
         comparison = amountA - amountB; // Ascending: low to high
+        // Apply direction
+        if (revenueSortDirection === 'desc') {
+          comparison = -comparison; // Reverse for descending
+        }
+      } else if (revenueSortBy === 'entries') {
+        // Sort by entry creation/update date (most recent first)
+        const getEntryDate = (r: Revenue): number => {
+          // Use updatedAt if available (most recent change)
+          if (r.updatedAt) {
+            return new Date(r.updatedAt).getTime();
+          }
+          // Fallback to createdAt
+          if (r.createdAt) {
+            return new Date(r.createdAt).getTime();
+          }
+          return 0; // No date available
+        };
+        
+        const dateA = getEntryDate(a);
+        const dateB = getEntryDate(b);
+        
+        // Handle null/undefined dates - put them at the end
+        if (dateA === 0 && dateB === 0) {
+          comparison = 0;
+        } else if (dateA === 0) {
+          comparison = 1; // A has no date, put it after B
+        } else if (dateB === 0) {
+          comparison = -1; // B has no date, put it after A
+        } else {
+          // For descending: newer entries first (dateB - dateA)
+          // For ascending: older entries first (dateA - dateB)
+          comparison = revenueSortDirection === 'desc' 
+            ? dateB - dateA  // Descending: newer entries first
+            : dateA - dateB; // Ascending: older entries first
+        }
       } else {
-        // Sort by date - use the most recent date available (advanceDate, lastPaymentDate, or expectedPaymentDate)
+        // Sort by date - use the most recent date available (paymentDate/advanceDate, lastPaymentDate, or expectedPaymentDate)
         const getMostRecentDate = (r: Revenue): number => {
           // Get last payment date if available
           if (r.paymentsReceived && r.paymentsReceived.length > 0) {
@@ -1178,6 +1273,10 @@ export default function RevenuePage() {
               .map(p => new Date(p.date).getTime())
               .sort((a, b) => b - a)[0]; // Get most recent payment
             if (lastPayment) return lastPayment;
+          }
+          // Fallback to paymentDate (new field)
+          if (r.paymentDate) {
+            return new Date(r.paymentDate).getTime();
           }
           // Fallback to advance date
           if (r.advanceDate) {
@@ -1209,7 +1308,7 @@ export default function RevenuePage() {
         }
       }
       
-      // Return comparison (already adjusted for direction in date sorting)
+      // Return comparison (already adjusted for direction)
       return comparison;
     });
     
@@ -1230,14 +1329,16 @@ export default function RevenuePage() {
     <Layout>
       <div className="space-y-5">
         {/* Header Card - Compact */}
-        <div className="card-premium py-4 px-5">
+        <div className="bg-white rounded-xl py-4 px-5 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <DollarSign className="w-5 h-5 text-primary-500" />
-                <h1 className="text-xl font-bold text-text-primary font-display leading-tight">Revenue & Finance Overview</h1>
+                <div className="p-1.5 bg-green-100 rounded-lg">
+                  <DollarSign className="w-5 h-5 text-green-600" />
+                </div>
+                <h1 className="text-xl font-bold text-slate-900 font-display leading-tight">Revenue & Finance Overview</h1>
               </div>
-              <p className="text-xs text-text-secondary leading-tight">Track payments & expenses</p>
+              <p className="text-xs text-slate-500 leading-tight">Track payments & expenses</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -1299,19 +1400,19 @@ export default function RevenuePage() {
             onClick={() => setTableFilter(tableFilter === 'totalRevenue' ? null : 'totalRevenue')}
             onMouseEnter={() => setHoveredCard('revenue')}
             onMouseLeave={() => setHoveredCard(null)}
-            className={`card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer ${
-              tableFilter === 'totalRevenue' ? 'ring-2 ring-primary-500 ring-offset-2' : ''
-            } hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0`}
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
+            className={`bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer ${
+              tableFilter === 'totalRevenue' ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+            } hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] active:translate-y-0 p-4`}
+            style={{ display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-emerald-600 rounded-xl flex-shrink-0 shadow-md">
-                <TrendingUp className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-emerald-100 rounded-xl flex-shrink-0">
+                <TrendingUp className="w-6 h-6 text-emerald-600" />
               </div>
-              <p className="text-sm font-semibold text-text-secondary">Revenue</p>
+              <p className="text-sm font-semibold text-slate-500">Revenue</p>
             </div>
-            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(stats.totalRevenue)}</p>
-            <p className="text-xs text-text-secondary truncate">+{stats.totalRevenueTrend}% MoM</p>
+            <p className="text-2xl font-bold text-slate-900 mb-3 leading-tight">{formatINR(stats.totalRevenue)}</p>
+            <p className="text-xs text-slate-500 truncate">+{stats.totalRevenueTrend}% MoM</p>
           </div>
 
           {/* Card 2 - Advances */}
@@ -1320,19 +1421,19 @@ export default function RevenuePage() {
             onClick={() => setTableFilter(tableFilter === 'totalAdvances' ? null : 'totalAdvances')}
             onMouseEnter={() => setHoveredCard('advances')}
             onMouseLeave={() => setHoveredCard(null)}
-            className={`card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer ${
-              tableFilter === 'totalAdvances' ? 'ring-2 ring-primary-500 ring-offset-2' : ''
-            } hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0`}
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
+            className={`bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer ${
+              tableFilter === 'totalAdvances' ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+            } hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] active:translate-y-0 p-4`}
+            style={{ display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-blue-600 rounded-xl flex-shrink-0 shadow-md">
-                <Wallet className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-blue-100 rounded-xl flex-shrink-0">
+                <Wallet className="w-6 h-6 text-blue-600" />
               </div>
-              <p className="text-sm font-semibold text-text-secondary">Advances</p>
+              <p className="text-sm font-semibold text-slate-500">Advances</p>
             </div>
-            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(stats.totalAdvances)}</p>
-            <p className="text-xs text-text-secondary truncate">
+            <p className="text-2xl font-bold text-slate-900 mb-3 leading-tight">{formatINR(stats.totalAdvances)}</p>
+            <p className="text-xs text-slate-500 truncate">
               {stats.upcomingAdvancesThisMonth > 0 
                 ? `${formatINR(stats.upcomingAdvancesThisMonth)} this month`
                 : stats.upcomingAdvancesNextMonth > 0
@@ -1347,19 +1448,19 @@ export default function RevenuePage() {
             onClick={() => setTableFilter(tableFilter === 'balanceDue' ? null : 'balanceDue')}
             onMouseEnter={() => setHoveredCard('balance')}
             onMouseLeave={() => setHoveredCard(null)}
-            className={`card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer ${
-              tableFilter === 'balanceDue' ? 'ring-2 ring-primary-500 ring-offset-2' : ''
-            } hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0`}
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
+            className={`bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer ${
+              tableFilter === 'balanceDue' ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+            } hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] active:translate-y-0 p-4`}
+            style={{ display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-purple-500 rounded-xl flex-shrink-0 shadow-md">
-                <Receipt className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-purple-100 rounded-xl flex-shrink-0">
+                <Receipt className="w-6 h-6 text-purple-600" />
               </div>
-              <p className="text-sm font-semibold text-text-secondary">Balance Due</p>
+              <p className="text-sm font-semibold text-slate-500">Balance Due</p>
             </div>
-            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(stats.balanceDue)}</p>
-            <p className="text-xs text-text-secondary truncate">{stats.collectionRate}% collected</p>
+            <p className="text-2xl font-bold text-slate-900 mb-3 leading-tight">{formatINR(stats.balanceDue)}</p>
+            <p className="text-xs text-slate-500 truncate">{stats.collectionRate}% collected</p>
           </div>
 
           {/* Card 4 - Team Earnings */}
@@ -1367,17 +1468,17 @@ export default function RevenuePage() {
             data-card-id="earnings"
             onMouseEnter={() => setHoveredCard('earnings')}
             onMouseLeave={() => setHoveredCard(null)}
-            className="card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
+            className="bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] active:translate-y-0 p-4"
+            style={{ display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-blue-500 rounded-xl flex-shrink-0 shadow-md">
-                <Users className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-blue-100 rounded-xl flex-shrink-0">
+                <Users className="w-6 h-6 text-blue-600" />
               </div>
-              <p className="text-sm font-semibold text-text-secondary">Team Earnings</p>
+              <p className="text-sm font-semibold text-slate-500">Team Earnings</p>
             </div>
-            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(stats.teamEarnings)}</p>
-            <p className="text-xs text-text-secondary truncate">Dev: {formatINR(stats.teamEarningsDev)} | UIUX: {formatINR(stats.teamEarningsUIUX)}</p>
+            <p className="text-2xl font-bold text-slate-900 mb-3 leading-tight">{formatINR(stats.teamEarnings)}</p>
+            <p className="text-xs text-slate-500 truncate">Dev: {formatINR(stats.teamEarningsDev)} | UIUX: {formatINR(stats.teamEarningsUIUX)}</p>
           </div>
 
           {/* Card 5 - Total Expenses */}
@@ -1385,17 +1486,17 @@ export default function RevenuePage() {
             data-card-id="expenses"
             onMouseEnter={() => setHoveredCard('expenses')}
             onMouseLeave={() => setHoveredCard(null)}
-            className="card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
+            className="bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] active:translate-y-0 p-4"
+            style={{ display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-red-500 rounded-xl flex-shrink-0 shadow-md">
-                <ArrowDownRight className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-red-100 rounded-xl flex-shrink-0">
+                <ArrowDownRight className="w-6 h-6 text-red-600" />
               </div>
-              <p className="text-sm font-semibold text-text-secondary">Total Expenses</p>
+              <p className="text-sm font-semibold text-slate-500">Total Expenses</p>
             </div>
-            <p className="text-2xl font-bold text-text-primary mb-3 leading-tight">{formatINR(stats.totalExpenses)}</p>
-            <p className="text-xs text-text-secondary truncate">{expenses.length} expenses</p>
+            <p className="text-2xl font-bold text-slate-900 mb-3 leading-tight">{formatINR(stats.totalExpenses)}</p>
+            <p className="text-xs text-slate-500 truncate">{expenses.length} expenses</p>
           </div>
 
           {/* Card 6 - Profit Margin */}
@@ -1403,19 +1504,20 @@ export default function RevenuePage() {
             data-card-id="profit"
             onMouseEnter={() => setHoveredCard('profit')}
             onMouseLeave={() => setHoveredCard(null)}
-            className="card-premium transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: '200px' }}
+            className="bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-out relative z-10 flex-1 cursor-pointer hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] active:translate-y-0"
+            className="p-4"
+            style={{ display: 'flex', flexDirection: 'column', minWidth: '200px' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-green-500 rounded-xl flex-shrink-0 shadow-md">
-                <Target className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-green-100 rounded-xl flex-shrink-0">
+                <Target className="w-6 h-6 text-green-600" />
               </div>
-              <p className="text-sm font-semibold text-text-secondary">Profit Margin</p>
+              <p className="text-sm font-semibold text-slate-500">Profit Margin</p>
             </div>
             <p className={`text-2xl font-bold mb-3 leading-tight ${stats.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {stats.profitMargin >= 0 ? '+' : ''}{stats.profitMargin}%
             </p>
-            <p className="text-xs text-text-secondary truncate">₹{formatINR(stats.netRevenue)} / ₹{formatINR(stats.totalRevenue)}</p>
+            <p className="text-xs text-slate-500 truncate">₹{formatINR(stats.netRevenue)} / ₹{formatINR(stats.totalRevenue)}</p>
           </div>
         </div>
 
@@ -1466,7 +1568,7 @@ export default function RevenuePage() {
               {/* All Filters in One Line - Card-Based Layout */}
               <div className="flex items-center gap-4 flex-wrap">
                 {/* Search Card */}
-                <div className="card-premium p-3 flex-1 min-w-[200px]">
+                <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex-1 min-w-[200px]">
                   <div className="relative">
                     <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4" />
                     <input
@@ -1480,7 +1582,7 @@ export default function RevenuePage() {
                 </div>
 
                 {/* Status Filter Card */}
-                <div className="card-premium p-3">
+                <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
                   <select
                     value={revenueStatusFilter}
                     onChange={(e) => setRevenueStatusFilter(e.target.value)}
@@ -1495,7 +1597,7 @@ export default function RevenuePage() {
                 </div>
 
                 {/* Client Filter Card */}
-                <div className="card-premium p-3">
+                <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
                   <select
                     value={revenueClientFilter}
                     onChange={(e) => setRevenueClientFilter(e.target.value)}
@@ -1509,7 +1611,7 @@ export default function RevenuePage() {
                 </div>
 
                 {/* Payment Filter Card */}
-                <div className="card-premium p-3">
+                <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
                   <select
                     value={revenuePaymentFilter}
                     onChange={(e) => setRevenuePaymentFilter(e.target.value as 'all' | 'today' | 'future' | 'overdue' | 'paid')}
@@ -1524,19 +1626,20 @@ export default function RevenuePage() {
                 </div>
 
                 {/* Sort By Card */}
-                <div className="card-premium p-3">
+                <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
                   <select
                     value={revenueSortBy}
-                    onChange={(e) => setRevenueSortBy(e.target.value as 'amount' | 'date')}
+                    onChange={(e) => setRevenueSortBy(e.target.value as 'amount' | 'date' | 'entries')}
                     className="w-full bg-transparent border-none outline-none text-sm text-text-primary cursor-pointer min-w-[140px]"
                   >
+                    <option value="entries">Sort by Entries</option>
                     <option value="date">Sort by Date</option>
                     <option value="amount">Sort by Amount</option>
                   </select>
                 </div>
 
                 {/* Sort Direction Card */}
-                <div className="card-premium p-3">
+                <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
                   <button
                     onClick={() => setRevenueSortDirection(revenueSortDirection === 'asc' ? 'desc' : 'asc')}
                     className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all ${
@@ -1562,20 +1665,20 @@ export default function RevenuePage() {
               </div>
             </div>
 
-            <div className="card-premium overflow-hidden">
+            <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full" style={{ tableLayout: 'fixed' }}>
                   <thead className="bg-background border-b border-border">
                     <tr>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Project</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Client</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Total ₹</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Advance ₹</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Advance Date</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Balance Due ₹</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Payment Status</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Last Payment Date</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                      <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '15%' }}>Project</th>
+                      <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '12%' }}>Client</th>
+                      <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '12%' }}>Total ₹</th>
+                      <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '10%' }}>Advance ₹</th>
+                      <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '12%' }}>Payment Date</th>
+                      <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '12%' }}>Balance Due</th>
+                      <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '10%' }}>Status</th>
+                      <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '10%' }}>Last Payment</th>
+                      <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '7%' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-border">
@@ -1591,11 +1694,12 @@ export default function RevenuePage() {
                     if (row.paymentStatus === 'Paid') {
                       hasFutureDate = false;
                     } else {
-                      // Check advance date (only if it's in the future, not today)
-                      if (row.advanceDate) {
-                        const advanceDate = new Date(row.advanceDate);
-                        advanceDate.setHours(0, 0, 0, 0);
-                        if (advanceDate > today) {
+                      // Check payment date (only if it's in the future, not today)
+                      const paymentDateValue = row.paymentDate || row.advanceDate;
+                      if (paymentDateValue) {
+                        const paymentDate = new Date(paymentDateValue);
+                        paymentDate.setHours(0, 0, 0, 0);
+                        if (paymentDate > today) {
                           hasFutureDate = true;
                         }
                       }
@@ -1630,116 +1734,93 @@ export default function RevenuePage() {
                         hasFutureDate ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
                       }`}
                     >
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-text-primary">{row.project}</div>
+                      <td className="px-2 py-2">
+                        <div className="text-sm font-medium text-text-primary truncate" title={row.project}>{row.project}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-text-secondary">{row.client}</div>
+                      <td className="px-2 py-2">
+                        <div className="text-sm text-text-secondary truncate" title={row.client}>{row.client}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-2 py-2">
                         <div className="text-sm font-semibold text-text-primary">{formatINR(row.totalContractValue)}</div>
                         <div className="text-xs text-text-secondary">{formatUSD(inrToUsd(row.totalContractValue))}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-2 py-2">
                         <div className="text-sm text-text-primary">{formatINR(row.advanceAmount || 0)}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {row.advanceDate ? (
+                      <td className="px-2 py-2">
+                        <div className="flex flex-col gap-0.5">
+                          {(row.paymentDate || row.advanceDate) ? (
                             <>
                               <div className={`text-xs ${(() => {
-                                const advanceDate = new Date(row.advanceDate);
+                                const paymentDateValue = row.paymentDate || row.advanceDate;
+                                const paymentDate = new Date(paymentDateValue!);
                                 const today = new Date();
                                 today.setHours(0, 0, 0, 0);
-                                advanceDate.setHours(0, 0, 0, 0);
-                                return advanceDate >= today ? 'text-blue-600 font-semibold' : 'text-text-secondary';
+                                paymentDate.setHours(0, 0, 0, 0);
+                                return paymentDate >= today ? 'text-blue-600 font-semibold' : 'text-text-secondary';
                               })()}`}>
-                                {formatDate(row.advanceDate)}
+                                {formatDate(row.paymentDate || row.advanceDate || '')}
                               </div>
-                              {(() => {
-                                const advanceDate = new Date(row.advanceDate);
-                                const today = new Date();
-                                today.setHours(0, 0, 0, 0);
-                                advanceDate.setHours(0, 0, 0, 0);
-                                if (advanceDate >= today) {
-                                  return (
-                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                      Future
-                                    </span>
-                                  );
-                                }
-                                return null;
-                              })()}
+                              {row.phaseName && (
+                                <div className="text-xs text-text-secondary truncate" title={row.phaseName}>
+                                  {row.phaseName}
+                                </div>
+                              )}
                             </>
                           ) : (
                             <div className="text-xs text-text-secondary">-</div>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-2 py-2">
                         <div className="text-sm font-semibold text-text-primary">{formatINR(row.balanceDue)}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPaymentStatusColor(row.paymentStatus)}`}>
+                      <td className="px-2 py-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getPaymentStatusColor(row.paymentStatus)}`}>
                           {typeof row.paymentStatus === 'string' && ['Paid', 'Partial', 'Pending', 'Overdue'].includes(row.paymentStatus) 
                             ? row.paymentStatus 
                             : (row.balanceDue <= 0 ? 'Paid' : ((row.advanceAmount || 0) > 0 || (row.paymentsReceived && row.paymentsReceived.length > 0) ? 'Partial' : 'Pending'))}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {row.paymentsReceived && row.paymentsReceived.length > 0 ? (() => {
-                            const lastPaymentDate = new Date(
-                              row.paymentsReceived
-                                .map((p: { amount: number; date: string }) => new Date(p.date).getTime())
-                                .reduce((a: number, b: number) => Math.max(a, b), 0)
-                            );
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            lastPaymentDate.setHours(0, 0, 0, 0);
-                            const isFutureDate = lastPaymentDate >= today;
-                            
-                            return (
-                              <>
-                                <div className={`text-xs ${isFutureDate ? 'text-blue-600 font-semibold' : 'text-text-secondary'}`}>
-                                  {formatDate(lastPaymentDate)}
-                                </div>
-                                {isFutureDate && (
-                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                    Future
-                                  </span>
-                                )}
-                              </>
-                            );
-                          })() : row.advanceDate ? (() => {
-                            const advanceDate = new Date(row.advanceDate);
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            advanceDate.setHours(0, 0, 0, 0);
-                            const isFutureDate = advanceDate >= today;
-                            
-                            return (
-                              <>
-                                <div className={`text-xs ${isFutureDate ? 'text-blue-600 font-semibold' : 'text-text-secondary'}`}>
-                                  {formatDate(row.advanceDate)}
-                                </div>
-                                {isFutureDate && (
-                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                    Future
-                                  </span>
-                                )}
-                              </>
-                            );
-                          })() : (
-                            <div className="text-xs text-text-secondary">No payments</div>
-                          )}
-                        </div>
+                      <td className="px-2 py-2">
+                        {row.paymentsReceived && row.paymentsReceived.length > 0 ? (() => {
+                          const lastPaymentDate = new Date(
+                            row.paymentsReceived
+                              .map((p: { amount: number; date: string }) => new Date(p.date).getTime())
+                              .reduce((a: number, b: number) => Math.max(a, b), 0)
+                          );
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          lastPaymentDate.setHours(0, 0, 0, 0);
+                          const isFutureDate = lastPaymentDate >= today;
+                          
+                          return (
+                            <div className={`text-xs ${isFutureDate ? 'text-blue-600 font-semibold' : 'text-text-secondary'}`}>
+                              {formatDate(lastPaymentDate)}
+                            </div>
+                          );
+                        })() : (row.paymentDate || row.advanceDate) ? (() => {
+                          const paymentDateValue = row.paymentDate || row.advanceDate;
+                          const paymentDate = new Date(paymentDateValue!);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          paymentDate.setHours(0, 0, 0, 0);
+                          const isFutureDate = paymentDate >= today;
+                          
+                          return (
+                            <div className={`text-xs ${isFutureDate ? 'text-blue-600 font-semibold' : 'text-text-secondary'}`}>
+                              {formatDate(paymentDateValue!)}
+                            </div>
+                          );
+                        })() : (
+                          <div className="text-xs text-text-secondary">-</div>
+                        )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
+                      <td className="px-2 py-2">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => generateInvoice(row)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                             title="Generate Invoice"
                           >
                             <FileText className="w-4 h-4" />
@@ -1747,25 +1828,25 @@ export default function RevenuePage() {
                           {row.paymentStatus !== 'Paid' && new Date(row.expectedPaymentDate) < new Date() && (
                             <button
                               onClick={() => sendPaymentReminder(row)}
-                              className="p-1.5 text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                              className="p-1 text-orange-600 hover:bg-orange-50 rounded transition-colors"
                               title="Send Reminder"
                             >
-                              <Send className="w-4 h-4" />
+                              <Send className="w-3.5 h-3.5" />
                             </button>
                           )}
                           <button
                             onClick={() => handleEdit(row)}
-                            className="p-1.5 text-primary-500 hover:bg-primary-50 rounded transition-colors"
+                            className="p-1 text-primary-500 hover:bg-primary-50 rounded transition-colors"
                             title="Edit"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDelete(row)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="Delete"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -1778,7 +1859,7 @@ export default function RevenuePage() {
                       <div className="flex flex-col items-center gap-2">
                         <DollarSign className="w-12 h-12 text-text-secondary opacity-50" />
                         <p className="text-sm font-medium">No revenue records found</p>
-                        <p className="text-xs">Click "New Revenue" to create your first revenue record</p>
+                        <p className="text-xs">Click &quot;New Revenue&quot; to create your first revenue record</p>
                       </div>
                     </td>
                   </tr>
@@ -1839,7 +1920,7 @@ export default function RevenuePage() {
               </div>
             </div>
 
-            <div className="card-premium overflow-hidden">
+            <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-background border-b border-border">
@@ -2217,7 +2298,7 @@ export default function RevenuePage() {
                           <div className="flex flex-col items-center gap-2">
                             <DollarSign className="w-12 h-12 text-text-secondary opacity-50" />
                             <p className="text-sm font-medium">No expenses found</p>
-                            <p className="text-xs">Click "New Expense" to create your first expense record</p>
+                            <p className="text-xs">Click &quot;New Expense&quot; to create your first expense record</p>
                           </div>
                         </td>
                       </tr>
@@ -2266,6 +2347,8 @@ export default function RevenuePage() {
             reset();
             setSelectedRevenue(null);
             setProjectSearchQuery('');
+            setPaymentType('advance');
+            setHasExistingAdvance(false);
           }}
           title={selectedRevenue ? 'Edit Revenue Entry' : 'New Revenue Entry'}
           size="lg"
@@ -2324,29 +2407,97 @@ export default function RevenuePage() {
               {errors.totalContractValue && <p className="text-red-600 text-sm mt-1">{errors.totalContractValue.message}</p>}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Advance Amount (₹)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  {...register('advanceAmount', { valueAsNumber: true })}
-                  className="input-premium"
-                  placeholder="0.00"
-                />
-                {errors.advanceAmount && <p className="text-red-600 text-sm mt-1">{errors.advanceAmount.message}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Advance Date</label>
-                <input
-                  type="date"
-                  {...register('advanceDate')}
-                  className="input-premium"
-                />
-                {errors.advanceDate && <p className="text-red-600 text-sm mt-1">{errors.advanceDate.message}</p>}
-              </div>
+            {/* Payment Type Selection */}
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">Payment Type</label>
+              <select
+                {...register('paymentType')}
+                value={paymentType}
+                onChange={(e) => {
+                  const newType = e.target.value as 'advance' | 'phase';
+                  setPaymentType(newType);
+                  setValue('paymentType', newType);
+                  // Clear fields when switching
+                  if (newType === 'phase') {
+                    setValue('advanceAmount', 0);
+                  }
+                }}
+                className="input-premium"
+              >
+                <option value="advance">Advance Payment</option>
+                <option value="phase">Phase-wise Payment</option>
+              </select>
+              {hasExistingAdvance && paymentType === 'advance' && (
+                <p className="text-xs text-yellow-600 mt-1">⚠️ This client already has an advance payment. Consider using Phase-wise Payment.</p>
+              )}
             </div>
+
+            {/* Payment Amount and Date - Show based on payment type */}
+            {paymentType === 'advance' && !hasExistingAdvance ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Advance Amount (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register('advanceAmount', { valueAsNumber: true })}
+                    className="input-premium"
+                    placeholder="0.00"
+                  />
+                  {errors.advanceAmount && <p className="text-red-600 text-sm mt-1">{errors.advanceAmount.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Date of Payment</label>
+                  <input
+                    type="date"
+                    {...register('paymentDate')}
+                    className="input-premium"
+                  />
+                  {errors.paymentDate && <p className="text-red-600 text-sm mt-1">{errors.paymentDate.message}</p>}
+                </div>
+              </div>
+            ) : paymentType === 'phase' ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Phase Name</label>
+                  <select
+                    {...register('phaseName')}
+                    className="input-premium"
+                  >
+                    <option value="">Select Phase</option>
+                    <option value="Phase 1">Phase 1</option>
+                    <option value="Phase 2">Phase 2</option>
+                    <option value="Phase 3">Phase 3</option>
+                    <option value="Phase 4">Phase 4</option>
+                    <option value="Phase 5">Phase 5</option>
+                    <option value="Final Payment">Final Payment</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Payment Amount (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register('advanceAmount', { valueAsNumber: true })}
+                    className="input-premium"
+                    placeholder="0.00"
+                  />
+                  {errors.advanceAmount && <p className="text-red-600 text-sm mt-1">{errors.advanceAmount.message}</p>}
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-text-primary mb-2">Date of Payment</label>
+                  <input
+                    type="date"
+                    {...register('paymentDate')}
+                    className="input-premium"
+                  />
+                  {errors.paymentDate && <p className="text-red-600 text-sm mt-1">{errors.paymentDate.message}</p>}
+                </div>
+              </div>
+            ) : null}
 
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">Payments Received</label>

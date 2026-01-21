@@ -76,7 +76,7 @@ export default function DataTable<T extends { _id?: string; id?: string }>({
   };
 
   return (
-    <div className="card-premium overflow-hidden">
+    <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm">
       {/* Search Bar - Premium Style */}
       {searchable && (
         <div className="p-4 border-b border-slate-200 bg-slate-50/50">
@@ -92,24 +92,24 @@ export default function DataTable<T extends { _id?: string; id?: string }>({
 
       {/* Table - Premium Styling */}
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-background border-b border-border">
             <tr>
               {columns.map((col) => (
                 <th
                   key={String(col.key)}
                   onClick={() => handleSort(col.key)}
-                  className={`px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider ${
+                  className={`px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider ${
                     sortable ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span>{col.header}</span>
+                    <span className="truncate">{col.header}</span>
                   </div>
                 </th>
               ))}
               {(onEdit || onDelete) && (
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+                <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider w-20">
                   Actions
                 </th>
               )}
@@ -135,29 +135,31 @@ export default function DataTable<T extends { _id?: string; id?: string }>({
                   className="hover:bg-slate-50 transition-colors"
                 >
                   {columns.map((col) => (
-                    <td key={String(col.key)} className="px-4 py-3 whitespace-nowrap text-sm text-text-primary">
-                      {col.render ? col.render(row) : String(row[col.key as keyof T] || '-')}
+                    <td key={String(col.key)} className="px-2 py-2 text-sm text-text-primary">
+                      <div className="truncate" title={col.render ? String(col.render(row)) : String(row[col.key as keyof T] || '-')}>
+                        {col.render ? col.render(row) : String(row[col.key as keyof T] || '-')}
+                      </div>
                     </td>
                   ))}
                   {(onEdit || onDelete) && (
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-1">
                         {onEdit && (
                           <button
                             onClick={() => onEdit(row)}
-                            className="p-1.5 text-primary-500 hover:bg-primary-50 rounded transition-colors"
+                            className="p-1 text-primary-500 hover:bg-primary-50 rounded transition-colors"
                             title="Edit"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {onDelete && (
                           <button
                             onClick={() => onDelete(row)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="Delete"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>

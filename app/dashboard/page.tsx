@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import { DollarSign, FolderKanban, Users, TrendingUp, Wallet, AlertCircle, UserPlus, TrendingDown, CheckCircle, Receipt, Activity, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
@@ -59,7 +59,7 @@ export default function HomePage() {
   const [clientStatusData, setClientStatusData] = useState<any[]>([]);
 
   // Define calculation functions before fetchAllData
-  const calculateStats = (revenueData: any[], projectsData: any[], clientsData: any[], teamData: any[], expensesData: any[]) => {
+  const calculateStats = useCallback((revenueData: any[], projectsData: any[], clientsData: any[], teamData: any[], expensesData: any[]) => {
     // Total Revenue
     const totalRevenue = revenueData.reduce((sum, r) => sum + (r.totalContractValue || 0), 0);
     
@@ -167,7 +167,7 @@ export default function HomePage() {
     calculateChartData(revenueData, projectsData, clientsData, expensesData);
   };
 
-  const calculateChartData = (revenueData: any[], projectsData: any[], clientsData: any[], expensesData: any[]) => {
+  const calculateChartData = useCallback((revenueData: any[], projectsData: any[], clientsData: any[], expensesData: any[]) => {
     // Monthly Revenue (Last 6 months)
     const monthlyData: Record<string, number> = {};
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -232,9 +232,9 @@ export default function HomePage() {
       clientStatusCounts[status] = (clientStatusCounts[status] || 0) + 1;
     });
     setClientStatusData(Object.entries(clientStatusCounts).map(([name, value]) => ({ name, value })));
-  };
+  }, []);
 
-  const calculateRecentActivity = (projectsData: any[], clientsData: any[], revenueData: any[]) => {
+  const calculateRecentActivity = useCallback((projectsData: any[], clientsData: any[], revenueData: any[]) => {
     const activities: ActivityItem[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -310,9 +310,9 @@ export default function HomePage() {
     
     activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     setRecentActivity(activities.slice(0, 10));
-  };
+  }, []);
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       if (typeof window !== 'undefined') {
         const { localStorageUtils } = await import('@/lib/localStorage');
@@ -335,11 +335,18 @@ export default function HomePage() {
       console.error('Error fetching data:', error);
       setLoading(false);
     }
-  };
+  }, [calculateStats, calculateRecentActivity]);
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
 
   if (loading) {
     return (
@@ -354,86 +361,111 @@ export default function HomePage() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Section 1: Quick Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          {/* Revenue */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/revenue')}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-blue-500 rounded-lg flex-shrink-0 shadow-sm">
-                <TrendingUp className="w-4 h-4 text-white" />
-              </div>
-              <p className="text-xs font-semibold text-text-secondary">Revenue</p>
+        {/* Hero Banner Section - Inspired by Reference Design */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-8 text-white shadow-xl">
+          <div className="relative z-10">
+            <div className="mb-2">
+              <span className="text-sm font-semibold uppercase tracking-wider opacity-90">AGENCY DASHBOARD</span>
             </div>
-            <p className="text-lg font-bold text-text-primary leading-tight">{formatINR(stats.totalRevenue)}</p>
-            <p className="text-xs text-text-secondary mt-1 truncate">All time</p>
+            <h1 className="text-3xl md:text-4xl font-bold mb-2">
+              {getGreeting()}, Admin 👋
+            </h1>
+            <p className="text-lg opacity-90 mb-6">
+              Continue Your Journey And Achieve Your Target
+            </p>
+            <button
+              onClick={() => router.push('/revenue')}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white text-purple-600 rounded-full font-semibold hover:bg-purple-50 transition-all duration-300 hover:scale-105 shadow-lg"
+            >
+              View Revenue
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </div>
+          {/* Decorative Elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-32 -mt-32"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-10 rounded-full -ml-24 -mb-24"></div>
+        </div>
+
+        {/* Section 1: Quick Stats Cards - Compact Design */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* Revenue */}
+          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+              </div>
+            </div>
+            <p className="text-xs font-medium text-slate-500 mb-1">Revenue</p>
+            <p className="text-xl font-bold text-slate-900 leading-tight">{formatINR(stats.totalRevenue)}</p>
+            <p className="text-xs text-slate-400 mt-1">All time</p>
           </div>
 
           {/* Team Earnings */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/team')}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-purple-500 rounded-lg flex-shrink-0 shadow-sm">
-                <Users className="w-4 h-4 text-white" />
+          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team')}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Users className="w-4 h-4 text-purple-600" />
               </div>
-              <p className="text-xs font-semibold text-text-secondary">Team</p>
             </div>
-            <p className="text-lg font-bold text-text-primary leading-tight">{formatINR(stats.teamEarnings)}</p>
-            <p className="text-xs text-text-secondary mt-1 truncate">Payouts</p>
+            <p className="text-xs font-medium text-slate-500 mb-1">Team</p>
+            <p className="text-xl font-bold text-slate-900 leading-tight">{formatINR(stats.teamEarnings)}</p>
+            <p className="text-xs text-slate-400 mt-1">Payouts</p>
           </div>
 
           {/* Expenses */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/revenue')}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-orange-500 rounded-lg flex-shrink-0 shadow-sm">
-                <Receipt className="w-4 h-4 text-white" />
+          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <Receipt className="w-4 h-4 text-orange-600" />
               </div>
-              <p className="text-xs font-semibold text-text-secondary">Expenses</p>
             </div>
-            <p className="text-lg font-bold text-text-primary leading-tight">{formatINR(stats.expenses)}</p>
-            <p className="text-xs text-text-secondary mt-1 truncate">Total</p>
+            <p className="text-xs font-medium text-slate-500 mb-1">Expenses</p>
+            <p className="text-xl font-bold text-slate-900 leading-tight">{formatINR(stats.expenses)}</p>
+            <p className="text-xs text-slate-400 mt-1">Total</p>
           </div>
 
           {/* Profit */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/revenue')}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-green-500 rounded-lg flex-shrink-0 shadow-sm">
-                <DollarSign className="w-4 h-4 text-white" />
+          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <DollarSign className="w-4 h-4 text-green-600" />
               </div>
-              <p className="text-xs font-semibold text-text-secondary">Profit</p>
             </div>
-            <p className="text-lg font-bold text-text-primary leading-tight">{stats.profitMargin}%</p>
-            <p className="text-xs text-text-secondary mt-1 truncate">{formatINR(stats.profit)}</p>
+            <p className="text-xs font-medium text-slate-500 mb-1">Profit</p>
+            <p className="text-xl font-bold text-slate-900 leading-tight">{stats.profitMargin}%</p>
+            <p className="text-xs text-slate-400 mt-1">{formatINR(stats.profit)}</p>
           </div>
 
           {/* Projects */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/projects')}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-indigo-500 rounded-lg flex-shrink-0 shadow-sm">
-                <FolderKanban className="w-4 h-4 text-white" />
+          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/projects')}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <FolderKanban className="w-4 h-4 text-indigo-600" />
               </div>
-              <p className="text-xs font-semibold text-text-secondary">Projects</p>
             </div>
-            <p className="text-lg font-bold text-text-primary leading-tight">{stats.totalProjects}</p>
-            <p className="text-xs text-text-secondary mt-1 truncate">Active</p>
+            <p className="text-xs font-medium text-slate-500 mb-1">Projects</p>
+            <p className="text-xl font-bold text-slate-900 leading-tight">{stats.totalProjects}</p>
+            <p className="text-xs text-slate-400 mt-1">Active</p>
           </div>
 
           {/* Clients */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-4" onClick={() => router.push('/clients')}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-teal-500 rounded-lg flex-shrink-0 shadow-sm">
-                <Users className="w-4 h-4 text-white" />
+          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/clients')}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-teal-100 rounded-lg">
+                <Users className="w-4 h-4 text-teal-600" />
               </div>
-              <p className="text-xs font-semibold text-text-secondary">Clients</p>
             </div>
-            <p className="text-lg font-bold text-text-primary leading-tight">{stats.totalClients}</p>
-            <p className="text-xs text-text-secondary mt-1 truncate">Total</p>
+            <p className="text-xs font-medium text-slate-500 mb-1">Clients</p>
+            <p className="text-xl font-bold text-slate-900 leading-tight">{stats.totalClients}</p>
+            <p className="text-xs text-slate-400 mt-1">Total</p>
           </div>
         </div>
 
-        {/* Section 2: Charts Grid */}
+        {/* Section 2: Charts Grid - Clean Design */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Monthly Revenue Chart */}
-          <div className="card-premium p-6">
-            <h3 className="text-lg font-bold text-text-primary mb-4">Monthly Revenue</h3>
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-6">Monthly Revenue</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={monthlyRevenue}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -449,8 +481,8 @@ export default function HomePage() {
           </div>
 
           {/* Project Status Distribution */}
-          <div className="card-premium p-6">
-            <h3 className="text-lg font-bold text-text-primary mb-4">Project Status</h3>
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-6">Project Status</h3>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -473,8 +505,8 @@ export default function HomePage() {
           </div>
 
           {/* Revenue vs Expenses */}
-          <div className="card-premium p-6">
-            <h3 className="text-lg font-bold text-text-primary mb-4">Revenue vs Expenses</h3>
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-6">Revenue vs Expenses</h3>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={revenueVsExpenses}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -492,8 +524,8 @@ export default function HomePage() {
           </div>
 
           {/* Expense Categories */}
-          <div className="card-premium p-6">
-            <h3 className="text-lg font-bold text-text-primary mb-4">Expense Categories</h3>
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-6">Expense Categories</h3>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -516,8 +548,8 @@ export default function HomePage() {
           </div>
 
           {/* Client Status Distribution */}
-          <div className="card-premium p-6 lg:col-span-2">
-            <h3 className="text-lg font-bold text-text-primary mb-4">Client Status Distribution</h3>
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm lg:col-span-2">
+            <h3 className="text-lg font-bold text-slate-900 mb-6">Client Status Distribution</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={clientStatusData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -533,121 +565,121 @@ export default function HomePage() {
         {/* Section 3: Financial Snapshot (3 Key Metrics) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Cash Position */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/revenue')}>
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-blue-500 rounded-xl flex-shrink-0 shadow-md">
-                <Wallet className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-blue-100 rounded-xl flex-shrink-0 shadow-sm">
+                <Wallet className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-text-secondary">Cash Position</p>
-                <p className="text-xs text-text-secondary">Available funds</p>
+                <p className="text-sm font-semibold text-slate-500">Cash Position</p>
+                <p className="text-xs text-slate-500">Available funds</p>
               </div>
             </div>
-            <p className="text-3xl font-bold text-text-primary mb-2">{formatINR(stats.cashPosition)}</p>
-            <p className="text-xs text-text-secondary">After expenses</p>
+            <p className="text-3xl font-bold text-slate-900 mb-2">{formatINR(stats.cashPosition)}</p>
+            <p className="text-xs text-slate-500">After expenses</p>
           </div>
 
           {/* Month Growth */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/revenue')}>
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-green-500 rounded-xl flex-shrink-0 shadow-md">
+              <div className={`p-2.5 rounded-xl flex-shrink-0 shadow-sm ${stats.monthGrowth >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
                 {stats.monthGrowth >= 0 ? (
-                  <TrendingUp className="w-6 h-6 text-white" />
+                  <TrendingUp className="w-6 h-6 text-green-600" />
                 ) : (
-                  <TrendingDown className="w-6 h-6 text-white" />
+                  <TrendingDown className="w-6 h-6 text-red-600" />
                 )}
               </div>
               <div>
-                <p className="text-sm font-semibold text-text-secondary">Month Growth</p>
-                <p className="text-xs text-text-secondary">Revenue change</p>
+                <p className="text-sm font-semibold text-slate-500">Month Growth</p>
+                <p className="text-xs text-slate-500">Revenue change</p>
               </div>
             </div>
             <p className={`text-3xl font-bold mb-2 ${stats.monthGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {stats.monthGrowth >= 0 ? '+' : ''}{stats.monthGrowth}%
             </p>
-            <p className="text-xs text-text-secondary">vs Last month</p>
+            <p className="text-xs text-slate-500">vs Last month</p>
           </div>
 
           {/* Action Items */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/revenue?status=Overdue')}>
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue?status=Overdue')}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-red-500 rounded-xl flex-shrink-0 shadow-md">
-                <AlertCircle className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-red-100 rounded-xl flex-shrink-0 shadow-sm">
+                <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-text-secondary">Action Items</p>
-                <p className="text-xs text-text-secondary">Requires attention</p>
+                <p className="text-sm font-semibold text-slate-500">Action Items</p>
+                <p className="text-xs text-slate-500">Requires attention</p>
               </div>
             </div>
-            <p className="text-3xl font-bold text-text-primary mb-2">{stats.overdueInvoices}</p>
-            <p className="text-xs text-text-secondary">Overdue invoices</p>
+            <p className="text-3xl font-bold text-slate-900 mb-2">{stats.overdueInvoices}</p>
+            <p className="text-xs text-slate-500">Overdue invoices</p>
           </div>
         </div>
 
         {/* Section 4: Team Pulse (People Overview) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Utilization */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/team')}>
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team')}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-indigo-500 rounded-xl flex-shrink-0 shadow-md">
-                <Users className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-indigo-100 rounded-xl flex-shrink-0 shadow-sm">
+                <Users className="w-6 h-6 text-indigo-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-text-secondary">Utilization</p>
-                <p className="text-xs text-text-secondary">Team capacity</p>
+                <p className="text-sm font-semibold text-slate-500">Utilization</p>
+                <p className="text-xs text-slate-500">Team capacity</p>
               </div>
             </div>
-            <p className="text-3xl font-bold text-text-primary mb-2">{stats.utilizationRate}%</p>
-            <p className="text-xs text-text-secondary">{stats.billableCount}/{teamMembers.length} people billable</p>
+            <p className="text-3xl font-bold text-slate-900 mb-2">{stats.utilizationRate}%</p>
+            <p className="text-xs text-slate-500">{stats.billableCount}/{teamMembers.length} people billable</p>
           </div>
 
           {/* Top Earner */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/team')}>
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team')}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-purple-500 rounded-xl flex-shrink-0 shadow-md">
-                <TrendingUp className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-purple-100 rounded-xl flex-shrink-0 shadow-sm">
+                <TrendingUp className="w-6 h-6 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-text-secondary">Top Earner</p>
-                <p className="text-xs text-text-secondary">This period</p>
+                <p className="text-sm font-semibold text-slate-500">Top Earner</p>
+                <p className="text-xs text-slate-500">This period</p>
               </div>
             </div>
-            <p className="text-lg font-bold text-text-primary mb-1">{stats.topEarner.name}</p>
-            <p className="text-xs text-text-secondary">{formatINR(stats.topEarner.amount)}</p>
+            <p className="text-lg font-bold text-slate-900 mb-1">{stats.topEarner.name}</p>
+            <p className="text-xs text-slate-500">{formatINR(stats.topEarner.amount)}</p>
           </div>
 
           {/* Available */}
-          <div className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6" onClick={() => router.push('/team?availability=Available')}>
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team?availability=Available')}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-green-500 rounded-xl flex-shrink-0 shadow-md">
-                <CheckCircle className="w-6 h-6 text-white" />
+              <div className="p-2.5 bg-green-100 rounded-xl flex-shrink-0 shadow-sm">
+                <CheckCircle className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-text-secondary">Available</p>
-                <p className="text-xs text-text-secondary">Ready to work</p>
+                <p className="text-sm font-semibold text-slate-500">Available</p>
+                <p className="text-xs text-slate-500">Ready to work</p>
               </div>
             </div>
-            <p className="text-3xl font-bold text-text-primary mb-2">{stats.availableDevs}</p>
-            <p className="text-xs text-text-secondary">Devs free next week</p>
+            <p className="text-3xl font-bold text-slate-900 mb-2">{stats.availableDevs}</p>
+            <p className="text-xs text-slate-500">Devs free next week</p>
           </div>
 
           {/* View People Link */}
-          <Link href="/team" className="card-premium transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] p-6 flex items-center justify-center flex-col">
-            <div className="p-3 bg-teal-500 rounded-xl flex-shrink-0 shadow-md mb-4">
-              <UserPlus className="w-6 h-6 text-white" />
+          <Link href="/team" className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1 flex items-center justify-center flex-col">
+            <div className="p-2.5 bg-teal-100 rounded-xl flex-shrink-0 shadow-sm mb-4">
+              <UserPlus className="w-6 h-6 text-teal-600" />
             </div>
-            <p className="text-sm font-semibold text-text-primary mb-2">View People</p>
-            <p className="text-xs text-text-secondary text-center">Manage team members</p>
-            <ArrowRight className="w-5 h-5 text-teal-500 mt-2" />
+            <p className="text-sm font-semibold text-slate-900 mb-2">View People</p>
+            <p className="text-xs text-slate-500 text-center">Manage team members</p>
+            <ArrowRight className="w-5 h-5 text-teal-600 mt-2" />
           </Link>
         </div>
 
         {/* Section 5: Recent Activity (Feed) */}
-        <div className="card-premium p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-lg font-bold text-text-primary font-display mb-1">Recent Activity</h2>
-              <p className="text-xs text-text-secondary">Last 24 hours</p>
+              <h2 className="text-xl font-bold text-slate-900 mb-1">Recent Activity</h2>
+              <p className="text-sm text-slate-500">Last 24 hours</p>
             </div>
             <Link href="/revenue" className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
               View All <ArrowRight className="w-4 h-4" />
@@ -656,20 +688,20 @@ export default function HomePage() {
           <div className="space-y-3">
             {recentActivity.length > 0 ? (
               recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-                  <span className="text-xl">{activity.icon}</span>
+                <div key={activity.id} className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
+                  <span className="text-2xl">{activity.icon}</span>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-text-primary">{activity.message}</p>
-                    <p className="text-xs text-text-secondary mt-0.5">
+                    <p className="text-sm font-medium text-slate-900">{activity.message}</p>
+                    <p className="text-xs text-slate-500 mt-1">
                       {activity.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} • {formatDate(activity.timestamp)}
                     </p>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-text-secondary">
-                <Activity className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No recent activity</p>
+              <div className="text-center py-12 text-slate-500">
+                <Activity className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm font-medium">No recent activity</p>
                 <p className="text-xs mt-1">Activity will appear here as things happen</p>
               </div>
             )}
