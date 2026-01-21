@@ -1154,7 +1154,9 @@ export default function ProjectsPage() {
                   Developers <span className="text-red-500">*</span>
                 </label>
                 <UnifiedSearchSelect
-                  options={team.map(m => ({ _id: m._id, name: m.name, role: m.role, avatar: (m as any).avatar }))}
+                  options={team
+                    .filter(m => (m as any).category === 'Developer' || m.role?.toLowerCase().includes('developer'))
+                    .map(m => ({ _id: m._id, name: m.name, role: m.role, avatar: (m as any).avatar }))}
                   selected={selectedDevelopers}
                   onChange={(selected) => {
                     setValue('developers', selected, { shouldValidate: true });

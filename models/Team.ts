@@ -8,6 +8,7 @@ export interface ITeam extends Document {
   name: string;
   email: string;
   role: string;
+  category?: 'Developer' | 'Designer' | 'Manager' | 'Marketing' | 'Other';
   hourlyRate: number;
   availability: 'Available' | 'Busy' | 'On Leave';
   avatar?: string;
@@ -35,6 +36,12 @@ const TeamSchema: Schema<ITeam> = new Schema(
     role: {
       type: String,
       required: [true, 'Role is required'],
+      trim: true,
+    },
+    category: {
+      type: String,
+      enum: ['Developer', 'Designer', 'Manager', 'Marketing', 'Other'],
+      default: 'Other',
       trim: true,
     },
     hourlyRate: {

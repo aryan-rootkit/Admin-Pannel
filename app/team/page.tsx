@@ -27,6 +27,7 @@ const teamSchema = z.object({
   name: z.string().optional(),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   role: z.string().optional(),
+  category: z.enum(['Developer', 'Designer', 'Manager', 'Marketing', 'Other']).optional(),
   hourlyRate: z.number().min(0, 'Hourly rate must be positive').optional(),
   availability: z.enum(['Available', 'Busy', 'On Leave']).optional(),
   employmentType: z.enum(['In-House', 'Contractor']).optional(),
@@ -52,6 +53,7 @@ interface TeamMember {
   name: string;
   email: string;
   role: string;
+  category?: 'Developer' | 'Designer' | 'Manager' | 'Marketing' | 'Other';
   hourlyRate: number;
   availability: 'Available' | 'Busy' | 'On Leave';
   employmentType?: 'In-House' | 'Contractor';
@@ -225,6 +227,7 @@ export default function TeamPage() {
         name: data.name.trim(),
         email: data.email.trim().toLowerCase(),
         role: data.role.trim(),
+        category: data.category || 'Other',
         hourlyRate: hourlyRateValue,
         availability: data.availability || 'Available',
         bio: data.bio?.trim() || '',
@@ -366,6 +369,7 @@ export default function TeamPage() {
       setValue('name', member.name);
       setValue('email', member.email);
       setValue('role', member.role);
+      setValue('category', (member as any).category || 'Other');
       setValue('hourlyRate', member.hourlyRate);
     }
     
@@ -1163,7 +1167,7 @@ export default function TeamPage() {
               )}
             </div>
 
-            {/* Role and Rate Fields */}
+            {/* Role and Category Fields */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="role" className="text-sm font-medium">
@@ -1191,18 +1195,41 @@ export default function TeamPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="hourlyRate" className="text-sm font-medium">
-                  {contractorType === 'Team' ? 'Total Rate (₹)' : 'Hourly Rate (₹)'} <span className="text-red-500">*</span>
+                <Label htmlFor="category" className="text-sm font-medium">
+                  Category <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  id="hourlyRate"
-                  type="number"
-                  step="0.01"
-                  {...register(contractorType === 'Team' ? 'totalRate' : 'hourlyRate', { valueAsNumber: true })}
-                  placeholder="0.00"
-                />
-                {(errors.hourlyRate || errors.totalRate) && <p className="text-sm text-destructive mt-1">{(errors.hourlyRate || errors.totalRate)?.message}</p>}
+                <Select
+                  value={watch('category') || 'Other'}
+                  onValueChange={(value) => setValue('category', value as any)}
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Developer">Developer</SelectItem>
+                    <SelectItem value="Designer">Designer</SelectItem>
+                    <SelectItem value="Manager">Manager</SelectItem>
+                    <SelectItem value="Marketing">Marketing</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
               </div>
+            </div>
+
+            {/* Rate Field */}
+            <div className="space-y-2">
+              <Label htmlFor="hourlyRate" className="text-sm font-medium">
+                {contractorType === 'Team' ? 'Total Rate (₹)' : 'Hourly Rate (₹)'} <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="hourlyRate"
+                type="number"
+                step="0.01"
+                {...register(contractorType === 'Team' ? 'totalRate' : 'hourlyRate', { valueAsNumber: true })}
+                placeholder="0.00"
+              />
+              {(errors.hourlyRate || errors.totalRate) && <p className="text-sm text-destructive mt-1">{(errors.hourlyRate || errors.totalRate)?.message}</p>}
             </div>
 
             {/* Availability */}
