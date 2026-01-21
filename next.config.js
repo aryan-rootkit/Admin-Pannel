@@ -1,16 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    ignoreDuringBuilds: true,  // Skip ALL ESLint
+    ignoreDuringBuilds: true, // ✅ DISABLES ALL LINTING
   },
   typescript: {
-    ignoreBuildErrors: true,   // Skip ALL TypeScript
+    ignoreBuildErrors: true, // ✅ DISABLES ALL TS CHECKS
   },
   images: {
-    unoptimized: true,         // Fix any image issues
+    unoptimized: true, // ✅ FIXES IMAGE ERRORS
   },
-  experimental: {
-    esmExternals: 'loose',
+  swcMinify: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
   },
 };
 
