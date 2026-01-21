@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import { DollarSign, FolderKanban, Users, TrendingUp, Wallet, AlertCircle, UserPlus, TrendingDown, CheckCircle, Receipt, Activity, ArrowRight } from 'lucide-react';
+import StatsWidget from '@/components/ui/stats-widget';
 import Link from 'next/link';
 import { formatINR } from '@/lib/utils/currency';
 import { formatDate } from '@/lib/utils/date';
@@ -385,6 +386,11 @@ export default function HomePage() {
           {/* Decorative Elements */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-32 -mt-32"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-10 rounded-full -ml-24 -mb-24"></div>
+        </div>
+
+        {/* Interactive Stats Widget */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <StatsWidget />
         </div>
 
         {/* Section 1: Quick Stats Cards - Compact Design */}
