@@ -165,7 +165,7 @@ export default function HomePage() {
 
     // Calculate chart data
     calculateChartData(revenueData, projectsData, clientsData, expensesData);
-  };
+  }, [calculateChartData]);
 
   const calculateChartData = useCallback((revenueData: any[], projectsData: any[], clientsData: any[], expensesData: any[]) => {
     // Monthly Revenue (Last 6 months)
