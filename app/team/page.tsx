@@ -169,32 +169,20 @@ export default function TeamPage() {
   };
 
   const fetchTeam = async () => {
+    setLoading(true);
     try {
-      // In mock mode, use localStorage directly
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getTeam();
-        const teamData = Array.isArray(data) ? data : [];
-        // Add mock data if empty (12 team members)
-        if (teamData.length === 0) {
-          const mockTeam = generateMockTeam();
-          mockTeam.forEach(m => localStorageUtils.saveTeamMember(m));
-          setTeamMembers(mockTeam);
-        } else {
-          setTeamMembers(teamData);
-        }
-        setLoading(false);
-        return;
-      }
-      
-      // Fallback to API
+      // Use API route (fetches from MongoDB)
       const res = await fetch('/api/team');
-      const data = await res.json();
-      // Ensure data is always an array
-      setTeamMembers(Array.isArray(data) ? data : []);
+      if (res.ok) {
+        const data = await res.json();
+        setTeamMembers(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch team from API');
+        setTeamMembers([]);
+      }
     } catch (error) {
       console.error('Error fetching team:', error);
-      setTeamMembers([]); // Set empty array on error
+      setTeamMembers([]);
     } finally {
       setLoading(false);
     }

@@ -175,26 +175,17 @@ export default function ProjectsPage() {
   }, [showClientDropdown]);
 
   const fetchProjects = useCallback(async () => {
+    setLoading(true);
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getProjects();
-        const projectsData = Array.isArray(data) ? data : [];
-        // Add mock data if empty
-        if (projectsData.length === 0) {
-          const mockProjects = generateMockProjects();
-          mockProjects.forEach(p => localStorageUtils.saveProject(p));
-          setProjects(mockProjects);
-        } else {
-          setProjects(projectsData);
-        }
-        setLoading(false);
-        return;
-      }
-      
+      // Use API route (fetches from MongoDB)
       const res = await fetch('/api/projects');
-      const data = await res.json();
-      setProjects(Array.isArray(data) ? data : []);
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch projects from API');
+        setProjects([]);
+      }
     } catch (error) {
       console.error('Error fetching projects:', error);
       setProjects([]);
