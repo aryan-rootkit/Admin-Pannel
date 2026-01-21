@@ -10,7 +10,7 @@ import { Eye, EyeOff, LogIn } from 'lucide-react';
  * With detailed 3D abstract background shapes
  */
 function LoginForm() {
-  const [email, setEmail] = useState('admin@rootkit.com');
+  const [email, setEmail] = useState('admin@rootkit.dev');
   const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
