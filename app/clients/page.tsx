@@ -5,6 +5,12 @@ import Layout from '@/components/Layout';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import { Plus, Mail, Phone, MapPin, TrendingUp, AlertCircle, UserPlus, Users, CheckSquare, Send, Tag, Download, X, Calendar, DollarSign, FileText, UserCircle, Edit, Trash2, Crown, Award, Medal, Circle, Check } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -1030,114 +1036,130 @@ export default function ClientsPage() {
           title={selectedClient ? 'Edit Client' : 'New Client'}
           size="md"
         >
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Name and Company */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Contact Person *</label>
-                <input
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-medium">
+                  Contact Person <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="name"
                   {...register('name')}
-                  className="input-premium w-full"
                   placeholder="e.g., Aryav Dey (CEO)"
                 />
-                {errors.name && <p className="text-red-600 text-xs mt-1">{errors.name.message}</p>}
+                {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Company Name *</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="company" className="text-sm font-medium">
+                  Company Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="company"
                   {...register('company')}
-                  className="input-premium w-full"
                   placeholder="e.g., Aryav Tech"
                 />
-                {errors.company && <p className="text-red-600 text-xs mt-1">{errors.company.message}</p>}
+                {errors.company && <p className="text-sm text-destructive mt-1">{errors.company.message}</p>}
               </div>
             </div>
 
             {/* Contact Information */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Phone/WhatsApp</label>
-                <input
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-sm font-medium">
+                  Phone/WhatsApp
+                </Label>
+                <Input
+                  id="phone"
                   {...register('phone')}
                   type="tel"
-                  className="input-premium w-full"
                   placeholder="+91 1234567890"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">
+                  Email <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="email"
                   type="email"
                   {...register('email')}
-                  className="input-premium w-full"
                   placeholder="email@company.com"
                 />
-                {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email.message}</p>}
+                {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
               </div>
             </div>
 
             {/* Address */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="address" className="text-sm font-medium">
+                Address
+              </Label>
+              <Input
+                id="address"
                 {...register('address')}
-                className="input-premium w-full"
                 placeholder="Enter full address"
               />
             </div>
 
             {/* Status and Tier */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
-                <select
-                  {...register('status')}
-                  className="input-premium w-full appearance-none bg-white cursor-pointer"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23334155' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 12px center',
-                    paddingRight: '40px'
-                  }}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="status" className="text-sm font-medium">
+                  Status
+                </Label>
+                <Select
+                  value={watch('status') || 'Lead'}
+                  onValueChange={(value) => setValue('status', value as any)}
                 >
-                  <option value="Lead">🟡 Lead</option>
-                  <option value="Proposal">🔵 Proposal</option>
-                  <option value="Active">🟢 Active</option>
-                  <option value="Overdue">🔴 Overdue</option>
-                  <option value="Won">✅ Won</option>
-                  <option value="Lost">❌ Lost</option>
-                  <option value="Inactive">⚪ Inactive</option>
-                </select>
+                  <SelectTrigger id="status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Lead">🟡 Lead</SelectItem>
+                    <SelectItem value="Proposal">🔵 Proposal</SelectItem>
+                    <SelectItem value="Active">🟢 Active</SelectItem>
+                    <SelectItem value="Overdue">🔴 Overdue</SelectItem>
+                    <SelectItem value="Won">✅ Won</SelectItem>
+                    <SelectItem value="Lost">❌ Lost</SelectItem>
+                    <SelectItem value="Inactive">⚪ Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Client Tier</label>
-                <select
-                  {...register('clientTier')}
-                  className="input-premium w-full appearance-none bg-white cursor-pointer"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23334155' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 12px center',
-                    paddingRight: '40px'
-                  }}
+              <div className="space-y-2">
+                <Label htmlFor="clientTier" className="text-sm font-medium">
+                  Client Tier
+                </Label>
+                <Select
+                  value={watch('clientTier') || 'Bronze'}
+                  onValueChange={(value) => setValue('clientTier', value as any)}
                 >
-                  <option value="Platinum">👑 Platinum</option>
-                  <option value="Gold">🏆 Gold</option>
-                  <option value="Silver">🥈 Silver</option>
-                  <option value="Bronze">🥉 Bronze</option>
-                </select>
+                  <SelectTrigger id="clientTier">
+                    <SelectValue placeholder="Select tier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Platinum">👑 Platinum</SelectItem>
+                    <SelectItem value="Gold">🏆 Gold</SelectItem>
+                    <SelectItem value="Silver">🥈 Silver</SelectItem>
+                    <SelectItem value="Bronze">🥉 Bronze</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
+            <Separator />
+
             {/* Assigned Developers - Checkbox Style */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Assigned Developers</label>
-              <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto bg-white">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Assigned Developers
+              </Label>
+              <div className="rounded-md border border-input bg-background p-3 max-h-48 overflow-y-auto">
                 {team.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">No team members available</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No team members available</p>
                 ) : (
                   <div className="space-y-2">
                     {team.map((member) => {
@@ -1145,7 +1167,7 @@ export default function ClientsPage() {
                       return (
                         <label
                           key={member._id}
-                          className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors"
+                          className="flex items-center gap-3 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
                         >
                           <input
                             type="checkbox"
@@ -1158,11 +1180,11 @@ export default function ClientsPage() {
                                 setValue('assignedDevelopers', current.filter((id: string) => id !== member._id));
                               }
                             }}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                            className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
                           />
                           <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-900">{member.name}</span>
-                            <span className="text-xs text-gray-500 ml-2">- {member.role}</span>
+                            <span className="text-sm font-medium">{member.name}</span>
+                            <span className="text-xs text-muted-foreground ml-2">- {member.role}</span>
                           </div>
                         </label>
                       );
@@ -1170,39 +1192,42 @@ export default function ClientsPage() {
                   </div>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-1.5">Select team members assigned to this client</p>
+              <p className="text-xs text-muted-foreground">Select team members assigned to this client</p>
             </div>
 
             {/* Notes */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
-              <textarea
+            <div className="space-y-2">
+              <Label htmlFor="notes" className="text-sm font-medium">
+                Notes
+              </Label>
+              <Textarea
+                id="notes"
                 {...register('notes')}
                 rows={3}
-                className="input-premium w-full resize-none"
                 placeholder="Additional notes about the client..."
               />
             </div>
 
+            <Separator />
+
             {/* Form Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-              <button
+            <div className="flex justify-end gap-3">
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => {
                   setIsModalOpen(false);
                   reset();
                   setSelectedClient(null);
                 }}
-                className="px-5 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm hover:shadow-md transition-all duration-200"
               >
                 {selectedClient ? 'Update Client' : 'Create Client'}
-              </button>
+              </Button>
             </div>
           </form>
         </Modal>
