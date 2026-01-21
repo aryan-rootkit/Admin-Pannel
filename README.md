@@ -198,3 +198,6 @@ For issues or questions, please contact the development team.
 ---
 
 Built with ❤️ by Rootkit Development
+
+---
+Last updated: January 2025
