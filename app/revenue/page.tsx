@@ -273,6 +273,7 @@ export default function RevenuePage() {
     };
   }, [hoveredCard]);
 
+
   // Auto-fill client when project is selected
   useEffect(() => {
     if (selectedProject && projects.length > 0) {
@@ -1004,6 +1005,19 @@ export default function RevenuePage() {
     
     setDeveloperPayouts(payoutsArray);
   }, [expenses, teamMembers]);
+
+  useEffect(() => {
+    fetchRevenue();
+    fetchProjects();
+    fetchClients();
+    fetchExpenses();
+    fetchTeamMembers();
+  }, [fetchRevenue, fetchProjects, fetchClients, fetchExpenses, fetchTeamMembers]);
+
+  useEffect(() => {
+    calculateStats();
+    calculateDeveloperPayouts();
+  }, [calculateStats, calculateDeveloperPayouts]);
 
   useEffect(() => {
     fetchRevenue();

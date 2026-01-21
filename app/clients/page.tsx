@@ -624,7 +624,7 @@ export default function ClientsPage() {
     }
     
     return filtered;
-  }, [clients, statusFilter, revenue, searchTerm]);
+  }, [clients, statusFilter, searchTerm]);
 
   if (loading) {
     return (
