@@ -1223,213 +1223,148 @@ export default function TeamPage() {
               </Select>
             </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                    <select
-                      {...register('role')}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select role</option>
-                      <option value="Frontend Developer">Frontend Developer</option>
-                      <option value="Backend Developer">Backend Developer</option>
-                      <option value="Full Stack Developer">Full Stack Developer</option>
-                      <option value="UI/UX Designer">UI/UX Designer</option>
-                      <option value="Project Manager">Project Manager</option>
-                      <option value="Marketing Specialist">Marketing Specialist</option>
-                      <option value="Contractor">Contractor</option>
-                      <option value="Other">Other</option>
-                    </select>
-                    {errors.role && <p className="text-red-600 text-sm mt-1">{errors.role.message}</p>}
-                  </div>
+            <Separator />
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate (₹)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('hourlyRate', { valueAsNumber: true })}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="0.00"
-                    />
-                    {errors.hourlyRate && <p className="text-red-600 text-sm mt-1">{errors.hourlyRate.message}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Employment Type</label>
-                    <select
-                      {...register('employmentType')}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="In-House">In-House</option>
-                      <option value="Contractor">Contractor</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Availability</label>
-                    <select
-                      {...register('availability')}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="Available">Available</option>
-                      <option value="Busy">Busy</option>
-                      <option value="On Leave">On Leave</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Contractor For - Show only when Contractor is selected */}
-                {watch('employmentType') === 'Contractor' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Contractor For (What Skill/Service)</label>
-                    <input
-                      {...register('contractorFor')}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="e.g., React Development, UI/UX Design, Backend API, Mobile App Development, etc."
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
-                  <textarea
-                    {...register('bio')}
-                    rows={3}
-                    className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Brief description about the team member..."
-                  />
-                </div>
-
-                {/* Skills Matrix - Tier 1 Feature */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Skills</label>
-                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    {['React', 'Vue', 'Next.js', 'Node.js', 'Python', 'Go', 'Flutter', 'React Native', 'TypeScript', 'JavaScript', 'MongoDB', 'PostgreSQL', 'Figma', 'Adobe XD', 'Tailwind CSS', 'GraphQL'].map(skill => {
-                      const currentSkills = watch('skills') || [];
-                      const isSelected = currentSkills.includes(skill);
-                      return (
-                        <label key={skill} className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              const current = currentSkills;
-                              if (e.target.checked) {
-                                setValue('skills', [...current, skill]);
-                              } else {
-                                setValue('skills', current.filter(s => s !== skill));
-                              }
-                            }}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">{skill}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Capacity Fields - Tier 1 Feature */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hours Worked This Week</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      {...register('hoursWorkedThisWeek', { valueAsNumber: true })}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="0"
-                      defaultValue={0}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hours Available Per Week</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      {...register('hoursAvailablePerWeek', { valueAsNumber: true })}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="40"
-                      defaultValue={40}
-                    />
-                  </div>
-                </div>
-              </>
+            {/* Contractor For - Show only when Individual Contractor is selected */}
+            {watch('employmentType') === 'Contractor' && contractorType === 'Individual' && (
+              <div className="space-y-2">
+                <Label htmlFor="contractorFor" className="text-sm font-medium">
+                  Contractor For (What Skill/Service)
+                </Label>
+                <Input
+                  id="contractorFor"
+                  {...register('contractorFor')}
+                  placeholder="e.g., React Development, UI/UX Design, Backend API, Mobile App Development, etc."
+                />
+              </div>
             )}
 
-            {/* Team Mode Fields - Only show for Team Contractors */}
+            {/* Team Mode Additional Fields - Only show for Team Contractors */}
             {watch('employmentType') === 'Contractor' && contractorType === 'Team' && (
               <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Team Name</label>
-                  <input
-                    {...register('teamName')}
-                    className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter team name"
-                  />
-                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="teamLead" className="text-sm font-medium">
+                      Team Lead
+                    </Label>
+                    <Input
+                      id="teamLead"
+                      {...register('teamLead')}
+                      placeholder="Enter team lead name"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Team Lead</label>
-                  <input
-                    {...register('teamLead')}
-                    className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter team lead name"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Team Size</label>
-                    <input
+                  <div className="space-y-2">
+                    <Label htmlFor="teamSize" className="text-sm font-medium">
+                      Team Size
+                    </Label>
+                    <Input
+                      id="teamSize"
                       type="number"
                       {...register('teamSize', { valueAsNumber: true })}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Number of members"
                     />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Rate (₹)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('totalRate', { valueAsNumber: true })}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="0.00"
-                    />
-                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Specialization</label>
-                  <select
-                    {...register('specialization')}
-                    className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                <div className="space-y-2">
+                  <Label htmlFor="specialization" className="text-sm font-medium">
+                    Specialization
+                  </Label>
+                  <Select
+                    value={watch('specialization') || ''}
+                    onValueChange={(value) => setValue('specialization', value)}
                   >
-                    <option value="">Select specialization</option>
-                    <option value="Full-stack">Full-stack</option>
-                    <option value="Mobile">Mobile</option>
-                    <option value="Design">Design</option>
-                    <option value="Backend">Backend</option>
-                    <option value="Frontend">Frontend</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Employment Type</label>
-                  <select
-                    {...register('employmentType')}
-                    className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    defaultValue="Contractor"
-                  >
-                    <option value="Contractor">Contractor</option>
-                  </select>
+                    <SelectTrigger id="specialization">
+                      <SelectValue placeholder="Select specialization" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Full-stack">Full-stack</SelectItem>
+                      <SelectItem value="Mobile">Mobile</SelectItem>
+                      <SelectItem value="Design">Design</SelectItem>
+                      <SelectItem value="Backend">Backend</SelectItem>
+                      <SelectItem value="Frontend">Frontend</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </>
             )}
+
+            <Separator />
+
+            {/* Bio */}
+            <div className="space-y-2">
+              <Label htmlFor="bio" className="text-sm font-medium">
+                Bio
+              </Label>
+              <Textarea
+                id="bio"
+                {...register('bio')}
+                rows={3}
+                placeholder="Brief description about the team member..."
+              />
+            </div>
+
+            {/* Skills Matrix */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Skills</Label>
+              <div className="rounded-md border border-input bg-background p-3 max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-2">
+                  {['React', 'Vue', 'Next.js', 'Node.js', 'Python', 'Go', 'Flutter', 'React Native', 'TypeScript', 'JavaScript', 'MongoDB', 'PostgreSQL', 'Figma', 'Adobe XD', 'Tailwind CSS', 'GraphQL'].map(skill => {
+                    const currentSkills = watch('skills') || [];
+                    const isSelected = currentSkills.includes(skill);
+                    return (
+                      <label key={skill} className="flex items-center gap-2 cursor-pointer hover:bg-accent p-2 rounded-md transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            const current = currentSkills;
+                            if (e.target.checked) {
+                              setValue('skills', [...current, skill]);
+                            } else {
+                              setValue('skills', current.filter(s => s !== skill));
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        />
+                        <span className="text-sm">{skill}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Capacity Fields */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="hoursWorkedThisWeek" className="text-sm font-medium">
+                  Hours Worked This Week
+                </Label>
+                <Input
+                  id="hoursWorkedThisWeek"
+                  type="number"
+                  step="0.5"
+                  {...register('hoursWorkedThisWeek', { valueAsNumber: true })}
+                  placeholder="0"
+                  defaultValue={0}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hoursAvailablePerWeek" className="text-sm font-medium">
+                  Hours Available Per Week
+                </Label>
+                <Input
+                  id="hoursAvailablePerWeek"
+                  type="number"
+                  step="0.5"
+                  {...register('hoursAvailablePerWeek', { valueAsNumber: true })}
+                  placeholder="40"
+                  defaultValue={40}
+                />
+              </div>
+            </div>
 
             {/* Common fields for In-House (when not contractor) */}
             {(!selectedMember || selectedMember.employmentType !== 'Contractor') && contractorType !== 'Team' && (
