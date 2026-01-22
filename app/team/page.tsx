@@ -347,31 +347,16 @@ export default function TeamPage() {
     setSelectedMember(updatedMemberData);
     setUpdatedMember(updatedMemberData);
     
-    // Set contractor type based on member data
-    if (member.contractorType === 'Team') {
-      setContractorType('Team');
-      setValue('teamName', member.teamName || '');
-      setValue('teamLead', member.teamLead || '');
-      setValue('teamSize', member.teamSize || 0);
-      setValue('totalRate', member.totalRate || 0);
-      setValue('specialization', member.specialization || '');
-    } else {
-      setContractorType('Individual');
-      setValue('name', member.name);
-      setValue('email', member.email);
-      setValue('role', member.role);
-      setValue('category', (member as any).category || 'Other');
-      setValue('hourlyRate', member.hourlyRate);
-    }
-    
-    // Set common fields
-    setValue('availability', member.availability || 'Available');
+    // Set all fields according to new simplified structure
+    setValue('name', member.name);
+    setValue('email', member.email);
+    setValue('contact', member.contact || '');
     setValue('employmentType', member.employmentType || 'In-House');
-    setValue('bio', member.bio || '');
-    setValue('contractorFor', member.contractorFor || '');
+    setValue('role', member.role);
+    setValue('subRole', member.subRole || '');
     setValue('skills', member.skills || []);
+    setValue('hourlyRate', member.hourlyRate);
     setValue('hoursWorkedThisWeek', member.hoursWorkedThisWeek || 0);
-    setValue('hoursAvailablePerWeek', member.hoursAvailablePerWeek || 40);
     
     setIsModalOpen(true);
   };
