@@ -172,8 +172,13 @@ export default function TeamPage() {
       // Use API route (fetches from MongoDB)
       const res = await fetch('/api/team');
       if (res.ok) {
-      const data = await res.json();
-      setTeamMembers(Array.isArray(data) ? data : []);
+        const data = await res.json();
+        console.log('Fetched team members:', data);
+        setTeamMembers(Array.isArray(data) ? data : []);
+        // Also update the AppContext
+        if (setTeam) {
+          setTeam(Array.isArray(data) ? data : []);
+        }
       } else {
         console.error('Failed to fetch team from API');
         setTeamMembers([]);
