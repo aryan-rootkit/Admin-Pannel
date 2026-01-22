@@ -1155,7 +1155,17 @@ export default function ProjectsPage() {
                 </label>
                 <UnifiedSearchSelect
                   options={team
-                    .filter(m => (m as any).category === 'Developer' || m.role?.toLowerCase().includes('developer'))
+                    .filter(m => {
+                      // Show team members if:
+                      // 1. They have category === 'Developer', OR
+                      // 2. Their role contains 'developer' (case-insensitive), OR
+                      // 3. They don't have a category set (backward compatibility for existing members)
+                      const category = (m as any).category;
+                      const roleLower = m.role?.toLowerCase() || '';
+                      return category === 'Developer' || 
+                             roleLower.includes('developer') || 
+                             !category; // Show all if no category is set (backward compatibility)
+                    })
                     .map(m => ({ _id: m._id, name: m.name, role: m.role, avatar: (m as any).avatar }))}
                   selected={selectedDevelopers}
                   onChange={(selected) => {
