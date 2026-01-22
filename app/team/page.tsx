@@ -68,6 +68,7 @@ interface TeamMember {
 export default function TeamPage() {
   const { team, setTeam } = useApp();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [loading, setLoading] = useState(true);
@@ -300,24 +301,22 @@ export default function TeamPage() {
     const matchesSearch = searchQuery === '' || 
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (m.role || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (m.skills || []).some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesRole = roleFilter === 'all' || m.role === roleFilter;
-    const matchesAvailability = availabilityFilter === 'all' || m.availability === availabilityFilter;
     const matchesSkills = skillsFilter === 'all' || (m.skills || []).includes(skillsFilter);
-    return matchesSearch && matchesRole && matchesAvailability && matchesSkills;
+    return matchesSearch && matchesRole && matchesSkills;
   });
 
   const filteredContractorMembers = contractorMembers.filter(m => {
     const matchesSearch = searchQuery === '' || 
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (m.role || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (m.skills || []).some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesRole = roleFilter === 'all' || m.role === roleFilter;
-    const matchesAvailability = availabilityFilter === 'all' || m.availability === availabilityFilter;
     const matchesSkills = skillsFilter === 'all' || (m.skills || []).includes(skillsFilter);
-    return matchesSearch && matchesRole && matchesAvailability && matchesSkills;
+    return matchesSearch && matchesRole && matchesSkills;
   });
 
   const handleEdit = (member: TeamMember) => {
