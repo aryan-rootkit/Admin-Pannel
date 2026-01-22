@@ -68,7 +68,6 @@ interface TeamMember {
 export default function TeamPage() {
   const { team, setTeam } = useApp();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [loading, setLoading] = useState(true);
