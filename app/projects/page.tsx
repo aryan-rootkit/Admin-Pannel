@@ -298,16 +298,6 @@ export default function ProjectsPage() {
     applyFiltersAndSort();
   }, [applyFiltersAndSort]);
 
-  useEffect(() => {
-    fetchProjects();
-    fetchTeamMembers();
-    fetchClients();
-  }, [fetchProjects, fetchTeamMembers, fetchClients]);
-
-  useEffect(() => {
-    applyFiltersAndSort();
-  }, [applyFiltersAndSort]);
-
   const getDeadlineStatus = (deadline: string, status: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
