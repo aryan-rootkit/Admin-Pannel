@@ -974,20 +974,6 @@ export default function TeamPage() {
               ))}
             </select>
           </div>
-
-          {/* Availability Filter Card */}
-          <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
-            <select
-              value={availabilityFilter}
-              onChange={(e) => setAvailabilityFilter(e.target.value)}
-              className="w-full bg-transparent border-none outline-none text-sm text-text-primary cursor-pointer min-w-[140px]"
-            >
-              <option value="all">All Availability</option>
-              <option value="Available">Available</option>
-              <option value="Busy">Busy</option>
-              <option value="On Leave">On Leave</option>
-            </select>
-          </div>
         </div>
 
         {/* Tab Navigation */}
