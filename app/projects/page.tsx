@@ -1154,16 +1154,19 @@ export default function ProjectsPage() {
                   Developers <span className="text-red-500">*</span>
                 </label>
                 <UnifiedSearchSelect
-                  options={team
+                  options={(team || [])
                     .filter(m => {
+                      if (!m || !m._id) return false;
+                      
                       // Show team members if:
                       // 1. They have category === 'Developer', OR
                       // 2. Their role contains 'developer' (case-insensitive), OR
                       // 3. They don't have a category set (backward compatibility - show all existing members)
-                      const category = (m as any).category;
+                      const category = (m as any)?.category;
                       const roleLower = (m.role || '').toLowerCase();
                       
                       // If category is not set (undefined/null/empty), show the member (backward compatibility)
+                      // This ensures existing team members without category field still appear
                       if (!category || category === '' || category === undefined || category === null) {
                         return true;
                       }
@@ -1171,12 +1174,12 @@ export default function ProjectsPage() {
                       // If category is set, only show if it's 'Developer' or role contains 'developer'
                       return category === 'Developer' || roleLower.includes('developer');
                     })
-                    .map(m => ({ _id: m._id, name: m.name, role: m.role, avatar: (m as any).avatar }))}
+                    .map(m => ({ _id: m._id, name: m.name, role: m.role, avatar: (m as any)?.avatar }))}
                   selected={selectedDevelopers}
                   onChange={(selected) => {
                     setValue('developers', selected, { shouldValidate: true });
                   }}
-                  placeholder="Search or select developers..."
+                  placeholder={team && team.length > 0 ? "Search or select developers..." : "Loading team members..."}
                   multiSelect={true}
                   error={errors.developers?.message}
                 />
