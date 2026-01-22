@@ -24,26 +24,15 @@ import { formatINR } from '@/lib/utils/currency';
  */
 
 const teamSchema = z.object({
-  name: z.string().optional(),
-  email: z.string().email('Invalid email').optional().or(z.literal('')),
-  role: z.string().optional(),
-  category: z.enum(['Developer', 'Designer', 'Manager', 'Marketing', 'Other']).optional(),
-  hourlyRate: z.number().min(0, 'Hourly rate must be positive').optional(),
-  availability: z.enum(['Available', 'Busy', 'On Leave']).optional(),
-  employmentType: z.enum(['In-House', 'Contractor']).optional(),
-  bio: z.string().optional(),
-  // Contractor-specific fields
-  contractorType: z.enum(['Individual', 'Team']).optional(),
-  teamName: z.string().optional(),
-  teamLead: z.string().optional(),
-  teamSize: z.number().optional(),
-  totalRate: z.number().optional(),
-  specialization: z.string().optional(),
-  contractorFor: z.string().optional(), // What skill/service they're a contractor for
-  // New fields for capacity and skills
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email').min(1, 'Email is required'),
+  contact: z.string().optional(),
+  employmentType: z.enum(['In-House', 'Contractor']).default('In-House'),
+  role: z.enum(['Developer', 'UI-UX', 'Marketing', 'Sales', 'BD']).optional(),
+  subRole: z.string().optional(), // Frontend/Backend/Fullstack/Flutter/etc (only if Developer)
   skills: z.array(z.string()).optional(),
-  hoursWorkedThisWeek: z.number().min(0).optional(),
-  hoursAvailablePerWeek: z.number().min(0).max(168).optional(),
+  hourlyRate: z.number().min(0, 'Hourly rate must be positive'),
+  hoursWorkedThisWeek: z.number().min(0).default(0),
 });
 
 type TeamFormData = z.infer<typeof teamSchema>;
@@ -182,8 +171,8 @@ export default function TeamPage() {
       // Use API route (fetches from MongoDB)
       const res = await fetch('/api/team');
       if (res.ok) {
-        const data = await res.json();
-        setTeamMembers(Array.isArray(data) ? data : []);
+      const data = await res.json();
+      setTeamMembers(Array.isArray(data) ? data : []);
       } else {
         console.error('Failed to fetch team from API');
         setTeamMembers([]);
@@ -222,15 +211,17 @@ export default function TeamPage() {
         toast('Hourly rate must be greater than 0', 'error');
         return;
       }
-
+      
       const requestBody: any = {
         name: data.name.trim(),
         email: data.email.trim().toLowerCase(),
-        role: data.role.trim(),
-        category: data.category || 'Other',
+        contact: data.contact?.trim() || '',
+        employmentType: data.employmentType || 'In-House',
+        role: data.role,
+        subRole: data.subRole || '',
+          skills: data.skills || [],
         hourlyRate: hourlyRateValue,
-        availability: data.availability || 'Available',
-        bio: data.bio?.trim() || '',
+        hoursWorkedThisWeek: data.hoursWorkedThisWeek || 0,
       };
       
       console.log('Submitting team member:', requestBody);
@@ -1074,439 +1065,129 @@ export default function TeamPage() {
           size="md"
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Always Show: Name and Email (Required Fields) */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium">
-                  Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  {...register('name')}
-                  placeholder="Enter name"
-                />
-                {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
-                  Email <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...register('email')}
-                  placeholder="Enter email"
-                />
-                {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Employment Type and Contractor Type */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="employmentType" className="text-sm font-medium">
-                  Employment Type
-                </Label>
-                <Select
-                  value={watch('employmentType') || 'In-House'}
-                  onValueChange={(value) => {
-                    setValue('employmentType', value as any);
-                    if (value === 'In-House') {
-                      setContractorType('Individual');
-                    }
-                  }}
-                >
-                  <SelectTrigger id="employmentType">
-                    <SelectValue placeholder="Select employment type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="In-House">In-House</SelectItem>
-                    <SelectItem value="Contractor">Contractor</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Contractor Type Toggle - Only show when Contractor is selected */}
-              {watch('employmentType') === 'Contractor' && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Contractor Type</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={contractorType === 'Individual' ? 'default' : 'outline'}
-                      onClick={() => {
-                        setContractorType('Individual');
-                        setValue('contractorType', 'Individual');
-                        // Clear team-specific fields when switching to Individual
-                        setValue('teamName', '');
-                        setValue('teamLead', '');
-                        setValue('teamSize', undefined);
-                        setValue('totalRate', undefined);
-                      }}
-                      className="flex-1"
-                    >
-                      Individual
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={contractorType === 'Team' ? 'default' : 'outline'}
-                      onClick={() => {
-                        setContractorType('Team');
-                        setValue('contractorType', 'Team');
-                        // Don't clear name/email for Team mode - they're still required
-                      }}
-                      className="flex-1"
-                    >
-                      Team
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Role and Category Fields */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="role" className="text-sm font-medium">
-                  Role <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={watch('role') || ''}
-                  onValueChange={(value) => setValue('role', value)}
-                >
-                  <SelectTrigger id="role">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Frontend Developer">Frontend Developer</SelectItem>
-                    <SelectItem value="Backend Developer">Backend Developer</SelectItem>
-                    <SelectItem value="Full Stack Developer">Full Stack Developer</SelectItem>
-                    <SelectItem value="UI/UX Designer">UI/UX Designer</SelectItem>
-                    <SelectItem value="Project Manager">Project Manager</SelectItem>
-                    <SelectItem value="Marketing Specialist">Marketing Specialist</SelectItem>
-                    <SelectItem value="Contractor">Contractor</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.role && <p className="text-sm text-destructive mt-1">{errors.role.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="category" className="text-sm font-medium">
-                  Category <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={watch('category') || 'Other'}
-                  onValueChange={(value) => setValue('category', value as any)}
-                >
-                  <SelectTrigger id="category">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Developer">Developer</SelectItem>
-                    <SelectItem value="Designer">Designer</SelectItem>
-                    <SelectItem value="Manager">Manager</SelectItem>
-                    <SelectItem value="Marketing">Marketing</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
-              </div>
-            </div>
-
-            {/* Rate Field */}
+            {/* 1. Name */}
             <div className="space-y-2">
-              <Label htmlFor="hourlyRate" className="text-sm font-medium">
-                {contractorType === 'Team' ? 'Total Rate (₹)' : 'Hourly Rate (₹)'} <span className="text-red-500">*</span>
+              <Label htmlFor="name" className="text-sm font-medium">
+                Name <span className="text-red-500">*</span>
               </Label>
               <Input
-                id="hourlyRate"
-                type="number"
-                step="0.01"
-                {...register(contractorType === 'Team' ? 'totalRate' : 'hourlyRate', { valueAsNumber: true })}
-                placeholder="0.00"
-              />
-              {(errors.hourlyRate || errors.totalRate) && <p className="text-sm text-destructive mt-1">{(errors.hourlyRate || errors.totalRate)?.message}</p>}
-            </div>
+                id="name"
+                    {...register('name')}
+                    placeholder="Enter name"
+                  />
+              {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
+                </div>
 
-            {/* Availability */}
+            {/* 2. Email */}
             <div className="space-y-2">
-              <Label htmlFor="availability" className="text-sm font-medium">
-                Availability
+              <Label htmlFor="email" className="text-sm font-medium">
+                Email <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="email"
+                    type="email"
+                    {...register('email')}
+                    placeholder="Enter email"
+                  />
+              {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
+                </div>
+
+            {/* 3. Contact */}
+            <div className="space-y-2">
+              <Label htmlFor="contact" className="text-sm font-medium">
+                Contact
+              </Label>
+              <Input
+                id="contact"
+                {...register('contact')}
+                placeholder="Enter contact number"
+              />
+                </div>
+
+            {/* 4. Employment Type */}
+            <div className="space-y-2">
+              <Label htmlFor="employmentType" className="text-sm font-medium">
+                Employment Type <span className="text-red-500">*</span>
               </Label>
               <Select
-                value={watch('availability') || 'Available'}
-                onValueChange={(value) => setValue('availability', value as any)}
+                value={watch('employmentType') || 'In-House'}
+                onValueChange={(value) => setValue('employmentType', value as any)}
               >
-                <SelectTrigger id="availability">
-                  <SelectValue placeholder="Select availability" />
+                <SelectTrigger id="employmentType">
+                  <SelectValue placeholder="Select employment type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Available">Available</SelectItem>
-                  <SelectItem value="Busy">Busy</SelectItem>
-                  <SelectItem value="On Leave">On Leave</SelectItem>
+                  <SelectItem value="In-House">In-House</SelectItem>
+                  <SelectItem value="Contractor">Contractor</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <Separator />
-
-            {/* Contractor For - Show only when Individual Contractor is selected */}
-            {watch('employmentType') === 'Contractor' && contractorType === 'Individual' && (
-              <div className="space-y-2">
-                <Label htmlFor="contractorFor" className="text-sm font-medium">
-                  Contractor For (What Skill/Service)
-                </Label>
-                <Input
-                  id="contractorFor"
-                  {...register('contractorFor')}
-                  placeholder="e.g., React Development, UI/UX Design, Backend API, Mobile App Development, etc."
-                />
-              </div>
-            )}
-
-            {/* Team Mode Additional Fields - Only show for Team Contractors */}
-            {watch('employmentType') === 'Contractor' && contractorType === 'Team' && (
-              <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="teamLead" className="text-sm font-medium">
-                      Team Lead
-                    </Label>
-                    <Input
-                      id="teamLead"
-                      {...register('teamLead')}
-                      placeholder="Enter team lead name"
-                    />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="teamSize" className="text-sm font-medium">
-                      Team Size
-                    </Label>
-                    <Input
-                      id="teamSize"
-                      type="number"
-                      {...register('teamSize', { valueAsNumber: true })}
-                      placeholder="Number of members"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="specialization" className="text-sm font-medium">
-                    Specialization
-                  </Label>
-                  <Select
-                    value={watch('specialization') || ''}
-                    onValueChange={(value) => setValue('specialization', value)}
-                  >
-                    <SelectTrigger id="specialization">
-                      <SelectValue placeholder="Select specialization" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Full-stack">Full-stack</SelectItem>
-                      <SelectItem value="Mobile">Mobile</SelectItem>
-                      <SelectItem value="Design">Design</SelectItem>
-                      <SelectItem value="Backend">Backend</SelectItem>
-                      <SelectItem value="Frontend">Frontend</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-
-            <Separator />
-
-            {/* Bio */}
+            {/* 5. Role */}
             <div className="space-y-2">
-              <Label htmlFor="bio" className="text-sm font-medium">
-                Bio
+              <Label htmlFor="role" className="text-sm font-medium">
+                Role <span className="text-red-500">*</span>
               </Label>
-              <Textarea
-                id="bio"
-                {...register('bio')}
-                rows={3}
-                placeholder="Brief description about the team member..."
-              />
-            </div>
+              <Select
+                value={watch('role') || ''}
+                onValueChange={(value) => {
+                  setValue('role', value as any);
+                  // Clear subRole when role changes
+                  if (value !== 'Developer') {
+                    setValue('subRole', '');
+                  }
+                }}
+              >
+                <SelectTrigger id="role">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Developer">Developer</SelectItem>
+                  <SelectItem value="UI-UX">UI-UX</SelectItem>
+                  <SelectItem value="Marketing">Marketing</SelectItem>
+                  <SelectItem value="Sales">Sales</SelectItem>
+                  <SelectItem value="BD">BD</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.role && <p className="text-sm text-destructive mt-1">{errors.role.message}</p>}
+                </div>
 
-            {/* Skills Matrix */}
+            {/* 5.1 Sub-Role (only if Developer is selected) */}
+            {watch('role') === 'Developer' && (
+              <div className="space-y-2">
+                <Label htmlFor="subRole" className="text-sm font-medium">
+                  Sub-Role
+                </Label>
+                <Select
+                  value={watch('subRole') || ''}
+                  onValueChange={(value) => setValue('subRole', value)}
+                >
+                  <SelectTrigger id="subRole">
+                    <SelectValue placeholder="Select sub-role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Frontend">Frontend</SelectItem>
+                    <SelectItem value="Backend">Backend</SelectItem>
+                    <SelectItem value="Fullstack">Fullstack</SelectItem>
+                    <SelectItem value="Flutter">Flutter</SelectItem>
+                    <SelectItem value="React Native">React Native</SelectItem>
+                    <SelectItem value="Mobile">Mobile</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                  </div>
+                )}
+
+            {/* 6. Skills */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Skills</Label>
               <div className="rounded-md border border-input bg-background p-3 max-h-48 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-2">
-                  {['React', 'Vue', 'Next.js', 'Node.js', 'Python', 'Go', 'Flutter', 'React Native', 'TypeScript', 'JavaScript', 'MongoDB', 'PostgreSQL', 'Figma', 'Adobe XD', 'Tailwind CSS', 'GraphQL'].map(skill => {
-                    const currentSkills = watch('skills') || [];
-                    const isSelected = currentSkills.includes(skill);
-                    return (
-                      <label key={skill} className="flex items-center gap-2 cursor-pointer hover:bg-accent p-2 rounded-md transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            const current = currentSkills;
-                            if (e.target.checked) {
-                              setValue('skills', [...current, skill]);
-                            } else {
-                              setValue('skills', current.filter(s => s !== skill));
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                        />
-                        <span className="text-sm">{skill}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Capacity Fields */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="hoursWorkedThisWeek" className="text-sm font-medium">
-                  Hours Worked This Week
-                </Label>
-                <Input
-                  id="hoursWorkedThisWeek"
-                  type="number"
-                  step="0.5"
-                  {...register('hoursWorkedThisWeek', { valueAsNumber: true })}
-                  placeholder="0"
-                  defaultValue={0}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="hoursAvailablePerWeek" className="text-sm font-medium">
-                  Hours Available Per Week
-                </Label>
-                <Input
-                  id="hoursAvailablePerWeek"
-                  type="number"
-                  step="0.5"
-                  {...register('hoursAvailablePerWeek', { valueAsNumber: true })}
-                  placeholder="40"
-                  defaultValue={40}
-                />
-              </div>
-            </div>
-
-            {/* Common fields for In-House (when not contractor) */}
-            {(!selectedMember || selectedMember.employmentType !== 'Contractor') && contractorType !== 'Team' && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                  <input
-                    {...register('name')}
-                    className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter name"
-                  />
-                  {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <input
-                    type="email"
-                    {...register('email')}
-                    className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter email"
-                  />
-                  {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                    <select
-                      {...register('role')}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select role</option>
-                      <option value="Frontend Developer">Frontend Developer</option>
-                      <option value="Backend Developer">Backend Developer</option>
-                      <option value="Full Stack Developer">Full Stack Developer</option>
-                      <option value="UI/UX Designer">UI/UX Designer</option>
-                      <option value="Project Manager">Project Manager</option>
-                      <option value="Marketing Specialist">Marketing Specialist</option>
-                      <option value="Contractor">Contractor</option>
-                      <option value="Other">Other</option>
-                    </select>
-                    {errors.role && <p className="text-red-600 text-sm mt-1">{errors.role.message}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate (₹)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('hourlyRate', { valueAsNumber: true })}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="0.00"
-                    />
-                    {errors.hourlyRate && <p className="text-red-600 text-sm mt-1">{errors.hourlyRate.message}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Employment Type</label>
-                    <select
-                      {...register('employmentType')}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="In-House">In-House</option>
-                      <option value="Contractor">Contractor</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Availability</label>
-                    <select
-                      {...register('availability')}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="Available">Available</option>
-                      <option value="Busy">Busy</option>
-                      <option value="On Leave">On Leave</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Contractor For - Show only when Contractor is selected */}
-                {watch('employmentType') === 'Contractor' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Contractor For (What Skill/Service)</label>
-                    <input
-                      {...register('contractorFor')}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="e.g., React Development, UI/UX Design, Backend API, Mobile App Development, etc."
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
-                  <textarea
-                    {...register('bio')}
-                    rows={3}
-                    className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Brief description about the team member..."
-                  />
-                </div>
-
-                {/* Skills Matrix - Tier 1 Feature */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Skills</label>
-                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 bg-gray-50 rounded-lg border border-gray-200">
                     {['React', 'Vue', 'Next.js', 'Node.js', 'Python', 'Go', 'Flutter', 'React Native', 'TypeScript', 'JavaScript', 'MongoDB', 'PostgreSQL', 'Figma', 'Adobe XD', 'Tailwind CSS', 'GraphQL'].map(skill => {
                       const currentSkills = watch('skills') || [];
                       const isSelected = currentSkills.includes(skill);
                       return (
-                        <label key={skill} className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded">
+                      <label key={skill} className="flex items-center gap-2 cursor-pointer hover:bg-accent p-2 rounded-md transition-colors">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1518,43 +1199,47 @@ export default function TeamPage() {
                                 setValue('skills', current.filter(s => s !== skill));
                               }
                             }}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                          className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
                           />
-                          <span className="text-sm text-gray-700">{skill}</span>
+                        <span className="text-sm">{skill}</span>
                         </label>
                       );
                     })}
                   </div>
                 </div>
+                  </div>
 
-                {/* Capacity Fields - Tier 1 Feature */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hours Worked This Week</label>
-                    <input
+            {/* 7. Hourly Rate */}
+            <div className="space-y-2">
+              <Label htmlFor="hourlyRate" className="text-sm font-medium">
+                Hourly Rate (₹) <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="hourlyRate"
+                      type="number"
+                      step="0.01"
+                      {...register('hourlyRate', { valueAsNumber: true })}
+                      placeholder="0.00"
+                    />
+              {errors.hourlyRate && <p className="text-sm text-destructive mt-1">{errors.hourlyRate.message}</p>}
+                </div>
+
+            {/* 8. Hours Worked This Week */}
+            <div className="space-y-2">
+              <Label htmlFor="hoursWorkedThisWeek" className="text-sm font-medium">
+                Hours Worked This Week
+              </Label>
+              <Input
+                id="hoursWorkedThisWeek"
                       type="number"
                       step="0.5"
                       {...register('hoursWorkedThisWeek', { valueAsNumber: true })}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="0"
                       defaultValue={0}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hours Available Per Week</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      {...register('hoursAvailablePerWeek', { valueAsNumber: true })}
-                      className="w-full px-4 py-2.5 bg-blue-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="40"
-                      defaultValue={40}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
 
+            {/* Submit Buttons */}
             <div className="flex justify-end gap-3 pt-4">
               <button
                 type="button"

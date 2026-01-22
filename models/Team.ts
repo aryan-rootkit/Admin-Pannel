@@ -7,12 +7,14 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 export interface ITeam extends Document {
   name: string;
   email: string;
-  role: string;
-  category?: 'Developer' | 'Designer' | 'Manager' | 'Marketing' | 'Other';
+  contact?: string;
+  employmentType: 'In-House' | 'Contractor';
+  role: 'Developer' | 'UI-UX' | 'Marketing' | 'Sales' | 'BD';
+  subRole?: string; // Frontend/Backend/Fullstack/Flutter/etc
+  skills?: string[];
   hourlyRate: number;
-  availability: 'Available' | 'Busy' | 'On Leave';
+  hoursWorkedThisWeek: number;
   avatar?: string;
-  bio?: string;
   assignedProjects: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
@@ -33,35 +35,42 @@ const TeamSchema: Schema<ITeam> = new Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email'],
     },
+    contact: {
+      type: String,
+      trim: true,
+    },
+    employmentType: {
+      type: String,
+      enum: ['In-House', 'Contractor'],
+      default: 'In-House',
+    },
     role: {
       type: String,
       required: [true, 'Role is required'],
+      enum: ['Developer', 'UI-UX', 'Marketing', 'Sales', 'BD'],
       trim: true,
     },
-    category: {
+    subRole: {
       type: String,
-      enum: ['Developer', 'Designer', 'Manager', 'Marketing', 'Other'],
-      default: 'Other',
       trim: true,
+    },
+    skills: {
+      type: [String],
+      default: [],
     },
     hourlyRate: {
       type: Number,
       required: [true, 'Hourly rate is required'],
       min: 0,
     },
-    availability: {
-      type: String,
-      enum: ['Available', 'Busy', 'On Leave'],
-      default: 'Available',
+    hoursWorkedThisWeek: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     avatar: {
       type: String,
       default: '',
-    },
-    bio: {
-      type: String,
-      default: '',
-      trim: true,
     },
     assignedProjects: [
       {
