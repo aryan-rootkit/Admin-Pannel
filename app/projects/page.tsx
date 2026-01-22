@@ -196,20 +196,20 @@ export default function ProjectsPage() {
 
   const fetchTeamMembers = useCallback(async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getTeam();
-        setTeam(Array.isArray(data) ? data : []);
-        return;
-      }
-      
+      // Always use API route (fetches from MongoDB)
       const res = await fetch('/api/team');
-      const data = await res.json();
-      setTeam(Array.isArray(data) ? data : []);
+      if (res.ok) {
+        const data = await res.json();
+        setTeam(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch team from API');
+        setTeam([]);
+      }
     } catch (error) {
       console.error('Error fetching team members:', error);
+      setTeam([]);
     }
-  }, []);
+  }, [setTeam]);
 
   const fetchClients = useCallback(async () => {
     try {
@@ -1161,17 +1161,17 @@ export default function ProjectsPage() {
                       // Show team members if:
                       // 1. They have category === 'Developer', OR
                       // 2. Their role contains 'developer' (case-insensitive), OR
-                      // 3. They don't have a category set (backward compatibility - show all existing members)
+                      // 3. They don't have a category set (backward compatibility - show ALL existing members)
                       const category = (m as any)?.category;
                       const roleLower = (m.role || '').toLowerCase();
                       
-                      // If category is not set (undefined/null/empty), show the member (backward compatibility)
+                      // If category is not set (undefined/null/empty), show ALL members (backward compatibility)
                       // This ensures existing team members without category field still appear
                       if (!category || category === '' || category === undefined || category === null) {
-                        return true;
+                        return true; // Show all existing members without category
                       }
                       
-                      // If category is set, only show if it's 'Developer' or role contains 'developer'
+                      // If category IS set, only show if it's 'Developer' or role contains 'developer'
                       return category === 'Developer' || roleLower.includes('developer');
                     })
                     .map(m => ({ _id: m._id, name: m.name, role: m.role, avatar: (m as any)?.avatar }))}
