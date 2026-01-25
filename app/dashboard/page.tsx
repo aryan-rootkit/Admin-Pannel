@@ -539,62 +539,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Revenue vs Expenses */}
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Revenue vs Expenses</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueVsExpenses}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip 
-                  formatter={(value: number) => formatINR(value)}
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="Revenue" />
-                <Line type="monotone" dataKey="expenses" stroke="#F59E0B" strokeWidth={2} name="Expenses" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Expense Categories */}
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Expense Categories</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={expenseCategoryData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {expenseCategoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: number) => formatINR(value)} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Client Status Distribution */}
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm lg:col-span-2">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Client Status Distribution</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={clientStatusData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
-                <Bar dataKey="value" fill="#14B8A6" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
         </div>
 
         {/* Financial Snapshot - Compact Cards */}
