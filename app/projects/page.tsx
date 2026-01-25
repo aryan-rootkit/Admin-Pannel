@@ -26,14 +26,17 @@ const projectSchema = z.object({
   developers: z.array(z.string()).min(1, 'At least one developer is required'),
   projectType: z.string().min(1, 'Project type is required'),
   subType: z.string().optional(),
-  startDate: z.string().min(1, 'Start date is required'),
+  advanceDate: z.string().min(1, 'Advance date is required'), // New: Advance Date (becomes Start Date)
+  startDate: z.string().optional(), // Optional separate Start Date
   deadline: z.string().min(1, 'Deadline is required'),
   budget: z.number().min(0, 'Budget must be positive'),
-  status: z.enum(['Pending', 'In Progress', 'Review', 'Completed', 'Delayed', 'Overdue']),
+  status: z.enum(['Pending', 'In Progress', 'Completed', 'Failed']), // Updated statuses
   priority: z.enum(['High', 'Medium', 'Low']).optional(),
   tags: z.array(z.string()).optional(),
   revenueLink: z.string().optional(),
   progressPercent: z.number().min(0).max(100).optional(),
+  paidAmount: z.number().min(0).optional(), // Paid amount from Revenue
+  notes: z.string().optional(),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -46,11 +49,12 @@ interface Project {
   developers: string[];
   projectType: string;
   subType?: string;
+  advanceDate?: string; // New: Advance Date (defaults to Start Date)
   startDate: string;
   deadline: string;
   budget: number; // Stored in USD
   budgetInr?: number; // Stored in INR
-  status: 'Pending' | 'In Progress' | 'Review' | 'Completed' | 'Delayed' | 'Overdue';
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Failed';
   priority?: 'High' | 'Medium' | 'Low';
   tags?: string[];
   revenueLink?: string;
@@ -59,6 +63,21 @@ interface Project {
   updatedAt?: string;
   progress?: number;
   progressPercent?: number;
+  paidAmount?: number; // Paid amount from Revenue
+  notes?: string;
+}
+
+interface Revenue {
+  _id: string;
+  project: string;
+  client: string;
+  totalContractValue: number;
+  advanceAmount?: number;
+  advanceDate?: string;
+  paymentDate?: string;
+  paymentsReceived?: Array<{ amount: number; date: string }>;
+  paymentStatus?: 'Paid' | 'Partial' | 'Pending' | 'Overdue';
+  expectedPaymentDate?: string;
 }
 
 type SortField = 'name' | 'deadline' | 'status' | 'budget' | 'created';
@@ -94,9 +113,28 @@ const PROJECT_TYPES = {
 
 const ITEMS_PER_PAGE = 25;
 
+// StatusBox Component - Border color only
+const StatusBox = ({ status }: { status: 'Pending' | 'In Progress' | 'Completed' | 'Failed' }) => {
+  const statusConfig = {
+    'Completed': { border: 'border-green-500', bg: 'bg-green-50', text: 'text-slate-900' },
+    'In Progress': { border: 'border-blue-500', bg: 'bg-blue-50', text: 'text-slate-900' },
+    'Pending': { border: 'border-yellow-500', bg: 'bg-yellow-50', text: 'text-slate-900' },
+    'Failed': { border: 'border-red-500', bg: 'bg-red-50', text: 'text-slate-900' },
+  };
+  
+  const config = statusConfig[status] || statusConfig['Pending'];
+  
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-md border-2 text-sm font-medium ${config.border} ${config.bg} ${config.text}`}>
+      {status}
+    </span>
+  );
+};
+
 export default function ProjectsPage() {
   const { team, clients, setTeam, setClients } = useApp();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [revenue, setRevenue] = useState<Revenue[]>([]); // Add revenue state
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -113,8 +151,8 @@ export default function ProjectsPage() {
   const [assignSearchQuery, setAssignSearchQuery] = useState('');
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [infoModalOpen, setInfoModalOpen] = useState(false);
-  const [selectedInfoProject, setSelectedInfoProject] = useState<Project | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false); // Renamed from infoModalOpen
+  const [selectedDetailsProject, setSelectedDetailsProject] = useState<Project | null>(null);
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
   const [bulkActionOpen, setBulkActionOpen] = useState(false);
@@ -134,10 +172,12 @@ export default function ProjectsPage() {
     defaultValues: {
       status: 'Pending',
       developers: [],
-      startDate: new Date().toISOString().split('T')[0],
+      advanceDate: new Date().toISOString().split('T')[0], // Default Advance Date
+      startDate: new Date().toISOString().split('T')[0], // Default Start Date
       priority: 'Medium',
       tags: [],
       progressPercent: 0,
+      paidAmount: 0,
     },
   });
 
@@ -145,20 +185,28 @@ export default function ProjectsPage() {
   const selectedDevelopers = watch('developers') || [];
   const [devSearchQuery, setDevSearchQuery] = useState('');
 
-  // Close popup on outside click
-  useEffect(() => {
-    if (infoModalOpen) {
-      const handleClickOutside = (e: MouseEvent) => {
-        const target = e.target as HTMLElement;
-        if (!target.closest('.project-info-popup') && !target.closest('button[title="View project details"]')) {
-          setInfoModalOpen(false);
-          setSelectedInfoProject(null);
-        }
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+  // Fetch Revenue data
+  const fetchRevenue = useCallback(async () => {
+    try {
+      if (typeof window !== 'undefined') {
+        const { localStorageUtils } = await import('@/lib/localStorage');
+        const data = localStorageUtils.getRevenue();
+        setRevenue(Array.isArray(data) ? data : []);
+        return;
+      }
+      
+      const res = await fetch('/api/revenue');
+      if (res.ok) {
+        const data = await res.json();
+        setRevenue(Array.isArray(data) ? data : []);
+      } else {
+        setRevenue([]);
+      }
+    } catch (error) {
+      console.error('Error fetching revenue:', error);
+      setRevenue([]);
     }
-  }, [infoModalOpen]);
+  }, []);
 
   // Close client dropdown on outside click
   useEffect(() => {
@@ -264,7 +312,7 @@ export default function ProjectsPage() {
           bValue = new Date(b.deadline).getTime();
           break;
         case 'status':
-          const statusOrder = ['Pending', 'In Progress', 'Review', 'Delayed', 'Completed'];
+          const statusOrder = ['Pending', 'In Progress', 'Completed', 'Failed'];
           aValue = statusOrder.indexOf(a.status);
           bValue = statusOrder.indexOf(b.status);
           break;
@@ -288,11 +336,49 @@ export default function ProjectsPage() {
     setCurrentPage(1);
   }, [projects, searchQuery, statusFilter, typeFilter, sortField, sortDirection]);
 
+  // Calculate Paid Amount for a project from Revenue
+  const calculatePaidAmount = useCallback((projectName: string): number => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const projectRevenue = revenue.filter(r => r.project === projectName);
+    return projectRevenue.reduce((sum, r) => {
+      let paid = 0;
+      
+      // Advance amount (if date <= today)
+      if (r.advanceAmount && r.advanceAmount > 0) {
+        if (!r.advanceDate && !r.paymentDate) {
+          paid += r.advanceAmount; // No date = assume past
+        } else {
+          const advanceDate = new Date(r.advanceDate || r.paymentDate || '');
+          advanceDate.setHours(0, 0, 0, 0);
+          if (advanceDate <= today) {
+            paid += r.advanceAmount;
+          }
+        }
+      }
+      
+      // Past payments received (date <= today)
+      if (r.paymentsReceived && r.paymentsReceived.length > 0) {
+        const pastPayments = r.paymentsReceived.filter((p: { amount: number; date: string }) => {
+          if (!p.date) return false;
+          const paymentDate = new Date(p.date);
+          paymentDate.setHours(0, 0, 0, 0);
+          return paymentDate <= today;
+        });
+        paid += pastPayments.reduce((s: number, p: { amount: number; date: string }) => s + (p.amount || 0), 0);
+      }
+      
+      return sum + paid;
+    }, 0);
+  }, [revenue]);
+
   useEffect(() => {
     fetchProjects();
     fetchTeamMembers();
     fetchClients();
-  }, [fetchProjects, fetchTeamMembers, fetchClients]);
+    fetchRevenue();
+  }, [fetchProjects, fetchTeamMembers, fetchClients, fetchRevenue]);
 
   useEffect(() => {
     applyFiltersAndSort();
@@ -377,10 +463,12 @@ export default function ProjectsPage() {
         description: data.description.trim(),
         client: data.client,
         assignedTeam: data.developers || [],
-        startDate: data.startDate,
+        advanceDate: data.advanceDate || data.startDate, // Advance Date (defaults to Start Date)
+        startDate: data.startDate || data.advanceDate, // Start Date (defaults to Advance Date)
         deadline: data.deadline,
         budget: budgetInDollars, // Store in USD
         status: data.status || 'Pending',
+        notes: data.notes || '',
       };
 
       const res = await fetch(url, {
@@ -612,10 +700,8 @@ export default function ProjectsPage() {
               <option value="all">All Status</option>
               <option value="Pending">Pending</option>
               <option value="In Progress">In Progress</option>
-              <option value="Review">Review</option>
-              <option value="Delayed">Delayed</option>
-              <option value="Overdue">Overdue</option>
               <option value="Completed">Completed</option>
+              <option value="Failed">Failed</option>
             </select>
             <select
               value={typeFilter}
@@ -638,250 +724,107 @@ export default function ProjectsPage() {
         <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full" style={{ tableLayout: 'fixed' }}>
-              <thead className="bg-background border-b border-border sticky top-0 z-10">
+              <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                 <tr>
-                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '3%' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedProjects.size === paginatedProjects.length && paginatedProjects.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedProjects(new Set(paginatedProjects.map(p => p._id)));
-                        } else {
-                          setSelectedProjects(new Set());
-                        }
-                      }}
-                      className="rounded border-border"
-                    />
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" style={{ width: '18%' }}>
+                    Project
                   </th>
-                  <SortableHeader field="name" style={{ width: '15%' }}>Project</SortableHeader>
-                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '12%' }}>Client</th>
-                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '10%' }}>Devs</th>
-                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '10%' }}>Type</th>
-                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '8%' }}>Start</th>
-                  <SortableHeader field="deadline" style={{ width: '8%' }}>Deadline</SortableHeader>
-                  <SortableHeader field="status" style={{ width: '10%' }}>Status</SortableHeader>
-                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '8%' }}>Progress</th>
-                  <SortableHeader field="budget" style={{ width: '10%' }}>Budget</SortableHeader>
-                  <th className="px-2 py-2.5 text-center text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '3%' }}>Info</th>
-                  <th className="px-2 py-2.5 text-left text-xs font-semibold text-text-primary uppercase tracking-wider" style={{ width: '6%' }}>Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" style={{ width: '15%' }}>
+                    Client
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" style={{ width: '12%' }}>
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" style={{ width: '12%' }}>
+                    Budget
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" style={{ width: '12%' }}>
+                    Paid
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" style={{ width: '12%' }}>
+                    Remaining
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider" style={{ width: '5%' }}>
+                    ℹ️
+                  </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-border">
+              <tbody className="bg-white divide-y divide-slate-200">
                 {paginatedProjects.length > 0 ? (
                   paginatedProjects.map((project) => {
-                    const deadlineStatus = getDeadlineStatus(project.deadline, project.status);
-                    const developerNames = getDeveloperNames(project.developers || project.assignedTeam?.map((t: any) => t._id || t) || []);
-                    const progressPercent = project.progressPercent || project.progress || 0;
+                    const budgetInr = (project as any).budgetInr || (project.budget ? usdToInr(project.budget) : 0);
+                    const paidAmount = calculatePaidAmount(project.name);
+                    const remainingAmount = budgetInr - paidAmount;
+                    const isFailedWithUnpaid = project.status === 'Failed' && remainingAmount > 0;
                     
                     return (
-                      <tr key={project._id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-2 py-2">
-                          <input
-                            type="checkbox"
-                            checked={selectedProjects.has(project._id)}
-                            onChange={(e) => {
-                              const newSet = new Set(selectedProjects);
-                              if (e.target.checked) {
-                                newSet.add(project._id);
-                              } else {
-                                newSet.delete(project._id);
-                              }
-                              setSelectedProjects(newSet);
-                            }}
-                            className="rounded border-border"
-                          />
+                      <tr 
+                        key={project._id} 
+                        className={`hover:bg-slate-50 transition-colors ${isFailedWithUnpaid ? 'bg-red-50/30' : ''}`}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-medium text-slate-900 truncate" title={project.name}>
+                            {project.name}
+                          </div>
                         </td>
-                        <td className="px-2 py-2">
-                          <div className="text-sm font-medium text-text-primary truncate" title={project.name}>{project.name}</div>
-                        </td>
-                        <td className="px-2 py-2">
+                        <td className="px-4 py-3">
                           <a 
                             href={`/clients?search=${encodeURIComponent(project.client)}`}
-                            className="text-sm text-primary-600 hover:text-primary-800 hover:underline truncate block"
+                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline truncate block"
                             title={project.client}
                           >
-                            {project.client}
+                            {project.client.length > 15 ? `${project.client.substring(0, 15)}...` : project.client}
                           </a>
                         </td>
-                        <td className="px-2 py-2">
-                          <div className="flex items-center gap-0.5">
-                            {developerNames.length > 0 ? (
-                              <div className="flex items-center gap-0.5" title={developerNames.join(', ')}>
-                                {(project.developers || []).slice(0, 3).map((devId) => {
-                                  const dev = (team || []).find(t => t._id === devId);
-                                  if (!dev) return null;
-                                  const avatar = (dev as any).avatar;
-                                  return (
-                                    <div
-                                      key={devId}
-                                      className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold border border-gray-300 shadow-sm hover:scale-110 transition-transform cursor-pointer"
-                                      title={`${dev.name} - ${dev.role}`}
-                                      style={{
-                                        backgroundColor: avatar ? 'transparent' : '#2563eb'
-                                      }}
-                                    >
-                                      {avatar ? (
-                                        <Image
-                                          src={avatar}
-                                          alt={dev.name}
-                                          width={24}
-                                          height={24}
-                                          className="w-full h-full rounded-full object-cover border border-gray-300"
-                                        />
-                                      ) : (
-                                        dev.name.charAt(0).toUpperCase()
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                                {developerNames.length > 3 && (
-                                  <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-medium border border-white shadow-sm">
-                                    +{developerNames.length - 3}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setSelectedProject(project);
-                                  setSelectedTeamMembers([]);
-                                  setIsAssignModalOpen(true);
-                                }}
-                                className="w-6 h-6 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center text-xs hover:bg-gray-200 transition-colors"
-                                title="Assign Developers"
-                              >
-                                <Users className="w-3 h-3" />
-                              </button>
-                            )}
+                        <td className="px-4 py-3">
+                          <StatusBox status={project.status as 'Pending' | 'In Progress' | 'Completed' | 'Failed'} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-semibold text-slate-900">
+                            {formatINR(budgetInr)}
                           </div>
                         </td>
-                        <td className="px-2 py-2">
-                          <div className="text-xs text-text-secondary truncate" title={`${project.projectType}${project.subType ? ` - ${project.subType}` : ''}`}>
-                            {project.projectType}
-                            {project.subType && <span className="text-xs"> ({project.subType})</span>}
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-medium text-slate-700">
+                            {formatINR(paidAmount)}
                           </div>
                         </td>
-                        <td className="px-2 py-2">
-                          <div className="text-xs text-text-secondary">
-                            {formatDate(project.startDate)}
+                        <td className="px-4 py-3">
+                          <div className={`text-sm font-semibold ${isFailedWithUnpaid ? 'text-red-600' : 'text-slate-900'}`}>
+                            {formatINR(remainingAmount)}
                           </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className={`text-xs px-2 py-0.5 rounded-md border ${deadlineStatus.bg} ${deadlineStatus.color}`}>
-                            {formatDate(project.deadline)}
-                            {deadlineStatus.showWarning && project.status !== 'Completed' && (
-                              <span className="ml-1 text-xs">{deadlineStatus.type === 'overdue' ? '🚨' : '⚠️'}</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <span
-                            className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                              project.status === 'Completed'
-                                ? 'bg-green-100 text-green-800'
-                                : project.status === 'In Progress'
-                                ? 'bg-blue-100 text-blue-800'
-                                : project.status === 'Review'
-                                ? 'bg-purple-100 text-purple-800'
-                                : project.status === 'Delayed'
-                                ? 'bg-orange-100 text-orange-800'
-                                : project.status === 'Overdue'
-                                ? 'bg-red-200 text-red-900 font-bold'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {project.status === 'Completed' ? '🟢' : project.status === 'In Progress' ? '🔵' : project.status === 'Review' ? '🟠' : project.status === 'Delayed' ? '🟣' : project.status === 'Overdue' ? '🔴' : '🟡'} {project.status}
-                          </span>
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex items-center gap-1">
-                            <div className="w-10 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full transition-all ${
-                                  progressPercent >= 100 ? 'bg-green-500' :
-                                  progressPercent >= 75 ? 'bg-blue-500' :
-                                  progressPercent >= 50 ? 'bg-yellow-500' :
-                                  progressPercent >= 25 ? 'bg-orange-500' :
-                                  'bg-red-500'
-                                }`}
-                                style={{ width: `${Math.min(progressPercent, 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-xs font-medium text-text-primary">
-                              {progressPercent}%
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <a
-                            href={`/revenue?search=${encodeURIComponent(project.name)}`}
-                            className="text-xs font-semibold text-primary-600 hover:text-primary-800 hover:underline block truncate"
-                            title={formatINR((project as any).budgetInr || (project.budget ? usdToInr(project.budget) : 0))}
-                          >
-                            {formatINR((project as any).budgetInr || (project.budget ? usdToInr(project.budget) : 0))}
-                          </a>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <button
-                            onClick={(e) => {
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setPopupPosition({
-                                x: rect.left + rect.width / 2,
-                                y: rect.top + rect.height + 8
-                              });
-                              setSelectedInfoProject(project);
-                              setInfoModalOpen(true);
+                            onClick={() => {
+                              setSelectedDetailsProject(project);
+                              setDetailsModalOpen(true);
                             }}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors relative"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
                             title="View project details"
                           >
                             <Info className="w-4 h-4" />
                           </button>
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleEdit(project)}
-                              className="p-1 text-primary-500 hover:bg-primary-50 rounded transition-colors"
-                              title="Edit"
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(project)}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              className="p-1 text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
-                              title="Notify"
-                            >
-                              <Bell className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
                         </td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan={10} className="px-6 py-8 text-center text-text-secondary">
+                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                       No projects found. Click &quot;New Project&quot; to create one.
                     </td>
                   </tr>
                 )}
               </tbody>
               {filteredProjects.length > 0 && (
-                <tfoot className="bg-background border-t-2 border-border">
+                <tfoot className="bg-slate-50 border-t-2 border-slate-200">
                   <tr>
-                    <td colSpan={7} className="px-4 py-3 text-right text-xs font-semibold text-text-primary uppercase">
-                      Total Budget:
+                    <td colSpan={3} className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
+                      Total
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm font-bold text-text-primary">
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-bold text-slate-900">
                         {formatINR(
                           filteredProjects.reduce((sum, p) => {
                             const budgetInr = (p as any).budgetInr || (p.budget ? usdToInr(p.budget) : 0);
@@ -889,21 +832,24 @@ export default function ProjectsPage() {
                           }, 0)
                         )}
                       </div>
-                      <div className="text-xs text-text-secondary">
-                        {formatUSD(
-                          filteredProjects.reduce((sum, p) => sum + (p.budget || 0), 0)
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-bold text-slate-900">
+                        {formatINR(
+                          filteredProjects.reduce((sum, p) => {
+                            return sum + calculatePaidAmount(p.name);
+                          }, 0)
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-xs text-text-secondary">
-                        Avg: {formatINR(
-                          Math.round(
-                            filteredProjects.reduce((sum, p) => {
-                              const budgetInr = (p as any).budgetInr || (p.budget ? usdToInr(p.budget) : 0);
-                              return sum + budgetInr;
-                            }, 0) / filteredProjects.length
-                          )
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-bold text-slate-900">
+                        {formatINR(
+                          filteredProjects.reduce((sum, p) => {
+                            const budgetInr = (p as any).budgetInr || (p.budget ? usdToInr(p.budget) : 0);
+                            const paidAmount = calculatePaidAmount(p.name);
+                            return sum + (budgetInr - paidAmount);
+                          }, 0)
                         )}
                       </div>
                     </td>
@@ -991,10 +937,10 @@ export default function ProjectsPage() {
                           {deadlineStatus.type === 'overdue' && (
                             <button
                               type="button"
-                              onClick={() => setValue('status', 'Overdue')}
+                              onClick={() => setValue('status', 'Failed')}
                               className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors"
                             >
-                              🔴 Mark as Overdue
+                              🔴 Mark as Failed
                             </button>
                           )}
                           <button
@@ -1226,47 +1172,67 @@ export default function ProjectsPage() {
                 <h3 className="text-sm font-semibold text-text-primary">Timeline</h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Start Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    {...register('startDate')}
-                    className="input-premium"
-                  />
-                  {errors.startDate && <p className="text-red-600 text-xs mt-1">{errors.startDate.message}</p>}
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Advance Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  {...register('advanceDate')}
+                  className="input-premium"
+                  onChange={(e) => {
+                    setValue('advanceDate', e.target.value);
+                    // Default Start Date to Advance Date if not set
+                    if (!watch('startDate')) {
+                      setValue('startDate', e.target.value);
+                    }
+                  }}
+                />
+                {errors.advanceDate && <p className="text-red-600 text-xs mt-1">{errors.advanceDate.message}</p>}
+                <p className="text-xs text-slate-500 mt-1">This becomes the Start Date by default</p>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Deadline <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    {...register('deadline')}
-                    className="input-premium"
-                    onChange={(e) => {
-                      setValue('deadline', e.target.value);
-                      const deadlineStatus = getDeadlineStatus(e.target.value, watch('status'));
-                      if (deadlineStatus.type === 'overdue' && watch('status') !== 'Completed') {
-                        setValue('status', 'Overdue');
-                      }
-                    }}
-                  />
-                  {watch('deadline') && watch('startDate') && (() => {
-                    const start = new Date(watch('startDate'));
-                    const end = new Date(watch('deadline'));
-                    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-                    return (
-                      <p className="text-xs text-text-secondary mt-1">
-                        Duration: {diffDays} day{diffDays !== 1 ? 's' : ''}
-                      </p>
-                    );
-                  })()}
-                  {errors.deadline && <p className="text-red-600 text-xs mt-1">{errors.deadline.message}</p>}
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Start Date (Optional - separate from Advance Date)
+                </label>
+                <input
+                  type="date"
+                  {...register('startDate')}
+                  className="input-premium"
+                />
+                {errors.startDate && <p className="text-red-600 text-xs mt-1">{errors.startDate.message}</p>}
+                <p className="text-xs text-slate-500 mt-1">Leave empty to use Advance Date as Start Date</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Deadline <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  {...register('deadline')}
+                  className="input-premium"
+                  onChange={(e) => {
+                    setValue('deadline', e.target.value);
+                    const deadlineStatus = getDeadlineStatus(e.target.value, watch('status'));
+                    if (deadlineStatus.type === 'overdue' && watch('status') !== 'Completed') {
+                      setValue('status', 'Failed');
+                    }
+                  }}
+                />
+                {watch('deadline') && (watch('startDate') || watch('advanceDate')) && (() => {
+                  const startDateValue = watch('startDate') || watch('advanceDate') || new Date().toISOString().split('T')[0];
+                  const start = new Date(startDateValue);
+                  const end = new Date(watch('deadline'));
+                  const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                  return (
+                    <p className="text-xs text-text-secondary mt-1">
+                      Duration: {diffDays} day{diffDays !== 1 ? 's' : ''}
+                    </p>
+                  );
+                })()}
+                {errors.deadline && <p className="text-red-600 text-xs mt-1">{errors.deadline.message}</p>}
               </div>
             </div>
 
@@ -1310,30 +1276,14 @@ export default function ProjectsPage() {
                     {...register('status')}
                     className="input-premium"
                   >
-                    <option value="Pending">🟡 Pending</option>
-                    <option value="In Progress">🔵 In Progress</option>
-                    <option value="Review">🟠 Review</option>
-                    <option value="Delayed">🟣 Delayed</option>
-                    <option value="Overdue">🔴 Overdue</option>
-                    <option value="Completed">🟢 Completed</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Failed">Failed</option>
                   </select>
                   {watch('status') && (
                     <div className="mt-2">
-                      <span className={`px-3 py-1 rounded-md text-xs font-medium inline-block ${
-                        watch('status') === 'Completed'
-                          ? 'bg-green-100 text-green-800'
-                          : watch('status') === 'In Progress'
-                          ? 'bg-blue-100 text-blue-800'
-                          : watch('status') === 'Review'
-                          ? 'bg-purple-100 text-purple-800'
-                          : watch('status') === 'Delayed'
-                          ? 'bg-orange-100 text-orange-800'
-                          : watch('status') === 'Overdue'
-                          ? 'bg-red-200 text-red-900 font-bold'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {watch('status') === 'Completed' ? '🟢' : watch('status') === 'In Progress' ? '🔵' : watch('status') === 'Review' ? '🟠' : watch('status') === 'Delayed' ? '🟣' : watch('status') === 'Overdue' ? '🔴' : '🟡'} {watch('status')}
-                      </span>
+                      <StatusBox status={watch('status') as 'Pending' | 'In Progress' | 'Completed' | 'Failed'} />
                     </div>
                   )}
                   {errors.status && <p className="text-red-600 text-xs mt-1">{errors.status.message}</p>}
@@ -1666,184 +1616,140 @@ export default function ProjectsPage() {
           </div>
         </Modal>
 
-        {/* Project Info Popup Card */}
-        {infoModalOpen && selectedInfoProject && (() => {
-          const developerNames = getDeveloperNames(selectedInfoProject.developers || selectedInfoProject.assignedTeam?.map((t: any) => t._id || t) || []);
-          const budgetInr = (selectedInfoProject as any).budgetInr || (selectedInfoProject.budget ? usdToInr(selectedInfoProject.budget) : 0);
-          const deadlineStatus = getDeadlineStatus(selectedInfoProject.deadline, selectedInfoProject.status);
-          
-          return (
-            <>
-              {/* Backdrop */}
-              <div
-                className="fixed inset-0 bg-black bg-opacity-20 z-[9998]"
-                onClick={() => {
-                  setInfoModalOpen(false);
-                  setSelectedInfoProject(null);
-                }}
-              />
-              {/* Popup Card */}
-              <div
-                className="project-info-popup fixed z-[9999] bg-white rounded-lg shadow-2xl border border-gray-200 p-4 max-w-sm w-[380px] max-h-[85vh] overflow-y-auto"
-                style={{
-                  left: typeof window !== 'undefined' ? `${Math.min(popupPosition.x - 190, window.innerWidth - 400)}px` : `${popupPosition.x - 190}px`,
-                  top: typeof window !== 'undefined' ? `${Math.min(popupPosition.y, window.innerHeight - 100)}px` : `${popupPosition.y}px`,
-                  transform: 'translateX(-50%)'
-                }}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-sm font-bold text-text-primary">{selectedInfoProject.name}</h3>
+        {/* Project Details Modal */}
+        <Modal
+          isOpen={detailsModalOpen}
+          onClose={() => {
+            setDetailsModalOpen(false);
+            setSelectedDetailsProject(null);
+          }}
+          title="Project Details"
+          size="md"
+        >
+          {selectedDetailsProject && (() => {
+            const budgetInr = (selectedDetailsProject as any).budgetInr || (selectedDetailsProject.budget ? usdToInr(selectedDetailsProject.budget) : 0);
+            const paidAmount = calculatePaidAmount(selectedDetailsProject.name);
+            const remainingAmount = budgetInr - paidAmount;
+            const advanceDate = selectedDetailsProject.advanceDate || selectedDetailsProject.startDate || new Date().toISOString().split('T')[0];
+            const startDate = selectedDetailsProject.startDate;
+            const deadline = selectedDetailsProject.deadline;
+            
+            // Smart deadline logic
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const deadlineDate = new Date(deadline);
+            deadlineDate.setHours(0, 0, 0, 0);
+            const diffDays = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            
+            let deadlineStatusText = '';
+            let deadlineStatusIcon = '';
+            if (selectedDetailsProject.status === 'Completed') {
+              deadlineStatusText = '✅ No deadline warning';
+              deadlineStatusIcon = '✅';
+            } else if (selectedDetailsProject.status === 'In Progress') {
+              if (diffDays < 0) {
+                deadlineStatusText = '⚠️ Due soon';
+                deadlineStatusIcon = '⚠️';
+              } else {
+                deadlineStatusText = '🟢 On track';
+                deadlineStatusIcon = '🟢';
+              }
+            } else if (selectedDetailsProject.status === 'Failed') {
+              deadlineStatusText = `🔴 Overdue${remainingAmount > 0 ? ` + Remaining ${formatINR(remainingAmount)} unpaid` : ''}`;
+              deadlineStatusIcon = '🔴';
+            } else if (selectedDetailsProject.status === 'Pending') {
+              deadlineStatusText = `🟡 Starts ${formatDate(startDate)}`;
+              deadlineStatusIcon = '🟡';
+            }
+            
+            return (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">{selectedDetailsProject.name}</h3>
+                  <p className="text-sm text-slate-600">Client: {selectedDetailsProject.client}</p>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 p-3 bg-slate-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Budget</p>
+                    <p className="text-sm font-semibold text-slate-900">{formatINR(budgetInr)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Paid</p>
+                    <p className="text-sm font-semibold text-slate-900">{formatINR(paidAmount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Remaining</p>
+                    <p className={`text-sm font-semibold ${remainingAmount > 0 && selectedDetailsProject.status === 'Failed' ? 'text-red-600' : 'text-slate-900'}`}>
+                      {formatINR(remainingAmount)}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">Advance:</span>
+                    <span className="text-sm font-medium text-slate-900">{formatDate(advanceDate)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">Start:</span>
+                    <span className="text-sm font-medium text-slate-900">{formatDate(startDate)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">Deadline:</span>
+                    <span className="text-sm font-medium text-slate-900">{formatDate(deadline)}</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <span className="text-sm text-slate-600">Status:</span>
+                  <div className="flex items-center gap-2">
+                    <StatusBox status={selectedDetailsProject.status as 'Pending' | 'In Progress' | 'Completed' | 'Failed'} />
+                    <span className="text-sm">{deadlineStatusIcon} {deadlineStatusText}</span>
+                  </div>
+                </div>
+                
+                {selectedDetailsProject.notes && (
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Notes:</p>
+                    <p className="text-sm text-slate-700">{selectedDetailsProject.notes}</p>
+                  </div>
+                )}
+                
+                <div className="flex gap-2 pt-4 border-t border-slate-200">
                   <button
                     onClick={() => {
-                      setInfoModalOpen(false);
-                      setSelectedInfoProject(null);
+                      setDetailsModalOpen(false);
+                      handleEdit(selectedDetailsProject);
                     }}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                   >
-                    <X className="w-4 h-4 text-text-secondary" />
+                    Edit
                   </button>
-                </div>
-
-                <div className="space-y-3 text-xs">
-                  {/* Client */}
-                  <div>
-                    <span className="text-text-secondary font-medium">Client: </span>
-                    <a 
-                      href={`/clients?search=${encodeURIComponent(selectedInfoProject.client)}`}
-                      className="text-primary-600 hover:underline"
-                    >
-                      {selectedInfoProject.client}
-                    </a>
-                  </div>
-
-                  {/* Description */}
-                  <div>
-                    <span className="text-text-secondary font-medium">Description: </span>
-                    <p className="text-text-primary mt-0.5 line-clamp-2">{selectedInfoProject.description}</p>
-                  </div>
-
-                  {/* Type */}
-                  <div>
-                    <span className="text-text-secondary font-medium">Type: </span>
-                    <span className="text-text-primary">{selectedInfoProject.projectType}</span>
-                    {selectedInfoProject.subType && (
-                      <span className="text-text-secondary"> ({selectedInfoProject.subType})</span>
-                    )}
-                  </div>
-
-                  {/* Dates */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-text-secondary font-medium">Start: </span>
-                      <span className="text-text-primary">{formatDate(selectedInfoProject.startDate)}</span>
-                    </div>
-                    <div>
-                      <span className="text-text-secondary font-medium">Deadline: </span>
-                      <span className={`${deadlineStatus.color}`}>{formatDate(selectedInfoProject.deadline)}</span>
-                    </div>
-                  </div>
-
-                  {/* Status & Priority */}
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <span className="text-text-secondary font-medium">Status: </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          selectedInfoProject.status === 'Completed'
-                            ? 'bg-green-100 text-green-800'
-                            : selectedInfoProject.status === 'In Progress'
-                            ? 'bg-blue-100 text-blue-800'
-                            : selectedInfoProject.status === 'Review'
-                            ? 'bg-purple-100 text-purple-800'
-                            : selectedInfoProject.status === 'Delayed'
-                            ? 'bg-orange-100 text-orange-800'
-                            : selectedInfoProject.status === 'Overdue'
-                            ? 'bg-red-200 text-red-900 font-bold'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {selectedInfoProject.status === 'Completed' ? '🟢' : selectedInfoProject.status === 'In Progress' ? '🔵' : selectedInfoProject.status === 'Review' ? '🟠' : selectedInfoProject.status === 'Delayed' ? '🟣' : selectedInfoProject.status === 'Overdue' ? '🔴' : '🟡'} {selectedInfoProject.status}
-                      </span>
-                    </div>
-                    {selectedInfoProject.priority && (
-                      <div>
-                        <span className="text-text-secondary font-medium">Priority: </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          selectedInfoProject.priority === 'High' ? 'bg-red-100 text-red-800' :
-                          selectedInfoProject.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {selectedInfoProject.priority === 'High' ? '🔴' : selectedInfoProject.priority === 'Medium' ? '🟡' : '🟢'} {selectedInfoProject.priority}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Budget */}
-                  <div>
-                    <span className="text-text-secondary font-medium">Budget: </span>
-                    <span className="text-text-primary font-semibold">{formatINR(budgetInr)}</span>
-                    <span className="text-text-secondary ml-1">({formatUSD(selectedInfoProject.budget || 0)})</span>
-                  </div>
-
-                  {/* Developers */}
-                  <div>
-                    <span className="text-text-secondary font-medium">Developers ({developerNames.length}): </span>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {developerNames.slice(0, 5).map((name, idx) => {
-                        const dev = (team || []).find(t => t.name === name);
-                        return (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
-                          >
-                            {name}
-                          </span>
-                        );
-                      })}
-                      {developerNames.length > 5 && (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
-                          +{developerNames.length - 5} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Tags */}
-                  {selectedInfoProject.tags && selectedInfoProject.tags.length > 0 && (
-                    <div>
-                      <span className="text-text-secondary font-medium">Tags: </span>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {selectedInfoProject.tags.map((tag, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Edit Button */}
-                  <div className="pt-2 border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      handleArchive(selectedDetailsProject);
+                      setDetailsModalOpen(false);
+                    }}
+                    className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Archive
+                  </button>
+                  {remainingAmount > 0 && (
                     <button
                       onClick={() => {
-                        setInfoModalOpen(false);
-                        handleEdit(selectedInfoProject);
+                        window.location.href = `/revenue?project=${encodeURIComponent(selectedDetailsProject.name)}`;
                       }}
-                      className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors flex items-center justify-center gap-2"
+                      className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
                     >
-                      <Edit className="w-3 h-3" />
-                      Edit Project
+                      Invoice Remaining
                     </button>
-                  </div>
+                  )}
                 </div>
               </div>
-            </>
-          );
-        })()}
+            );
+          })()}
+        </Modal>
       </div>
     </Layout>
   );
@@ -1881,7 +1787,7 @@ function generateMockProjects(): Project[] {
       deadline: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Yesterday (red)
       budget: inrToUsd(8000000), // ₹80,00,000
       budgetInr: 8000000,
-      status: 'Delayed',
+      status: 'Failed',
       createdAt: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), // 1d ago
       progress: 45,
@@ -1914,7 +1820,7 @@ function generateMockProjects(): Project[] {
       deadline: new Date(now.getTime() + 0 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Today (red)
       budget: inrToUsd(4000000), // ₹40,00,000
       budgetInr: 4000000,
-      status: 'Review',
+      status: 'In Progress',
       createdAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 30 * 60 * 1000).toISOString(), // 30m ago
       progress: 90,
@@ -1964,7 +1870,7 @@ function generateMockProjects(): Project[] {
       deadline: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 3 days (yellow)
       budget: inrToUsd(7000000), // ₹70,00,000
       budgetInr: 7000000,
-      status: 'Review',
+      status: 'In Progress',
       createdAt: new Date(now.getTime() - 40 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(), // 1h ago
       progress: 85,
