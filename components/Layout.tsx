@@ -40,12 +40,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Sidebar - Fixed 256px width */}
-      <Sidebar />
+      {/* Sidebar - Fixed 256px width (hidden on large screens when header has nav) */}
+      <div className="hidden lg:block">
+        <Sidebar />
+      </div>
       
-      {/* Main Content Area - Properly offset by sidebar width */}
-      <div className="flex-1 flex flex-col ml-64 overflow-hidden">
-        {/* Header - Fixed 64px height */}
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col lg:ml-64 overflow-hidden">
+        {/* Header - Fixed 64px height with horizontal navigation */}
         <Header />
         
         {/* Main Content - Scrollable, proper padding */}

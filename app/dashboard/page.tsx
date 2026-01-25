@@ -9,6 +9,7 @@ import { formatINR } from '@/lib/utils/currency';
 import { formatDate } from '@/lib/utils/date';
 import { useApp } from '@/lib/contexts/AppContext';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 /**
@@ -29,6 +30,7 @@ const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#14B8A6'
 
 export default function HomePage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { projects, clients } = useApp();
   const [revenue, setRevenue] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
@@ -363,152 +365,178 @@ export default function HomePage() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Hero Banner Section - Inspired by Reference Design */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-8 text-white shadow-xl">
-          <div className="relative z-10">
-            <div className="mb-2">
-              <span className="text-sm font-semibold uppercase tracking-wider opacity-90">AGENCY DASHBOARD</span>
-            </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">
-              {getGreeting()}, Admin 👋
+        {/* Welcome Section - Modern Design */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">
+              {getGreeting()}, {session?.user?.name?.split(' ')[0] || 'Admin'}
             </h1>
-            <p className="text-lg opacity-90 mb-6">
-              Continue Your Journey And Achieve Your Target
-            </p>
-            <button
-              onClick={() => router.push('/revenue')}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white text-purple-600 rounded-full font-semibold hover:bg-purple-50 transition-all duration-300 hover:scale-105 shadow-lg"
-            >
-              View Revenue
-              <ArrowRight className="w-5 h-5" />
+            <p className="text-sm text-slate-500 mt-1">Welcome back to your dashboard</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              Export Data
+            </button>
+            <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
+              Share
             </button>
           </div>
-          {/* Decorative Elements */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-32 -mt-32"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-10 rounded-full -ml-24 -mb-24"></div>
         </div>
 
-        {/* Interactive Stats Widget */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <StatsWidget />
-        </div>
-
-        {/* Section 1: Quick Stats Cards - Compact Design */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {/* Revenue */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <TrendingUp className="w-4 h-4 text-blue-600" />
+        {/* KPI Cards - Large Prominent Design */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Today's Revenue - Prominent Blue Card */}
+          <div className="bg-blue-600 rounded-xl p-6 border border-blue-700 shadow-lg cursor-pointer hover:shadow-xl transition-all" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <DollarSign className="w-5 h-5 text-white" />
               </div>
+              <TrendingUp className="w-5 h-5 text-white opacity-80" />
             </div>
-            <p className="text-xs font-medium text-slate-500 mb-1">Revenue</p>
-            <p className="text-xl font-bold text-slate-900 leading-tight">{formatINR(stats.totalRevenue)}</p>
-            <p className="text-xs text-slate-400 mt-1">All time</p>
+            <p className="text-sm font-semibold text-blue-100 mb-2 uppercase tracking-wide">Today's Revenue</p>
+            <p className="text-3xl font-bold text-white mb-1">{formatINR(stats.totalRevenue)}</p>
+            <div className="flex items-center gap-1 mt-2">
+              <TrendingUp className="w-4 h-4 text-green-300" />
+              <span className="text-xs text-blue-100">+12% from yesterday</span>
+            </div>
           </div>
 
-          {/* Team Earnings */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Users className="w-4 h-4 text-purple-600" />
+          {/* Total Revenue */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-all" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-slate-100 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-slate-600" />
               </div>
+              <TrendingUp className="w-5 h-5 text-slate-400" />
             </div>
-            <p className="text-xs font-medium text-slate-500 mb-1">Team</p>
-            <p className="text-xl font-bold text-slate-900 leading-tight">{formatINR(stats.teamEarnings)}</p>
-            <p className="text-xs text-slate-400 mt-1">Payouts</p>
+            <p className="text-sm font-semibold text-slate-500 mb-2 uppercase tracking-wide">Total Revenue</p>
+            <p className="text-3xl font-bold text-slate-900 mb-1">{formatINR(stats.totalRevenue)}</p>
+            <div className="flex items-center gap-1 mt-2">
+              <TrendingDown className="w-4 h-4 text-red-500" />
+              <span className="text-xs text-slate-500">-2.3% from last month</span>
+            </div>
           </div>
 
-          {/* Expenses */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Receipt className="w-4 h-4 text-orange-600" />
+          {/* Total Projects */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-all" onClick={() => router.push('/projects')}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-slate-100 rounded-lg">
+                <FolderKanban className="w-5 h-5 text-slate-600" />
               </div>
+              <TrendingUp className="w-5 h-5 text-slate-400" />
             </div>
-            <p className="text-xs font-medium text-slate-500 mb-1">Expenses</p>
-            <p className="text-xl font-bold text-slate-900 leading-tight">{formatINR(stats.expenses)}</p>
-            <p className="text-xs text-slate-400 mt-1">Total</p>
+            <p className="text-sm font-semibold text-slate-500 mb-2 uppercase tracking-wide">Total Projects</p>
+            <p className="text-3xl font-bold text-slate-900 mb-1">{stats.totalProjects}</p>
+            <div className="flex items-center gap-1 mt-2">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <span className="text-xs text-slate-500">+5 this month</span>
+            </div>
           </div>
 
-          {/* Profit */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <DollarSign className="w-4 h-4 text-green-600" />
+          {/* Total Clients */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-all" onClick={() => router.push('/clients')}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-slate-100 rounded-lg">
+                <Users className="w-5 h-5 text-slate-600" />
               </div>
+              <TrendingUp className="w-5 h-5 text-slate-400" />
             </div>
-            <p className="text-xs font-medium text-slate-500 mb-1">Profit</p>
-            <p className="text-xl font-bold text-slate-900 leading-tight">{stats.profitMargin}%</p>
-            <p className="text-xs text-slate-400 mt-1">{formatINR(stats.profit)}</p>
-          </div>
-
-          {/* Projects */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/projects')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <FolderKanban className="w-4 h-4 text-indigo-600" />
-              </div>
+            <p className="text-sm font-semibold text-slate-500 mb-2 uppercase tracking-wide">Total Clients</p>
+            <p className="text-3xl font-bold text-slate-900 mb-1">{stats.totalClients}</p>
+            <div className="flex items-center gap-1 mt-2">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <span className="text-xs text-slate-500">+3 this month</span>
             </div>
-            <p className="text-xs font-medium text-slate-500 mb-1">Projects</p>
-            <p className="text-xl font-bold text-slate-900 leading-tight">{stats.totalProjects}</p>
-            <p className="text-xs text-slate-400 mt-1">Active</p>
-          </div>
-
-          {/* Clients */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/clients')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 bg-teal-100 rounded-lg">
-                <Users className="w-4 h-4 text-teal-600" />
-              </div>
-            </div>
-            <p className="text-xs font-medium text-slate-500 mb-1">Clients</p>
-            <p className="text-xl font-bold text-slate-900 leading-tight">{stats.totalClients}</p>
-            <p className="text-xs text-slate-400 mt-1">Total</p>
           </div>
         </div>
 
-        {/* Section 2: Charts Grid - Clean Design */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Monthly Revenue Chart */}
+        {/* Charts Section - Modern Design */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Total Customers Chart */}
           <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Monthly Revenue</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyRevenue}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Total Customers</h3>
+                <p className="text-xs text-slate-500 mt-1">These companies have purchased in the last year.</p>
+              </div>
+              <TrendingUp className="w-5 h-5 text-slate-400" />
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={monthlyRevenue}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
+                <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
+                <YAxis stroke="#6b7280" fontSize={12} />
                 <Tooltip 
                   formatter={(value: number) => formatINR(value)}
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }}
                 />
-                <Bar dataKey="revenue" fill="#3B82F6" radius={[8, 8, 0, 0]} />
-              </BarChart>
+                <Line type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2} dot={false} />
+              </LineChart>
             </ResponsiveContainer>
+            <div className="mt-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span className="text-xs text-slate-600">Total per week: {stats.totalClients}</span>
+              </div>
+              <span className="text-xs font-semibold text-green-600">+22%</span>
+            </div>
           </div>
 
-          {/* Project Status Distribution */}
+          {/* Total Sales Chart */}
           <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Project Status</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={projectStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {projectStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Total Sales</h3>
+                <p className="text-xs text-slate-500 mt-1">vs yesterday</p>
+              </div>
+              <TrendingUp className="w-5 h-5 text-slate-400" />
+            </div>
+            <div className="mb-4">
+              <span className="text-2xl font-bold text-slate-900">+33%</span>
+            </div>
+            <ResponsiveContainer width="100%" height={150}>
+              <BarChart data={[{ name: 'This Week', value: stats.totalRevenue }, { name: 'Last Week', value: stats.totalRevenue * 0.75 }]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
+                <YAxis stroke="#6b7280" fontSize={12} />
+                <Tooltip 
+                  formatter={(value: number) => formatINR(value)}
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }}
+                />
+                <Bar dataKey="value" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
+            <div className="mt-4">
+              <span className="text-xs text-slate-600">Total per week: {formatINR(stats.totalRevenue)}</span>
+            </div>
+          </div>
+
+          {/* Pipeline Deals Chart */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Pipeline Deals</h3>
+                <p className="text-xs text-slate-500 mt-1">vs yesterday</p>
+              </div>
+              <TrendingUp className="w-5 h-5 text-slate-400" />
+            </div>
+            <div className="mb-4">
+              <span className="text-2xl font-bold text-red-600">-23%</span>
+            </div>
+            <ResponsiveContainer width="100%" height={150}>
+              <BarChart data={[{ name: 'This Week', value: stats.totalProjects }, { name: 'Last Week', value: stats.totalProjects * 1.3 }]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
+                <YAxis stroke="#6b7280" fontSize={12} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }}
+                />
+                <Bar dataKey="value" fill="#10B981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-4">
+              <span className="text-xs text-slate-600">Total per week: {stats.totalProjects}</span>
+            </div>
           </div>
 
           {/* Revenue vs Expenses */}
@@ -569,7 +597,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Section 3: Financial Snapshot (3 Key Metrics) */}
+        {/* Financial Snapshot - Compact Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Cash Position */}
           <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>

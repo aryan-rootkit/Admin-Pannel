@@ -229,28 +229,65 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm h-16">
       <div className="flex items-center justify-between px-6 h-full">
-        {/* Left Side - Menu */}
-        <div className="flex items-center gap-4 flex-1">
+        {/* Left Side - Logo & Navigation */}
+        <div className="flex items-center gap-6 flex-1">
+          {/* Logo */}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">N</span>
+            </div>
+          </div>
+          
+          {/* Horizontal Navigation Menu */}
+          <nav className="hidden md:flex items-center gap-1">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href || pathname?.startsWith(link.href + '/');
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+          
           {/* Hamburger Menu (Mobile) */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
+            className="md:hidden p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
           >
             <Menu className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Right Side - Notifications & User */}
-        <div className="flex items-center gap-3">
+        {/* Right Side - Actions, Notifications & User */}
+        <div className="flex items-center gap-4">
+          {/* Action Buttons */}
+          <div className="hidden lg:flex items-center gap-2">
+            <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              Export Data
+            </button>
+            <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
+              Share
+            </button>
+          </div>
+          
           {/* Notifications Dropdown */}
           <div className="relative notification-dropdown">
             <button
               onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-              className="relative p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300 hover:scale-105"
+              className="relative p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
             >
               <Bell className="w-5 h-5" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 text-white text-xs rounded-full flex items-center justify-center font-semibold border-2 border-white">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -323,13 +360,9 @@ export default function Header() {
             </AnimatePresence>
           </div>
 
-          {/* User Info - Light Mode */}
-          <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-slate-900">{session?.user?.name || 'Admin'}</p>
-              <p className="text-xs text-slate-500">{session?.user?.email}</p>
-            </div>
-            <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center text-white font-semibold shadow-md cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-300">
+          {/* User Profile */}
+          <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white font-semibold shadow-sm cursor-pointer hover:shadow-md transition-all">
               {session?.user?.name?.charAt(0).toUpperCase() || 'A'}
             </div>
           </div>
