@@ -312,8 +312,15 @@ export default function ClientsPage() {
     };
   }, [clients, revenue]);
 
-  // Status pi
-
+  // Status pipeline counts
+  const statusCounts = useMemo(() => {
+    const leads = clients.filter((c: Client) => c.status === 'Lead').length;
+    const proposal = clients.filter((c: Client) => c.status === 'Proposal').length;
+    const active = clients.filter((c: Client) => c.status === 'Active').length;
+    const overdue = clients.filter((c: Client) => c.status === 'Overdue').length;
+    const won = clients.filter((c: Client) => c.status === 'Won').length;
+    const lost = clients.filter((c: Client) => c.status === 'Lost').length;
+    const inactive = clients.filter((c: Client) => c.status === 'Inactive').length;
     return { leads, proposal, active, overdue, won, lost, inactive };
   }, [clients]);
 
