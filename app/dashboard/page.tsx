@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import { DollarSign, FolderKanban, Users, TrendingUp, Wallet, AlertCircle, UserPlus, TrendingDown, CheckCircle, Receipt, Activity, ArrowRight } from 'lucide-react';
-import StatsWidget from '@/components/ui/stats-widget';
 import Link from 'next/link';
 import { formatINR } from '@/lib/utils/currency';
 import { formatDate } from '@/lib/utils/date';
