@@ -365,21 +365,11 @@ export default function HomePage() {
     <Layout>
       <div className="space-y-6">
         {/* Welcome Section - Modern Design */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              {getGreeting()}, {session?.user?.name?.split(' ')[0] || 'Admin'}
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">Welcome back to your dashboard</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-              Export Data
-            </button>
-            <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
-              Share
-            </button>
-          </div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900">
+            {getGreeting()}, {session?.user?.name?.split(' ')[0] || 'Admin'}
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">Welcome back to your dashboard</p>
         </div>
 
         {/* KPI Cards - Large Prominent Design */}

@@ -4,7 +4,6 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import Sidebar from './Sidebar';
 import Header from './Header';
 import { ToastContainer } from './ui/Toast';
 
@@ -40,13 +39,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Sidebar - Fixed 256px width (hidden on large screens when header has nav) */}
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
-      
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col lg:ml-64 overflow-hidden">
+      {/* Main Content Area - Full Width */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header - Fixed 64px height with horizontal navigation */}
         <Header />
         
