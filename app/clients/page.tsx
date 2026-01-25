@@ -420,20 +420,19 @@ export default function ClientsPage() {
   const filteredClients = useMemo(() => {
     let filtered = clients;
     
-    // Filter by status
+    // Apply status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(c => {
-        return c.status.toLowerCase() === statusFilter.toLowerCase();
-      });
+      filtered = filtered.filter((c: Client) => c.status?.toLowerCase() === statusFilter.toLowerCase());
     }
     
-    // Filter by search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(c => 
-        c.name.toLowerCase().includes(term) ||
-        c.email.toLowerCase().includes(term) ||
-        (c.company && c.company.toLowerCase().includes(term))
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const query = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter((c: Client) =>
+        c.name?.toLowerCase().includes(query) ||
+        c.email?.toLowerCase().includes(query) ||
+        c.company?.toLowerCase().includes(query) ||
+        c.phone?.toLowerCase().includes(query)
       );
     }
     
@@ -575,17 +574,17 @@ export default function ClientsPage() {
           </div>
         </div>
 
-        {/* Status Pipeline */}
+        {/* Status Pipeline - Simple Design */}
         <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">Client Status Pipeline</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold text-gray-900">Client Status Pipeline</h3>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 statusFilter === 'all'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-blue-600 text-white shadow-sm'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -593,40 +592,70 @@ export default function ClientsPage() {
             </button>
             <button
               onClick={() => setStatusFilter('lead')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 statusFilter === 'lead'
-                  ? 'bg-yellow-600 text-white'
-                  : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Leads ({statusCounts.leads})
+              Lead ({statusCounts.leads})
+            </button>
+            <button
+              onClick={() => setStatusFilter('proposal')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                statusFilter === 'proposal'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Proposal ({statusCounts.proposal})
             </button>
             <button
               onClick={() => setStatusFilter('active')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 statusFilter === 'active'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-green-50 text-green-700 hover:bg-green-100'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               Active ({statusCounts.active})
             </button>
             <button
               onClick={() => setStatusFilter('overdue')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 statusFilter === 'overdue'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-red-50 text-red-700 hover:bg-red-100'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               Overdue ({statusCounts.overdue})
             </button>
             <button
+              onClick={() => setStatusFilter('won')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                statusFilter === 'won'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Won ({statusCounts.won})
+            </button>
+            <button
+              onClick={() => setStatusFilter('lost')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                statusFilter === 'lost'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Lost ({statusCounts.lost})
+            </button>
+            <button
               onClick={() => setStatusFilter('inactive')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 statusFilter === 'inactive'
-                  ? 'bg-gray-600 text-white'
-                  : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               Inactive ({statusCounts.inactive})
@@ -917,95 +946,114 @@ export default function ClientsPage() {
           title={selectedClient ? 'Edit Client' : 'New Client'}
           size="md"
         >
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Name and Company */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium">
-                  Contact Person <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  {...register('name')}
-                  placeholder="e.g., Aryav Dey (CEO)"
-                />
-                {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
-              </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {/* Basic Information Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Basic Information</h3>
+              
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-sm font-medium text-gray-700">
+                    Contact Person <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    {...register('name')}
+                    placeholder="John Doe"
+                    className="w-full"
+                  />
+                  {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name.message}</p>}
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="company" className="text-sm font-medium">
-                  Company Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="company"
-                  {...register('company')}
-                  placeholder="e.g., Aryav Tech"
-                />
-                {errors.company && <p className="text-sm text-destructive mt-1">{errors.company.message}</p>}
-              </div>
-            </div>
-
-            {/* Contact Information */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-medium">
-                  Phone/WhatsApp
-                </Label>
-                <Input
-                  id="phone"
-                  {...register('phone')}
-                  type="tel"
-                  placeholder="+91 1234567890"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
-                  Email <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...register('email')}
-                  placeholder="email@company.com"
-                />
-                {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
+                <div className="space-y-2">
+                  <Label htmlFor="company" className="text-sm font-medium text-gray-700">
+                    Company Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="company"
+                    {...register('company')}
+                    placeholder="Company Inc."
+                    className="w-full"
+                  />
+                  {errors.company && <p className="text-xs text-red-600 mt-1">{errors.company.message}</p>}
+                </div>
               </div>
             </div>
 
-            {/* Address */}
-            <div className="space-y-2">
-              <Label htmlFor="address" className="text-sm font-medium">
-                Address
-              </Label>
-              <Input
-                id="address"
-                {...register('address')}
-                placeholder="Enter full address"
-              />
+            <Separator />
+
+            {/* Contact Information Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Contact Information</h3>
+              
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                    Email <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...register('email')}
+                    placeholder="email@company.com"
+                    className="w-full"
+                  />
+                  {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
+                    Phone
+                  </Label>
+                  <Input
+                    id="phone"
+                    {...register('phone')}
+                    type="tel"
+                    placeholder="+1 234 567 8900"
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="address" className="text-sm font-medium text-gray-700">
+                  Address
+                </Label>
+                <Textarea
+                  id="address"
+                  {...register('address')}
+                  rows={2}
+                  placeholder="Street address, City, State, ZIP"
+                  className="w-full"
+                />
+              </div>
             </div>
 
-            {/* Status and Tier */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Separator />
+
+            {/* Status Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Status</h3>
+              
               <div className="space-y-2">
-                <Label htmlFor="status" className="text-sm font-medium">
-                  Status
+                <Label htmlFor="status" className="text-sm font-medium text-gray-700">
+                  Client Status
                 </Label>
                 <Select
                   value={watch('status') || 'Lead'}
                   onValueChange={(value) => setValue('status', value as any)}
                 >
-                  <SelectTrigger id="status">
+                  <SelectTrigger id="status" className="w-full">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Lead">🟡 Lead</SelectItem>
-                    <SelectItem value="Proposal">🔵 Proposal</SelectItem>
-                    <SelectItem value="Active">🟢 Active</SelectItem>
-                    <SelectItem value="Overdue">🔴 Overdue</SelectItem>
-                    <SelectItem value="Won">✅ Won</SelectItem>
-                    <SelectItem value="Lost">❌ Lost</SelectItem>
-                    <SelectItem value="Inactive">⚪ Inactive</SelectItem>
+                    <SelectItem value="Lead">Lead</SelectItem>
+                    <SelectItem value="Proposal">Proposal</SelectItem>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Overdue">Overdue</SelectItem>
+                    <SelectItem value="Won">Won</SelectItem>
+                    <SelectItem value="Lost">Lost</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1013,66 +1061,75 @@ export default function ClientsPage() {
 
             <Separator />
 
-            {/* Assigned Developers - Checkbox Style */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                Assigned Developers
-              </Label>
-              <div className="rounded-md border border-input bg-background p-3 max-h-48 overflow-y-auto">
-                {team.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No team members available</p>
-                ) : (
-                  <div className="space-y-2">
-                    {team.map((member) => {
-                      const isSelected = selectedDevelopers.includes(member._id);
-                      return (
-                        <label
-                          key={member._id}
-                          className="flex items-center gap-3 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              const current = selectedDevelopers || [];
-                              if (e.target.checked) {
-                                setValue('assignedDevelopers', [...current, member._id]);
-                              } else {
-                                setValue('assignedDevelopers', current.filter((id: string) => id !== member._id));
-                              }
-                            }}
-                            className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                          />
-                          <div className="flex-1">
-                            <span className="text-sm font-medium">{member.name}</span>
-                            <span className="text-xs text-muted-foreground ml-2">- {member.role}</span>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
+            {/* Assigned Developers Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Team Assignment</h3>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">
+                  Assigned Developers
+                </Label>
+                <div className="rounded-md border border-gray-300 bg-white p-3 max-h-48 overflow-y-auto">
+                  {team.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">No team members available</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {team.map((member) => {
+                        const isSelected = selectedDevelopers.includes(member._id);
+                        return (
+                          <label
+                            key={member._id}
+                            className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-md cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const current = selectedDevelopers || [];
+                                if (e.target.checked) {
+                                  setValue('assignedDevelopers', [...current, member._id]);
+                                } else {
+                                  setValue('assignedDevelopers', current.filter((id: string) => id !== member._id));
+                                }
+                              }}
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                            />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium text-gray-900">{member.name}</span>
+                              <span className="text-xs text-gray-500 ml-2">({member.role})</span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">Select team members assigned to this client</p>
               </div>
-              <p className="text-xs text-muted-foreground">Select team members assigned to this client</p>
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="text-sm font-medium">
-                Notes
-              </Label>
-              <Textarea
-                id="notes"
-                {...register('notes')}
-                rows={3}
-                placeholder="Additional notes about the client..."
-              />
             </div>
 
             <Separator />
 
+            {/* Notes Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Additional Information</h3>
+              
+              <div className="space-y-2">
+                <Label htmlFor="notes" className="text-sm font-medium text-gray-700">
+                  Notes
+                </Label>
+                <Textarea
+                  id="notes"
+                  {...register('notes')}
+                  rows={4}
+                  placeholder="Add any additional notes or information about this client..."
+                  className="w-full"
+                />
+              </div>
+            </div>
+
             {/* Form Actions */}
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 pt-4 border-t">
               <Button
                 type="button"
                 variant="outline"
@@ -1081,11 +1138,13 @@ export default function ClientsPage() {
                   reset();
                   setSelectedClient(null);
                 }}
+                className="px-6"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
+                className="px-6"
               >
                 {selectedClient ? 'Update Client' : 'Create Client'}
               </Button>
