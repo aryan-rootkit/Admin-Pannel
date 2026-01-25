@@ -2,6 +2,10 @@
 
 A modern, fully-featured admin panel for a software development agency built with Next.js, TypeScript, and TailwindCSS.
 
+## 📊 Codebase Visualization
+
+![Visualization of the codebase](./diagram.svg)
+
 ## 🚀 Features
 
 - **Dashboard Overview**: Total revenue, projects, clients, and active deadlines

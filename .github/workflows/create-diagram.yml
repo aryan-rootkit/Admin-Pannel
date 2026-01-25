@@ -1,0 +1,27 @@
+name: Create Codebase Diagram
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  visualize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Generate diagram
+        uses: githubocto/repo-visualizer@v2
+        with:
+          excluded_paths: "node_modules,.next,.git"
+          output_file: "diagram.svg"
+          
+      - name: Commit diagram
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add diagram.svg
+          git diff --staged --quiet || git commit -m "Update codebase diagram [skip ci]"
+          git push
