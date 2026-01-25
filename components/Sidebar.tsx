@@ -12,7 +12,6 @@ import {
   Settings,
   LogOut,
   UserCheck,
-  Database,
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 
@@ -29,7 +28,6 @@ const menuItems = [
   { href: '/revenue', label: 'Revenue', icon: DollarSign, section: 'Finance' },
   { href: '/team', label: 'Team', icon: Users, section: 'Organization' },
   { href: '/settings', label: 'Settings', icon: Settings, section: 'Organization' },
-  { href: '/migrate', label: 'Migrate Data', icon: Database, section: 'Organization' },
 ];
 
 export default function Sidebar() {

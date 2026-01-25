@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Client from '@/models/Client';
 import { localStorageUtils } from '@/lib/localStorage';
+import { clientSchema } from '@/lib/security/validation';
+import { withRateLimit, sanitizeBody, safeErrorResponse } from '@/lib/security/middleware';
 
 const USE_MOCK = process.env.USE_MOCK_AUTH === 'true';
 
@@ -38,8 +40,9 @@ export async function GET() {
 /**
  * POST /api/clients
  * Creates a new client
+ * SECURITY: Validated with Zod schema, rate limited, sanitized
  */
-export async function POST(request: Request) {
+async function POSTHandler(request: NextRequest) {
   // Read request body ONCE at the start
   let body;
   try {
@@ -52,12 +55,16 @@ export async function POST(request: Request) {
   }
   
   try {
+    // SECURITY: Validate and sanitize input
+    const sanitizedBody = sanitizeBody(body);
+    const validatedData = clientSchema.parse(sanitizedBody);
+    
     if (USE_MOCK) {
       const client = {
-        ...body,
-        status: body.status || 'Lead',
-        totalRevenue: body.totalRevenue || 0,
-        assignedDevelopers: body.assignedDevelopers || [],
+        ...validatedData,
+        status: validatedData.status || 'Lead',
+        totalRevenue: validatedData.totalRevenue || 0,
+        assignedDevelopers: validatedData.assignedDevelopers || [],
       };
       const clients = localStorageUtils.saveClient(client);
       // Ensure clients is an array and has items
@@ -72,21 +79,30 @@ export async function POST(request: Request) {
     }
 
     await connectDB();
-    const client = new Client(body);
+    const client = new Client(validatedData);
     await client.save();
     
     return NextResponse.json(client, { status: 201 });
   } catch (error: any) {
+    // SECURITY: Don't expose stack traces in production
+    if (error.name === 'ZodError') {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.errors },
+        { status: 400 }
+      );
+    }
+    
     console.error('Error creating client:', error);
     
     // Fallback to localStorage - use the body we already parsed
     if (USE_MOCK || error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
       try {
+        const validatedData = clientSchema.parse(sanitizeBody(body));
         const client = {
-          ...body,
-          status: body.status || 'Lead',
-          totalRevenue: body.totalRevenue || 0,
-          assignedDevelopers: body.assignedDevelopers || [],
+          ...validatedData,
+          status: validatedData.status || 'Lead',
+          totalRevenue: validatedData.totalRevenue || 0,
+          assignedDevelopers: validatedData.assignedDevelopers || [],
         };
         const clients = localStorageUtils.saveClient(client);
         // Ensure clients is an array and has items
@@ -99,10 +115,7 @@ export async function POST(request: Request) {
         const savedClient = clients[clients.length - 1];
         return NextResponse.json(savedClient, { status: 201 });
       } catch (e: any) {
-        return NextResponse.json(
-          { error: e.message || 'Failed to create client' },
-          { status: 500 }
-        );
+        return safeErrorResponse(e, 500);
       }
     }
     
@@ -123,12 +136,9 @@ export async function POST(request: Request) {
       );
     }
     
-    return NextResponse.json(
-      { 
-        error: error.message || 'Failed to create client',
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      },
-      { status: 500 }
-    );
+    return safeErrorResponse(error, 500);
   }
 }
+
+// Export with rate limiting
+export const POST = withRateLimit(POSTHandler, { isWrite: true });

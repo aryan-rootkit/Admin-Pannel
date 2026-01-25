@@ -6,8 +6,9 @@ import mongoose from 'mongoose';
  */
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/admin-panel-rootkit';
 
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+// Validate MongoDB URI format (security check) - only if URI is provided
+if (process.env.MONGODB_URI && !process.env.MONGODB_URI.match(/^mongodb(\+srv)?:\/\//)) {
+  throw new Error('Invalid MONGODB_URI format. Must start with mongodb:// or mongodb+srv://');
 }
 
 interface MongooseCache {
@@ -38,6 +39,14 @@ async function connectDB() {
       bufferCommands: false,
       serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
       socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+      // Security: Force TLS for MongoDB Atlas connections
+      ...(MONGODB_URI.includes('mongodb+srv://') && {
+        tls: true,
+        tlsAllowInvalidCertificates: false,
+      }),
+      // Connection pool settings
+      maxPoolSize: 10,
+      minPoolSize: 1,
     };
 
     cached.promise = mongoose.connect(MONGODB_URI, opts)
