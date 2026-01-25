@@ -32,7 +32,6 @@ const clientSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   status: z.enum(['Lead', 'Proposal', 'Active', 'Overdue', 'Won', 'Lost', 'Inactive']).default('Lead'),
-  clientTier: z.enum(['Platinum', 'Gold', 'Silver', 'Bronze']).optional(),
   revenue: z.number().min(0, 'Revenue must be positive').optional(),
   assignedDevelopers: z.array(z.string()).optional(),
   notes: z.string().optional(),
@@ -48,7 +47,6 @@ interface Client {
   company?: string;
   contactPerson?: string;
   address?: string;
-  status: 'Lead' | 'Proposal' | 'Active' | 'Overdue' | 'Won' | 'Lost' | 'Inactive';
   clientTier?: 'Platinum' | 'Gold' | 'Silver' | 'Bronze';
   revenue?: number;
   assignedDevelopers?: string[];
@@ -79,7 +77,6 @@ export default function ClientsPage() {
     resolver: zodResolver(clientSchema),
     defaultValues: {
       status: 'Lead',
-      clientTier: 'Bronze',
       assignedDevelopers: [],
     },
   });
@@ -190,7 +187,6 @@ export default function ClientsPage() {
         ...data,
         company: companyName,
         status: data.status || 'Lead',
-        clientTier: data.clientTier || 'Bronze',
         assignedDevelopers: data.assignedDevelopers || [],
       };
 
@@ -231,8 +227,6 @@ export default function ClientsPage() {
     setValue('company', client.company || '');
     setValue('contactPerson', client.contactPerson || '');
     setValue('address', client.address || '');
-    setValue('status', client.status);
-    setValue('clientTier', client.clientTier || 'Bronze');
     setValue('revenue', client.revenue || 0);
     setValue('assignedDevelopers', client.assignedDevelopers || []);
     setValue('notes', client.notes || '');
@@ -318,15 +312,7 @@ export default function ClientsPage() {
     };
   }, [clients, revenue]);
 
-  // Status pipeline counts
-  const statusCounts = useMemo(() => {
-    const leads = clients.filter((c: Client) => c.status === 'Lead').length;
-    const proposal = clients.filter((c: Client) => c.status === 'Proposal').length;
-    const active = clients.filter((c: Client) => c.status === 'Active').length;
-    const overdue = clients.filter((c: Client) => c.status === 'Overdue').length;
-    const won = clients.filter((c: Client) => c.status === 'Won').length;
-    const lost = clients.filter((c: Client) => c.status === 'Lost').length;
-    const inactive = clients.filter((c: Client) => c.status === 'Inactive').length;
+  // Status pi
 
     return { leads, proposal, active, overdue, won, lost, inactive };
   }, [clients]);
@@ -408,119 +394,6 @@ export default function ClientsPage() {
     },
     { key: 'email', header: 'Email' },
     { key: 'company', header: 'Company' },
-    {
-      key: 'clientTier',
-      header: 'Tier',
-      render: (row: Client) => {
-        const tier = row.clientTier || 'Bronze';
-        const tierConfig = {
-          Platinum: { 
-            icon: Crown, 
-            color: 'text-purple-700', 
-            bg: 'bg-gradient-to-r from-purple-50 to-purple-100', 
-            border: 'border-purple-300',
-            shadow: 'shadow-sm'
-          },
-          Gold: { 
-            icon: Award, 
-            color: 'text-yellow-700', 
-            bg: 'bg-gradient-to-r from-yellow-50 to-yellow-100', 
-            border: 'border-yellow-300',
-            shadow: 'shadow-sm'
-          },
-          Silver: { 
-            icon: Medal, 
-            color: 'text-slate-700', 
-            bg: 'bg-gradient-to-r from-slate-50 to-slate-100', 
-            border: 'border-slate-300',
-            shadow: 'shadow-sm'
-          },
-          Bronze: { 
-            icon: Circle, 
-            color: 'text-orange-700', 
-            bg: 'bg-gradient-to-r from-orange-50 to-orange-100', 
-            border: 'border-orange-300',
-            shadow: 'shadow-sm'
-          },
-        };
-        const config = tierConfig[tier as keyof typeof tierConfig] || tierConfig.Bronze;
-        const Icon = config.icon;
-        return (
-          <div className="flex items-center gap-2">
-            <div className={`p-1.5 rounded-lg ${config.bg} ${config.border} border ${config.shadow}`}>
-              <Icon className={`w-4 h-4 ${config.color}`} />
-            </div>
-            <span className={`px-3 py-1 rounded-md text-xs font-semibold ${config.bg} ${config.color} border ${config.border} ${config.shadow}`}>
-              {tier}
-            </span>
-          </div>
-        );
-      },
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (row: Client) => {
-        const statusConfig = {
-          Lead: { 
-            color: 'text-yellow-700', 
-            bg: 'bg-gradient-to-r from-yellow-50 to-yellow-100', 
-            border: 'border-yellow-300',
-            emoji: '🟡',
-            shadow: 'shadow-sm'
-          },
-          Proposal: { 
-            color: 'text-blue-700', 
-            bg: 'bg-gradient-to-r from-blue-50 to-blue-100', 
-            border: 'border-blue-300',
-            emoji: '🔵',
-            shadow: 'shadow-sm'
-          },
-          Active: { 
-            color: 'text-green-700', 
-            bg: 'bg-gradient-to-r from-green-50 to-green-100', 
-            border: 'border-green-300',
-            emoji: '🟢',
-            shadow: 'shadow-sm'
-          },
-          Overdue: { 
-            color: 'text-red-700', 
-            bg: 'bg-gradient-to-r from-red-50 to-red-100', 
-            border: 'border-red-300',
-            emoji: '🔴',
-            shadow: 'shadow-sm'
-          },
-          Won: { 
-            color: 'text-emerald-700', 
-            bg: 'bg-gradient-to-r from-emerald-50 to-emerald-100', 
-            border: 'border-emerald-300',
-            emoji: '✅',
-            shadow: 'shadow-sm'
-          },
-          Lost: { 
-            color: 'text-gray-700', 
-            bg: 'bg-gradient-to-r from-gray-50 to-gray-100', 
-            border: 'border-gray-300',
-            emoji: '❌',
-            shadow: 'shadow-sm'
-          },
-          Inactive: { 
-            color: 'text-gray-600', 
-            bg: 'bg-gradient-to-r from-gray-50 to-gray-100', 
-            border: 'border-gray-200',
-            emoji: '⚪',
-            shadow: 'shadow-sm'
-          },
-        };
-        const config = statusConfig[row.status] || statusConfig.Lead;
-        return (
-          <span className={`px-3 py-1.5 rounded-md text-xs font-semibold border ${config.bg} ${config.color} ${config.border} ${config.shadow} inline-flex items-center gap-1.5`}>
-            <span className="text-sm">{config.emoji}</span>
-            <span>{row.status}</span>
-          </span>
-        );
-      },
-    },
     {
       key: 'pendingAmount',
       header: 'Pending Amount',
@@ -1125,26 +998,6 @@ export default function ClientsPage() {
                     <SelectItem value="Won">✅ Won</SelectItem>
                     <SelectItem value="Lost">❌ Lost</SelectItem>
                     <SelectItem value="Inactive">⚪ Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="clientTier" className="text-sm font-medium">
-                  Client Tier
-                </Label>
-                <Select
-                  value={watch('clientTier') || 'Bronze'}
-                  onValueChange={(value) => setValue('clientTier', value as any)}
-                >
-                  <SelectTrigger id="clientTier">
-                    <SelectValue placeholder="Select tier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Platinum">👑 Platinum</SelectItem>
-                    <SelectItem value="Gold">🏆 Gold</SelectItem>
-                    <SelectItem value="Silver">🥈 Silver</SelectItem>
-                    <SelectItem value="Bronze">🥉 Bronze</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
