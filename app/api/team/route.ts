@@ -17,7 +17,7 @@ export async function GET() {
     }
 
     await connectDB();
-    const team = await Team.find().populate('assignedProjects').sort({ createdAt: -1 });
+    const team = await Team.find().sort({ createdAt: -1 });
     return NextResponse.json(team);
   } catch (error: any) {
     console.error('Error fetching team:', error);

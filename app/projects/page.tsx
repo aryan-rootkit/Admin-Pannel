@@ -513,9 +513,10 @@ export default function ProjectsPage() {
 
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
 
-  const getDeveloperNames = (developerIds: string[]): string[] => {
+  const getDeveloperNames = (developerIds: string[] | undefined): string[] => {
+    if (!developerIds || !Array.isArray(developerIds)) return [];
     return developerIds.map(id => {
-      const dev = team.find(t => t._id === id);
+      const dev = (team || []).find(t => t._id === id);
       return dev?.name || id;
     });
   };
@@ -707,8 +708,8 @@ export default function ProjectsPage() {
                           <div className="flex items-center gap-0.5">
                             {developerNames.length > 0 ? (
                               <div className="flex items-center gap-0.5" title={developerNames.join(', ')}>
-                                {project.developers.slice(0, 3).map((devId) => {
-                                  const dev = team.find(t => t._id === devId);
+                                {(project.developers || []).slice(0, 3).map((devId) => {
+                                  const dev = (team || []).find(t => t._id === devId);
                                   if (!dev) return null;
                                   const avatar = (dev as any).avatar;
                                   return (
@@ -1790,7 +1791,7 @@ export default function ProjectsPage() {
                     <span className="text-text-secondary font-medium">Developers ({developerNames.length}): </span>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {developerNames.slice(0, 5).map((name, idx) => {
-                        const dev = team.find(t => t.name === name);
+                        const dev = (team || []).find(t => t.name === name);
                         return (
                           <span
                             key={idx}
