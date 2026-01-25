@@ -47,6 +47,7 @@ interface Client {
   company?: string;
   contactPerson?: string;
   address?: string;
+  status?: 'Lead' | 'Proposal' | 'Active' | 'Overdue' | 'Won' | 'Lost' | 'Inactive';
   clientTier?: 'Platinum' | 'Gold' | 'Silver' | 'Bronze';
   revenue?: number;
   assignedDevelopers?: string[];
