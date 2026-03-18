@@ -13,10 +13,12 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Generate diagram
-        uses: githubocto/repo-visualizer@v2
+        uses: githubocto/repo-visualizer@0.9.1
         with:
           excluded_paths: "node_modules,.next,.git"
           output_file: "diagram.svg"
+          # We commit diagram.svg in the next step, so disable auto-push here.
+          should_push: false
           
       - name: Commit diagram
         run: |
@@ -24,4 +26,4 @@ jobs:
           git config --local user.name "GitHub Action"
           git add diagram.svg
           git diff --staged --quiet || git commit -m "Update codebase diagram [skip ci]"
-          git push
+          git push origin HEAD:${{ github.ref_name }}
