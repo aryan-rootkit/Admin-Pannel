@@ -8,7 +8,10 @@ import CredentialsProvider from 'next-auth/providers/credentials';
  * To use mock authentication (no database):
  * Set USE_MOCK_AUTH=true in .env.local
  */
-const USE_MOCK_AUTH = process.env.USE_MOCK_AUTH === 'true'; // Default to false (use MongoDB)
+// Never use mock auth on Vercel/production. Mock mode would only allow hardcoded users,
+// which breaks logins for any users you created in MongoDB.
+const USE_MOCK_AUTH =
+  process.env.USE_MOCK_AUTH === 'true' && !process.env.VERCEL; // Default to false (use MongoDB)
 
 export const authOptions: NextAuthOptions = {
   providers: [
