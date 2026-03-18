@@ -74,7 +74,12 @@ export const authOptions: NextAuthOptions = {
           
           await connectDB();
           
-          const email = credentials.email.toLowerCase().trim();
+          // Normalize known legacy email so both "admin@rootkit.com" and "admin@rootkit.dev"
+          // authenticate the same seeded admin user.
+          const inputEmail = credentials.email.toLowerCase().trim();
+          const email =
+            inputEmail === 'admin@rootkit.com' ? 'admin@rootkit.dev' : inputEmail;
+
           const user = await User.findOne({ email }).select('+password');
           
           if (!user) {

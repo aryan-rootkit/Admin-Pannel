@@ -260,7 +260,7 @@ function LoginForm() {
             {/* Default Credentials Hint */}
             <div className="text-center mt-4 p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
               <p className="text-white/80 text-xs mb-1">Default Credentials:</p>
-              <p className="text-white text-sm font-mono">admin@rootkit.com / admin123</p>
+              <p className="text-white text-sm font-mono">admin@rootkit.dev / admin123</p>
             </div>
           </form>
         </div>
