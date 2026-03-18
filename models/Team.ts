@@ -81,6 +81,7 @@ const TeamSchema: Schema<ITeam> = new Schema(
   },
   {
     timestamps: true,
+    strict: false,
   }
 );
 

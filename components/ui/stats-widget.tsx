@@ -3,9 +3,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 
-const getRandom = (min: number, max: number): number =>
-  Math.floor(Math.random() * (max - min + 1)) + min;
-
 const generateSmoothPath = (points: number[], width: number, height: number): string => {
   if (!points || points.length < 2) {
     return `M 0 ${height}`;
@@ -34,28 +31,48 @@ const generateSmoothPath = (points: number[], width: number, height: number): st
 
 const StatsWidget = () => {
   const [stats, setStats] = useState({
-    amount: 283,
-    change: 36,
-    chartData: [30, 55, 45, 75, 60, 85, 70],
+    amount: 0,
+    change: 0,
+    chartData: [0, 0, 0, 0, 0, 0, 0],
   });
   const linePathRef = useRef<SVGPathElement | null>(null);
   const areaPathRef = useRef<SVGPathElement | null>(null);
 
-  const updateStats = () => {
-    const newAmount = getRandom(100, 999);
-    const newChange = getRandom(-50, 100);
-    const newChartData = Array.from({ length: 7 }, () => getRandom(10, 90));
-
-    setStats({
-      amount: newAmount,
-      change: newChange,
-      chartData: newChartData,
-    });
-  };
-
   useEffect(() => {
-    const intervalId = setInterval(updateStats, 3000);
-    return () => clearInterval(intervalId);
+    let isMounted = true;
+
+    const load = async () => {
+      try {
+        const [revRes] = await Promise.all([fetch('/api/revenue/stats')]);
+        const revStats = await revRes.json();
+
+        const income = Number(revStats?.income || 0);
+        const expenses = Number(revStats?.expenses || 0);
+        const total = Number(revStats?.total || income - expenses);
+
+        const change = expenses > 0 ? Math.round(((total - expenses) / expenses) * 100) : 0;
+        const amount = Math.max(0, total);
+
+        const clamp = (n: number) => Math.max(0, Math.min(100, n));
+        const base = clamp(Math.round(income / 1000000) * 50); // deterministic scaling
+        const chartData = Array.from({ length: 7 }, (_, i) => clamp(base * (1 - i * 0.06)));
+
+        if (isMounted) {
+          setStats({
+            amount,
+            change,
+            chartData,
+          });
+        }
+      } catch {
+        // Leave zeros on failure.
+      }
+    };
+
+    load();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const svgWidth = 150;

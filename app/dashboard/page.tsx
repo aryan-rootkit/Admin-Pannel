@@ -317,23 +317,58 @@ export default function HomePage() {
 
   const fetchAllData = useCallback(async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        
-        const revenueData = localStorageUtils.getRevenue() || [];
-        const projectsData = localStorageUtils.getProjects() || [];
-        const clientsData = localStorageUtils.getClients() || [];
-        const teamData = localStorageUtils.getTeam() || [];
-        const expensesData = JSON.parse(localStorage.getItem('rootkit_expenses') || '[]');
+      const [revenueRes, projectsRes, clientsRes, teamRes] = await Promise.all([
+        fetch('/api/revenue'),
+        fetch('/api/projects'),
+        fetch('/api/clients'),
+        fetch('/api/team'),
+      ]);
 
-        setRevenue(Array.isArray(revenueData) ? revenueData : []);
-        setExpenses(Array.isArray(expensesData) ? expensesData : []);
-
-        calculateStats(revenueData, projectsData, clientsData, teamData, expensesData);
-        calculateRecentActivity(projectsData, clientsData, revenueData);
-        
-        setLoading(false);
+      if (!revenueRes.ok || !projectsRes.ok || !clientsRes.ok || !teamRes.ok) {
+        throw new Error('Failed to fetch dashboard dependencies');
       }
+
+      const revenueAll = (await revenueRes.json()) as any[];
+      const projectsData = (await projectsRes.json()) as any[];
+      const clientsData = (await clientsRes.json()) as any[];
+      const teamData = (await teamRes.json()) as any[];
+
+      const normalizedRevenue = Array.isArray(revenueAll) ? revenueAll : [];
+
+      // Map MongoDB revenue documents into the shape expected by existing dashboard calculations.
+      const revenueData = normalizedRevenue
+        .filter((r: any) => r.type === 'income' || r.type === 'invoice')
+        .map((r: any) => {
+          const paymentStatus =
+            r.status === 'paid' ? 'Paid' : r.status === 'overdue' ? 'Overdue' : 'Pending';
+          const paymentsReceived =
+            paymentStatus === 'Paid' ? [{ amount: r.amount, date: r.date }] : [];
+
+          return {
+            ...r,
+            totalContractValue: r.amount,
+            advanceAmount: 0,
+            paymentsReceived,
+            paymentStatus,
+            expectedPaymentDate: r.date,
+          };
+        });
+
+      const expensesData = normalizedRevenue
+        .filter((r: any) => r.type === 'expense')
+        .map((r: any) => ({
+          category: r.description || 'Expense',
+          amount: r.amount,
+          date: r.date,
+        }));
+
+      setRevenue(Array.isArray(revenueData) ? revenueData : []);
+      setExpenses(Array.isArray(expensesData) ? expensesData : []);
+
+      calculateStats(revenueData, projectsData, clientsData, teamData, expensesData);
+      calculateRecentActivity(projectsData, clientsData, revenueData);
+
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
       setLoading(false);

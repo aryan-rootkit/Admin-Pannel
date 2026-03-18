@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Revenue from '@/models/Revenue';
-import { localStorageUtils } from '@/lib/localStorage';
-
-const USE_MOCK = process.env.USE_MOCK_AUTH === 'true';
 
 /**
  * GET /api/revenue
@@ -11,23 +8,12 @@ const USE_MOCK = process.env.USE_MOCK_AUTH === 'true';
  */
 export async function GET() {
   try {
-    if (USE_MOCK) {
-      const revenue = localStorageUtils.getRevenue();
-      return NextResponse.json(revenue);
-    }
-
     await connectDB();
     const revenue = await Revenue.find().populate('project').sort({ date: -1 });
     return NextResponse.json(revenue);
   } catch (error: any) {
     console.error('Error fetching revenue:', error);
-    
-    // Fallback to localStorage
-    if (USE_MOCK || error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
-      const revenue = localStorageUtils.getRevenue();
-      return NextResponse.json(revenue);
-    }
-    
+
     return NextResponse.json(
       { error: 'Failed to fetch revenue', details: process.env.NODE_ENV === 'development' ? error.message : undefined },
       { status: 500 }
@@ -61,27 +47,6 @@ export async function POST(request: Request) {
       );
     }
 
-    if (USE_MOCK) {
-      const revenue = {
-        ...body,
-        date: body.date,
-        amount: Number(body.amount),
-        client: body.client || '',
-        status: body.status || 'pending',
-        invoiceNumber: body.invoiceNumber || '',
-      };
-      const revenues = localStorageUtils.saveRevenue(revenue);
-      // Ensure revenues is an array and has items
-      if (!Array.isArray(revenues) || revenues.length === 0) {
-        return NextResponse.json(
-          { error: 'Failed to save revenue to localStorage' },
-          { status: 500 }
-        );
-      }
-      const savedRevenue = revenues[revenues.length - 1];
-      return NextResponse.json(savedRevenue, { status: 201 });
-    }
-
     await connectDB();
     
     // Convert date string to Date object
@@ -97,36 +62,7 @@ export async function POST(request: Request) {
     return NextResponse.json(revenue, { status: 201 });
   } catch (error: any) {
     console.error('Error creating revenue:', error);
-    
-    // Fallback to localStorage - use the body we already parsed
-    if (USE_MOCK || error.message?.includes('authentication failed') || error.message?.includes('bad auth')) {
-      try {
-        const revenue = {
-          ...body,
-          date: body.date,
-          amount: Number(body.amount),
-          client: body.client || '',
-          status: body.status || 'pending',
-          invoiceNumber: body.invoiceNumber || '',
-        };
-        const revenues = localStorageUtils.saveRevenue(revenue);
-        // Ensure revenues is an array and has items
-        if (!Array.isArray(revenues) || revenues.length === 0) {
-          return NextResponse.json(
-            { error: 'Failed to save revenue to localStorage' },
-            { status: 500 }
-          );
-        }
-        const savedRevenue = revenues[revenues.length - 1];
-        return NextResponse.json(savedRevenue, { status: 201 });
-      } catch (e: any) {
-        return NextResponse.json(
-          { error: e.message || 'Failed to create revenue' },
-          { status: 500 }
-        );
-      }
-    }
-    
+
     // Handle validation errors
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors || {}).map((e: any) => e.message).join(', ');

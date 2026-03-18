@@ -123,12 +123,9 @@ export default function TeamPage() {
 
   const fetchRevenue = async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getRevenue();
-        const revenueData = Array.isArray(data) ? data : [];
-        setRevenue(revenueData);
-      }
+      const res = await fetch('/api/revenue');
+      const data = await res.json();
+      setRevenue(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching revenue:', error);
       setRevenue([]);
@@ -137,15 +134,22 @@ export default function TeamPage() {
 
   const fetchExpenses = async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const expensesData = localStorage.getItem('rootkit_expenses');
-        if (expensesData) {
-          const parsed = JSON.parse(expensesData);
-          setExpenses(Array.isArray(parsed) ? parsed : []);
-        } else {
-          setExpenses([]);
-        }
-      }
+      const res = await fetch('/api/revenue');
+      const data = await res.json();
+      const expenses = Array.isArray(data)
+        ? data
+            .filter((r: any) => r.type === 'expense')
+            .map((r: any) => ({
+              category: r.description || 'Expense',
+              amount: r.amount,
+              date: r.date,
+              campaignName: r.campaignName,
+              developerPaid: r.developerPaid,
+              uiuxDesignerPaid: r.uiuxDesignerPaid,
+              notes: r.notes,
+            }))
+        : [];
+      setExpenses(expenses);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       setExpenses([]);
@@ -154,11 +158,9 @@ export default function TeamPage() {
 
   const fetchProjects = async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getProjects();
-        setProjects(Array.isArray(data) ? data : []);
-      }
+      const res = await fetch('/api/projects');
+      const data = await res.json();
+      setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching projects:', error);
       setProjects([]);
@@ -368,16 +370,6 @@ export default function TeamPage() {
     if (!confirm('Are you sure you want to delete this team member?')) return;
 
     try {
-      // In mock mode, use localStorage directly
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        localStorageUtils.deleteTeamMember(member._id);
-        await fetchTeam();
-        toast('Team member deleted successfully!', 'success');
-        return;
-      }
-      
-      // Fallback to API
       const res = await fetch(`/api/team/${member._id}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchTeam();
@@ -487,99 +479,42 @@ export default function TeamPage() {
       render: (row: TeamMember) => {
         // CEO Aryan Dubey's earnings = Total Revenue - Total Expenses (what's left after expenses)
         // All other team members' earnings are expenses (Developer Payout, UI/UX, Marketing Cost)
-        if (typeof window !== 'undefined') {
-          try {
-            // Check if this is CEO Aryan Dubey
-            const isCEO = row.name.toLowerCase().includes('aryan') && row.name.toLowerCase().includes('dubey');
-            
-            if (isCEO) {
-              // CEO earnings = Total Revenue - Total Expenses
-              // Use the revenue and expenses state that are already fetched, or fallback to localStorage
-              let totalRevenue = 0;
-              let totalExpenses = 0;
-              
-              // Calculate total revenue (all payments received + advances)
-              if (Array.isArray(revenue) && revenue.length > 0) {
-                totalRevenue = revenue.reduce((sum: number, r: any) => {
-                  // Sum all payments received
-                  const paymentsSum = (r.paymentsReceived || []).reduce((pSum: number, p: any) => pSum + (p.amount || 0), 0);
-                  return sum + paymentsSum + (r.advanceAmount || 0);
-                }, 0);
-              } else {
-                // Fallback: try localStorage directly (synchronous)
-                try {
-                  const revenueData = localStorage.getItem('rootkit_revenue');
-                  if (revenueData) {
-                    const revenueArray = JSON.parse(revenueData);
-                    if (Array.isArray(revenueArray)) {
-                      totalRevenue = revenueArray.reduce((sum: number, r: any) => {
-                        const paymentsSum = (r.paymentsReceived || []).reduce((pSum: number, p: any) => pSum + (p.amount || 0), 0);
-                        return sum + paymentsSum + (r.advanceAmount || 0);
-                      }, 0);
-                    }
-                  }
-                } catch (e) {
-                  console.error('Error fetching revenue:', e);
-                }
-              }
-              
-              // Calculate total expenses
-              if (Array.isArray(expenses) && expenses.length > 0) {
-                totalExpenses = expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
-              } else {
-                // Fallback: try localStorage directly (synchronous)
-                try {
-                  const expensesData = localStorage.getItem('rootkit_expenses');
-                  if (expensesData) {
-                    const expensesArray = JSON.parse(expensesData);
-                    if (Array.isArray(expensesArray)) {
-                      totalExpenses = expensesArray.reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
-                    }
-                  }
-                } catch (e) {
-                  console.error('Error fetching expenses:', e);
-                }
-              }
-              
-              const ceoEarnings = totalRevenue - totalExpenses;
-              return formatINR(ceoEarnings); // Can be negative if expenses exceed revenue
-            } else {
-              // For all other team members: earnings are expenses (payouts)
-              const expensesData = localStorage.getItem('rootkit_expenses');
-              if (expensesData) {
-                const expenses = JSON.parse(expensesData);
-                const memberEarnings = expenses
-                  .filter((e: any) => {
-                    // Developer Payout
-                    if (e.category === 'Developer Payout' && e.developerPaid === row.name) {
-                      return true;
-                    }
-                    // UI/UX Design Cost
-                    if (e.category === 'UI/UX Design Cost' && e.uiuxDesignerPaid === row.name) {
-                      return true;
-                    }
-                    // Devams/Devamsh earnings from Marketing Cost - Call Out campaign
-                    // Check if member name contains "devam" (case-insensitive) and expense is Marketing Cost with Call Out campaign
-                    if (e.category === 'Marketing Cost' && row.name.toLowerCase().includes('devam')) {
-                      const campaignName = (e.campaignName || '').toLowerCase();
-                      // Match "Call Out/Devams", "Call Out", or any variation containing "call out"
-                      if (campaignName.includes('call out') || campaignName.includes('callout')) {
-                        return true;
-                      }
-                    }
-                    return false;
-                  })
-                  .reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
-                return formatINR(memberEarnings);
-              }
-              return formatINR(0);
-            }
-          } catch (e) {
-            console.error('Error calculating earnings:', e);
-            return formatINR(0);
-          }
+        // Check if this is CEO Aryan Dubey
+        const isCEO = row.name.toLowerCase().includes('aryan') && row.name.toLowerCase().includes('dubey');
+
+        if (isCEO) {
+          // CEO earnings = Total Revenue - Total Expenses
+          const totalRevenue = Array.isArray(revenue)
+            ? revenue.reduce((sum: number, r: any) => {
+                const paymentsSum = (r.paymentsReceived || []).reduce((pSum: number, p: any) => pSum + (p.amount || 0), 0);
+                return sum + paymentsSum + (r.advanceAmount || 0);
+              }, 0)
+            : 0;
+
+          const totalExpenses = Array.isArray(expenses)
+            ? expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
+            : 0;
+
+          const ceoEarnings = totalRevenue - totalExpenses;
+          return formatINR(ceoEarnings);
         }
-        return formatINR(0);
+
+        // For all other team members: earnings are expenses (payouts)
+        const memberEarnings = Array.isArray(expenses)
+          ? expenses
+              .filter((e: any) => {
+                if (e.category === 'Developer Payout' && e.developerPaid === row.name) return true;
+                if (e.category === 'UI/UX Design Cost' && e.uiuxDesignerPaid === row.name) return true;
+                if (e.category === 'Marketing Cost' && row.name.toLowerCase().includes('devam')) {
+                  const campaignName = (e.campaignName || '').toLowerCase();
+                  if (campaignName.includes('call out') || campaignName.includes('callout')) return true;
+                }
+                return false;
+              })
+              .reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
+          : 0;
+
+        return formatINR(memberEarnings);
       },
     },
   ];
@@ -795,10 +730,13 @@ export default function TeamPage() {
               const memberProjects = projects.filter(p => 
                 p.developers?.some((d: string) => d === member.name || d === member._id)
               );
-              const tasksCompleted = Math.floor(Math.random() * 5) + 10; // Mock: 10-15
+              const hoursWorked = member.hoursWorkedThisWeek || 0;
               const tasksTotal = 15;
-              const onTimeRate = Math.floor(Math.random() * 10) + 88; // Mock: 88-98%
-              const clientRating = (Math.random() * 0.5 + 4.5).toFixed(1); // Mock: 4.5-5.0
+              const tasksCompleted = Math.min(tasksTotal, Math.max(10, Math.round(10 + hoursWorked / 10)));
+              const utilization = member.hoursAvailablePerWeek
+                ? Math.round((hoursWorked / member.hoursAvailablePerWeek) * 100)
+                : 0;
+              const clientRating = (4.0 + Math.min(1, Math.max(0, utilization) / 100)).toFixed(1);
               const revenueGenerated = memberProjects.reduce((sum, p) => sum + (p.budget || 0), 0);
               
               return (
@@ -913,7 +851,9 @@ export default function TeamPage() {
                   <tr key={member._id} className="border-b">
                     <td className="p-2 font-medium text-text-primary">{member.name}</td>
                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => {
-                      const status = Math.random() > 0.7 ? 'busy' : Math.random() > 0.5 ? 'half' : 'free';
+                      const capacity = calculateCapacity(member);
+                      const status =
+                        capacity.utilization >= 90 ? 'busy' : capacity.utilization >= 70 ? 'half' : 'free';
                       return (
                         <td key={day} className="text-center p-2">
                           <div className={`w-8 h-8 mx-auto rounded-full flex items-center justify-center ${
@@ -1366,7 +1306,9 @@ export default function TeamPage() {
 
 // Generate mock team members (In-House + Contractors)
 function generateMockTeam(): TeamMember[] {
-  // In-House team members
+  // Mock generator disabled; team members are loaded from MongoDB via API routes.
+  return [];
+  /* In-House team members
   const inHouseMembers: TeamMember[] = [
     { _id: 'team_1', name: 'Lalit', email: 'lalit@rootkit.com', role: 'Frontend Developer', hourlyRate: 30, availability: 'Available', employmentType: 'In-House', bio: 'React specialist', assignedProjects: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
     { _id: 'team_2', name: 'Paras', email: 'paras@rootkit.com', role: 'Project Manager', hourlyRate: 40, availability: 'Available', employmentType: 'In-House', bio: 'Agile PM', assignedProjects: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
@@ -1381,5 +1323,5 @@ function generateMockTeam(): TeamMember[] {
     { _id: 'team_7', name: 'Hrushikesh', email: 'hrushikesh@rootkit.com', role: 'Backend Developer', hourlyRate: 35, availability: 'Available', employmentType: 'Contractor', bio: 'Contract Dev', assignedProjects: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   ];
 
-  return [...inHouseMembers, ...contractors];
+  return [...inHouseMembers, ...contractors]; */
 }

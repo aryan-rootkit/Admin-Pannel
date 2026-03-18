@@ -12,7 +12,7 @@ export const clientSchema = z.object({
   phone: z.string().max(20, 'Phone number too long').optional().or(z.literal('')),
   company: z.string().max(100, 'Company name too long').optional().or(z.literal('')),
   address: z.string().max(500, 'Address too long').optional().or(z.literal('')),
-  status: z.enum(['Lead', 'Active', 'Inactive', 'Archived']).optional(),
+  status: z.enum(['Lead', 'Active', 'Inactive', 'Archived', 'Proposal', 'Overdue', 'Won', 'Lost']).optional(),
   notes: z.string().max(2000, 'Notes too long').optional().or(z.literal('')),
   totalRevenue: z.number().min(0).optional(),
   assignedDevelopers: z.array(z.string()).optional(),

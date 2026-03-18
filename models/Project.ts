@@ -56,7 +56,7 @@ const ProjectSchema: Schema<IProject> = new Schema(
     },
     status: {
       type: String,
-      enum: ['Pending', 'In Progress', 'Completed', 'On Hold'],
+      enum: ['Pending', 'In Progress', 'Completed', 'On Hold', 'Failed'],
       default: 'Pending',
     },
     assignedTeam: [
@@ -92,6 +92,7 @@ const ProjectSchema: Schema<IProject> = new Schema(
   },
   {
     timestamps: true,
+    strict: false
   }
 );
 

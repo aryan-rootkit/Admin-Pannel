@@ -286,14 +286,6 @@ export default function RevenuePage() {
 
   const fetchRevenue = useCallback(async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getRevenue();
-        setRevenue(Array.isArray(data) ? data : []);
-        setLoading(false);
-        return;
-      }
-      
       const res = await fetch('/api/revenue');
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -317,11 +309,8 @@ export default function RevenuePage() {
 
   const fetchProjects = useCallback(async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getProjects();
-        // Update context if needed
-      }
+      // AppContext already loads projects from MongoDB APIs.
+      return;
     } catch (error) {
       console.error('Error fetching projects:', error);
     }
@@ -329,11 +318,8 @@ export default function RevenuePage() {
 
   const fetchClients = useCallback(async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getClients();
-        // Update context if needed
-      }
+      // AppContext already loads clients from MongoDB APIs.
+      return;
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
@@ -341,15 +327,32 @@ export default function RevenuePage() {
 
   const fetchExpenses = useCallback(async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const data = localStorage.getItem('rootkit_expenses');
-        if (data) {
-          const parsed = JSON.parse(data);
-          setExpenses(Array.isArray(parsed) ? parsed : []);
-        } else {
-          setExpenses([]);
-        }
-      }
+      const res = await fetch('/api/revenue');
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const data = await res.json();
+      const expenseRecords = Array.isArray(data) ? data.filter((r: any) => r.type === 'expense') : [];
+
+      const mappedExpenses: Expense[] = expenseRecords.map((r: any) => ({
+        _id: r._id,
+        amount: Number(r.amount) || 0,
+        category: r.category || 'Expense',
+        date: r.date,
+        description: r.description || '',
+        receipt: r.receipt,
+        developerPaid: r.developerPaid,
+        uiuxDesignerPaid: r.uiuxDesignerPaid,
+        project: r.project,
+        softwareName: r.softwareName,
+        hardwareFor: r.hardwareFor,
+        campaignName: r.campaignName,
+        designerName: r.designerName,
+        notes: r.notes,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      }));
+
+      setExpenses(mappedExpenses);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       setExpenses([]);
@@ -358,11 +361,11 @@ export default function RevenuePage() {
 
   const fetchTeamMembers = useCallback(async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getTeam();
-        setTeamMembers(Array.isArray(data) ? data : []);
-      }
+      const res = await fetch('/api/team');
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const data = await res.json();
+      setTeamMembers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching team members:', error);
       setTeamMembers([]);
@@ -691,13 +694,12 @@ export default function RevenuePage() {
     if (!confirm('Are you sure you want to delete this record?')) return;
 
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        localStorageUtils.deleteRevenue(item._id);
-        await fetchRevenue();
-        toast('Revenue record deleted successfully!', 'success');
-        return;
-      }
+      const res = await fetch(`/api/revenue/${item._id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Failed to delete revenue record: ${res.status}`);
+
+      await fetchRevenue();
+      await fetchExpenses();
+      toast('Revenue record deleted successfully!', 'success');
     } catch (error: any) {
       console.error('Error deleting revenue:', error);
       toast('An error occurred while deleting.', 'error');
@@ -706,58 +708,49 @@ export default function RevenuePage() {
 
   const onSubmitExpense = async (data: ExpenseFormData) => {
     try {
-      if (typeof window !== 'undefined') {
-        const expenseData: Expense = {
-          _id: selectedExpense?._id || `expense_${Date.now()}`,
-          amount: Number(data.amount),
-          category: data.category,
-          date: data.date,
-          description: data.description,
-          receipt: data.receipt || undefined,
-          developerPaid: data.developerPaid || undefined,
-          uiuxDesignerPaid: data.uiuxDesignerPaid || undefined,
-          project: data.project || undefined,
-          softwareName: data.softwareName || undefined,
-          hardwareFor: data.hardwareFor || undefined,
-          campaignName: data.campaignName || undefined,
-          designerName: data.designerName || undefined,
-          notes: data.notes || undefined,
-          createdAt: selectedExpense?.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+      const payload: any = {
+        type: 'expense',
+        amount: Number(data.amount),
+        description: data.description,
+        date: data.date,
+        category: data.category,
+        receipt: data.receipt || undefined,
+        developerPaid: data.developerPaid || undefined,
+        uiuxDesignerPaid: data.uiuxDesignerPaid || undefined,
+        project: data.project || undefined,
+        softwareName: data.softwareName || undefined,
+        hardwareFor: data.hardwareFor || undefined,
+        campaignName: data.campaignName || undefined,
+        designerName: data.designerName || undefined,
+        notes: data.notes || undefined,
+      };
 
-        // Edit mode: Update existing entry by ID
-        if (selectedExpense?._id) {
-          // Preserve the original _id and createdAt
-          expenseData._id = selectedExpense._id;
-          expenseData.createdAt = selectedExpense.createdAt || new Date().toISOString();
-          
-          const existing = expenses;
-          const updated = existing.map((e: Expense) => 
-            e._id === selectedExpense._id ? expenseData : e
-          );
-          localStorage.setItem('rootkit_expenses', JSON.stringify(updated));
-        } else {
-          // Create mode: Add new entry
-          const existing = expenses;
-          const updated = [...existing, expenseData];
-          localStorage.setItem('rootkit_expenses', JSON.stringify(updated));
-        }
-        
-        await fetchExpenses();
-        await fetchRevenue(); // Recalculate stats
-        calculateDeveloperPayouts(); // Recalculate payouts
-        setIsExpenseModalOpen(false);
-        resetExpense();
-        setSelectedExpense(null);
-        toast(
-          selectedExpense 
-            ? 'Expense updated successfully!' 
-            : 'Expense added successfully!',
-          'success'
-        );
-        return;
+      const url = selectedExpense?._id ? `/api/revenue/${selectedExpense._id}` : '/api/revenue';
+      const method = selectedExpense?._id ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData?.error || 'Failed to save expense');
       }
+
+      await fetchExpenses();
+      await fetchRevenue(); // Recalculate stats
+      calculateDeveloperPayouts(); // Recalculate payouts
+      setIsExpenseModalOpen(false);
+      resetExpense();
+      setSelectedExpense(null);
+      toast(
+        selectedExpense
+          ? 'Expense updated successfully!'
+          : 'Expense added successfully!',
+        'success'
+      );
     } catch (error: any) {
       console.error('Error saving expense:', error);
       toast(error?.message || 'An error occurred. Please try again.', 'error');
@@ -854,10 +847,6 @@ export default function RevenuePage() {
       status: revenue.paymentStatus,
       createdAt: new Date().toISOString(),
     };
-    
-    const existingInvoices = JSON.parse(localStorage.getItem('rootkit_invoices') || '[]');
-    existingInvoices.push(invoiceData);
-    localStorage.setItem('rootkit_invoices', JSON.stringify(existingInvoices));
     
     toast('Invoice generated successfully!', 'success');
   };
@@ -2264,14 +2253,13 @@ export default function RevenuePage() {
                                 onClick={async () => {
                                   if (!confirm('Are you sure you want to delete this expense?')) return;
                                   try {
-                                    if (typeof window !== 'undefined') {
-                                      const updated = expenses.filter(e => e._id !== expense._id);
-                                      localStorage.setItem('rootkit_expenses', JSON.stringify(updated));
-                                      await fetchExpenses();
-                                      await fetchRevenue();
-                                      calculateDeveloperPayouts();
-                                      toast('Expense deleted successfully!', 'success');
-                                    }
+                                    const res = await fetch(`/api/revenue/${expense._id}`, { method: 'DELETE' });
+                                    if (!res.ok) throw new Error(`Failed to delete expense: ${res.status}`);
+
+                                    await fetchExpenses();
+                                    await fetchRevenue();
+                                    calculateDeveloperPayouts();
+                                    toast('Expense deleted successfully!', 'success');
                                   } catch (error: any) {
                                     console.error('Error deleting expense:', error);
                                     toast('An error occurred while deleting.', 'error');

@@ -86,13 +86,6 @@ export default function ClientsPage() {
 
   const fetchProjects = useCallback(async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getProjects();
-        setProjects(Array.isArray(data) ? data : []);
-        return;
-      }
-      
       const res = await fetch('/api/projects');
       const data = await res.json();
       setProjects(Array.isArray(data) ? data : []);
@@ -104,13 +97,6 @@ export default function ClientsPage() {
 
   const fetchRevenue = useCallback(async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getRevenue();
-        setRevenue(Array.isArray(data) ? data : []);
-        return;
-      }
-      
       const res = await fetch('/api/revenue');
       const data = await res.json();
       setRevenue(Array.isArray(data) ? data : []);
@@ -238,17 +224,6 @@ export default function ClientsPage() {
     if (!confirm('Are you sure you want to delete this client?')) return;
 
     try {
-      // In mock mode, use localStorage directly
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        localStorageUtils.deleteClient(client._id);
-        deleteClient(client._id);
-        await fetchClients();
-        toast('Client deleted successfully!', 'success');
-        return;
-      }
-      
-      // Fallback to API
       const res = await fetch(`/api/clients/${client._id}`, { method: 'DELETE' });
       if (res.ok) {
         deleteClient(client._id);

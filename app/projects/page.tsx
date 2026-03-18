@@ -188,13 +188,6 @@ export default function ProjectsPage() {
   // Fetch Revenue data
   const fetchRevenue = useCallback(async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const data = localStorageUtils.getRevenue();
-        setRevenue(Array.isArray(data) ? data : []);
-        return;
-      }
-      
       const res = await fetch('/api/revenue');
       if (res.ok) {
         const data = await res.json();
@@ -551,13 +544,19 @@ export default function ProjectsPage() {
   const handleArchive = async (project: Project) => {
     if (!confirm('Are you sure you want to archive this project?')) return;
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const updatedProject = { ...project, status: 'Completed' as const, archived: true };
-        localStorageUtils.saveProject(updatedProject);
-        await fetchProjects();
-        toast('Project archived successfully!', 'success');
-      }
+      const assignedTeamIds = (project as any).assignedTeam?.map((t: any) => t?._id || t) || [];
+      const res = await fetch(`/api/projects/${project._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'Completed',
+          assignedTeam: assignedTeamIds,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to archive project');
+      await fetchProjects();
+      toast('Project archived successfully!', 'success');
     } catch (error: any) {
       console.error('Error archiving project:', error);
       toast('An error occurred while archiving.', 'error');
@@ -568,13 +567,10 @@ export default function ProjectsPage() {
     if (!confirm('Are you sure you want to delete this project?')) return;
 
     try {
-      if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        localStorageUtils.deleteProject(project._id);
-        await fetchProjects();
-        toast('Project deleted successfully!', 'success');
-        return;
-      }
+      const res = await fetch(`/api/projects/${project._id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete project');
+      await fetchProjects();
+      toast('Project deleted successfully!', 'success');
     } catch (error: any) {
       console.error('Error deleting project:', error);
       toast('An error occurred while deleting.', 'error');
@@ -1582,27 +1578,22 @@ export default function ProjectsPage() {
                   if (!selectedProject) return;
                   
                   try {
-                    if (typeof window !== 'undefined') {
-                      const { localStorageUtils } = await import('@/lib/localStorage');
-                      const projects = localStorageUtils.getProjects();
-                      const projectIndex = projects.findIndex((p: any) => p._id === selectedProject._id);
-                      
-                      if (projectIndex !== -1) {
-                        projects[projectIndex] = {
-                          ...projects[projectIndex],
-                          developers: selectedTeamMembers,
-                          assignedTeam: selectedTeamMembers,
-                          updatedAt: new Date().toISOString(),
-                        };
-                        localStorage.setItem('rootkit_projects', JSON.stringify(projects));
-                        await fetchProjects();
-                        setIsAssignModalOpen(false);
-                        setSelectedProject(null);
-                        setSelectedTeamMembers([]);
-                        setAssignSearchQuery('');
-                        toast('Developers assigned successfully!', 'success');
-                      }
-                    }
+                    const res = await fetch(`/api/projects/${selectedProject._id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        assignedTeam: selectedTeamMembers,
+                      }),
+                    });
+
+                    if (!res.ok) throw new Error('Failed to save assignment');
+
+                    await fetchProjects();
+                    setIsAssignModalOpen(false);
+                    setSelectedProject(null);
+                    setSelectedTeamMembers([]);
+                    setAssignSearchQuery('');
+                    toast('Developers assigned successfully!', 'success');
                   } catch (error: any) {
                     console.error('Error assigning developers:', error);
                     toast('An error occurred while assigning developers.', 'error');
@@ -1757,8 +1748,9 @@ export default function ProjectsPage() {
 
 // Generate mock projects for testing (8 projects with ₹ budgets)
 function generateMockProjects(): Project[] {
-  const now = new Date();
-  return [
+  // Mock generator disabled; projects are loaded from MongoDB via API routes.
+  return [];
+  /* return [
     {
       _id: 'project_1',
       name: 'E-Commerce Platform',
@@ -1891,5 +1883,5 @@ function generateMockProjects(): Project[] {
       updatedAt: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(), // 6h ago
       progress: 40,
     },
-  ];
+  ]; */
 }

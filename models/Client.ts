@@ -6,7 +6,7 @@ export interface IClient extends Document {
   phone?: string;
   company?: string;
   address?: string;
-  status: 'Active' | 'Inactive' | 'Lead';
+  status: string;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -19,10 +19,14 @@ const ClientSchema = new Schema<IClient>(
     phone: { type: String },
     company: { type: String },
     address: { type: String },
-    status: { type: String, enum: ['Active', 'Inactive', 'Lead'], default: 'Lead' },
+    status: {
+      type: String,
+      enum: ['Active', 'Inactive', 'Lead', 'Proposal', 'Overdue', 'Won', 'Lost', 'Archived'],
+      default: 'Lead',
+    },
     notes: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 export default mongoose.models.Client || mongoose.model<IClient>('Client', ClientSchema);

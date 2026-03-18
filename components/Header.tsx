@@ -66,11 +66,19 @@ export default function Header() {
   const fetchNotifications = async () => {
     try {
       if (typeof window !== 'undefined') {
-        const { localStorageUtils } = await import('@/lib/localStorage');
-        const revenue = localStorageUtils.getRevenue() || [];
-        const clients = localStorageUtils.getClients() || [];
-        const projects = localStorageUtils.getProjects() || [];
-        const events = localStorageUtils.getEvents() || [];
+        const [revenueRes, clientsRes, projectsRes, eventsRes] = await Promise.all([
+          fetch('/api/revenue'),
+          fetch('/api/clients'),
+          fetch('/api/projects'),
+          fetch('/api/events'),
+        ]);
+
+        const [revenue, clients, projects, events] = await Promise.all([
+          revenueRes.json(),
+          clientsRes.json(),
+          projectsRes.json(),
+          eventsRes.json(),
+        ]);
 
         const newNotifications: Notification[] = [];
         const now = new Date();
@@ -97,22 +105,23 @@ export default function Header() {
 
         // Recent payments/revenue (last 24 hours)
         revenue.forEach((r: any) => {
-          if (r.paymentsReceived && Array.isArray(r.paymentsReceived)) {
-            r.paymentsReceived.forEach((payment: any) => {
-              const paymentDate = payment.date ? new Date(payment.date) : null;
-              if (paymentDate && paymentDate >= last24Hours) {
-                newNotifications.push({
-                  id: `payment_${r._id}_${payment.date}`,
-                  type: 'sale_processed',
-                  title: 'Payment Received',
-                  message: `Received ${formatINR(payment.amount)} for ${r.project}`,
-                  timestamp: paymentDate,
-                  read: false,
-                  link: '/revenue',
-                });
-              }
-            });
-          }
+          const recordDate = r.date ? new Date(r.date) : null;
+          if (!recordDate || recordDate < last24Hours) return;
+
+          // Best-effort: treat income records with status=paid as payments.
+          const status = (r.status || '').toLowerCase();
+          if (r.type !== 'income' || status !== 'paid') return;
+
+          const [clientName, projectName] = String(r.description || '').split(' - ');
+          newNotifications.push({
+            id: `payment_${r._id}_${String(r.date)}`,
+            type: 'sale_processed',
+            title: 'Payment Received',
+            message: `Received ${formatINR(r.amount || 0)} for ${projectName || r.description || 'Project'}`,
+            timestamp: recordDate,
+            read: false,
+            link: '/revenue',
+          });
         });
 
         // Completed projects (last 24 hours)
@@ -137,24 +146,25 @@ export default function Header() {
         // Upcoming deadlines (next 7 days)
         events
           .filter((e: any) => {
-            if (!e.deadline) return false;
-            const deadline = new Date(e.deadline);
-            return deadline >= now && deadline <= next7Days;
+            if (e.type !== 'deadline') return false;
+            const deadlineDate = e.end ? new Date(e.end) : e.start ? new Date(e.start) : null;
+            return deadlineDate && deadlineDate >= now && deadlineDate <= next7Days;
           })
           .forEach((e: any) => {
+            const deadlineDate = e.end ? new Date(e.end) : new Date(e.start);
             newNotifications.push({
               id: `deadline_${e._id}`,
               type: 'deadline_coming',
               title: 'Deadline Approaching',
-              message: `Deadline for "${e.title || 'Event'}" is on ${formatDate(e.deadline)}`,
-              timestamp: new Date(e.deadline),
+              message: `Deadline for "${e.title || 'Event'}" is on ${formatDate(deadlineDate)}`,
+              timestamp: deadlineDate,
               read: false,
               link: '/calendar',
             });
           });
 
         // Target achieved (revenue milestones - simplified)
-        const totalRevenue = revenue.reduce((sum: number, r: any) => sum + (r.totalContractValue || 0), 0);
+        const totalRevenue = revenue.reduce((sum: number, r: any) => sum + ((r.type === 'income' && r.amount) ? r.amount : 0), 0);
         if (totalRevenue >= 100000) {
           // Check if we've hit a milestone (every 1L)
           const milestone = Math.floor(totalRevenue / 100000) * 100000;

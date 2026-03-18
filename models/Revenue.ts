@@ -53,6 +53,7 @@ const RevenueSchema: Schema<IRevenue> = new Schema(
   },
   {
     timestamps: true,
+    strict: false,
   }
 );
 
