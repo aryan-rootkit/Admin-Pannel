@@ -78,6 +78,9 @@ function LoginForm() {
 
       if (result?.error) {
         let errorMessage = result.error;
+        if (result.error === 'CredentialsSignin') {
+          errorMessage = 'Invalid email or password. Please check your credentials.';
+        }
         if (result.error.includes('Invalid email') || result.error.includes('Invalid password')) {
           errorMessage = 'Invalid email or password. Please check your credentials.';
         } else if (result.error.includes('No user found')) {
