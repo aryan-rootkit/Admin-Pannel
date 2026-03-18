@@ -40,7 +40,8 @@ async function connectDB() {
       serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
       socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
       // Security: Force TLS for MongoDB Atlas connections
-      ...(MONGODB_URI.includes('mongodb+srv://') && {
+      // (Atlas requires TLS; SRV vs non-SRV can vary by connection string)
+      ...(MONGODB_URI.includes('mongodb.net') && {
         tls: true,
         tlsAllowInvalidCertificates: false,
       }),
