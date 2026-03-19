@@ -34,19 +34,36 @@ function LoginForm() {
     if (m === 'login') setMode('login');
   }, [searchParams]);
 
+  const getRedirectUrl = () => searchParams.get('callbackUrl') || '/dashboard';
+
   const redirectAfterAuth = async () => {
-    const redirectUrl = searchParams.get('callbackUrl') || '/dashboard';
-    // Give NextAuth a moment to populate the session cookie/token
+    const redirectUrl = getRedirectUrl();
     const session = await getSession();
     if (session) {
       router.push(redirectUrl);
       router.refresh();
       return;
     }
-    // Fallback: still redirect even if session fetch race-loses
     setTimeout(() => {
       window.location.href = redirectUrl;
     }, 500);
+  };
+
+  const mapCredentialsError = (rawError: string | undefined) => {
+    if (!rawError) return 'Login failed. Please try again.';
+    if (rawError === 'CredentialsSignin') {
+      return 'Invalid email or password. Please check your credentials.';
+    }
+    if (rawError.includes('Invalid email') || rawError.includes('Invalid password')) {
+      return 'Invalid email or password. Please check your credentials.';
+    }
+    if (rawError.includes('No user found')) {
+      return 'Invalid email or password. Please check your credentials.';
+    }
+    if (rawError.includes('Please provide')) {
+      return 'Please provide both email and password.';
+    }
+    return rawError;
   };
 
   // Check if user is already logged in
@@ -67,28 +84,15 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const callbackUrl = searchParams?.get('callbackUrl') || '/dashboard';
-      
       const result = await signIn('credentials', {
         email: email.trim(),
         password: password.trim(),
         redirect: false,
-        callbackUrl: callbackUrl,
+        callbackUrl: getRedirectUrl(),
       });
 
       if (result?.error) {
-        let errorMessage = result.error;
-        if (result.error === 'CredentialsSignin') {
-          errorMessage = 'Invalid email or password. Please check your credentials.';
-        }
-        if (result.error.includes('Invalid email') || result.error.includes('Invalid password')) {
-          errorMessage = 'Invalid email or password. Please check your credentials.';
-        } else if (result.error.includes('No user found')) {
-          errorMessage = 'Invalid email or password. Please check your credentials.';
-        } else if (result.error.includes('Please provide')) {
-          errorMessage = 'Please provide both email and password.';
-        }
-        setError(errorMessage);
+        setError(mapCredentialsError(result.error));
         setLoading(false);
       } else if (result?.ok) {
         // Success - wait a moment for session to be set, then redirect
@@ -98,7 +102,7 @@ function LoginForm() {
         const session = await getSession();
         if (session) {
           // Use the callbackUrl from query params or default to dashboard
-          const redirectUrl = searchParams.get('callbackUrl') || '/dashboard';
+          const redirectUrl = getRedirectUrl();
           router.push(redirectUrl);
           router.refresh();
         } else {
@@ -170,36 +174,15 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-sky-200 via-indigo-100 to-slate-100">
       {/* Detailed 3D Abstract Background Shapes */}
       <div className="absolute inset-0 overflow-hidden">
-        {/* Large C-shaped blob - top left */}
-        <div className="absolute top-10 left-10 w-96 h-96 bg-blue-300/30 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-20 left-20 w-80 h-80 bg-blue-400/20 rounded-[40%] blur-2xl transform rotate-12"></div>
+        {/* Soft pastel blobs */}
+        <div className="absolute top-10 left-10 w-80 h-80 bg-sky-300/40 rounded-full blur-3xl"></div>
+        <div className="absolute top-24 left-24 w-72 h-72 bg-indigo-300/30 rounded-[40%] blur-2xl transform rotate-12"></div>
         
-        {/* Wavy tubular shapes - middle left */}
-        <div className="absolute top-1/3 left-0 w-64 h-96 bg-blue-400/25 rounded-full blur-3xl transform -rotate-12"></div>
-        <div className="absolute top-1/2 left-20 w-72 h-64 bg-blue-300/20 rounded-full blur-2xl transform rotate-45"></div>
-        
-        {/* Cloud-like blobs - bottom right */}
-        <div className="absolute bottom-10 right-10 w-[500px] h-96 bg-blue-300/30 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute bottom-20 right-20 w-80 h-80 bg-blue-400/20 rounded-[60%] blur-2xl transform -rotate-12"></div>
-        
-        {/* Z/N shaped blob - middle right */}
-        <div className="absolute top-1/3 right-0 w-96 h-64 bg-blue-400/25 rounded-full blur-3xl transform rotate-12"></div>
-        <div className="absolute top-1/2 right-20 w-72 h-96 bg-blue-300/20 rounded-full blur-2xl transform -rotate-45"></div>
-        
-        {/* Curved pipe structures */}
-        <div className="absolute top-0 right-1/4 w-96 h-[600px] bg-blue-500/15 rounded-full blur-3xl transform rotate-45"></div>
-        <div className="absolute bottom-0 left-1/4 w-80 h-[500px] bg-blue-400/20 rounded-full blur-3xl transform -rotate-45"></div>
-        
-        {/* Center floating shapes */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-400/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-300/15 rounded-full blur-2xl"></div>
-        
-        {/* Additional layered shapes for depth */}
-        <div className="absolute top-1/4 right-1/3 w-64 h-64 bg-blue-500/20 rounded-full blur-2xl"></div>
-        <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-blue-400/25 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/3 left-0 w-60 h-80 bg-indigo-200/40 rounded-full blur-3xl transform -rotate-12"></div>
+        <div className="absolute bottom-10 right-10 w-[420px] h-80 bg-sky-200/50 rounded-full blur-3xl"></div>
       </div>
 
       {/* Split Auth Layout */}

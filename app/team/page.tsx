@@ -17,6 +17,11 @@ import { z } from 'zod';
 import { toast } from '@/components/ui/Toast';
 import { useApp } from '@/lib/contexts/AppContext';
 import { formatINR } from '@/lib/utils/currency';
+import {
+  normalizeRevenueFromMongo,
+  type DashboardExpenseRow,
+  type DashboardRevenueRow,
+} from '@/lib/dashboard/analytics';
 
 /**
  * Team Management Page
@@ -84,8 +89,8 @@ export default function TeamPage() {
   const [showTopPerformers, setShowTopPerformers] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [updatedMember, setUpdatedMember] = useState<TeamMember | null>(null);
-  const [revenue, setRevenue] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
+  const [revenue, setRevenue] = useState<DashboardRevenueRow[]>([]);
+  const [expenses, setExpenses] = useState<DashboardExpenseRow[]>([]);
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [selectedPayoutMember, setSelectedPayoutMember] = useState<TeamMember | null>(null);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
@@ -117,41 +122,24 @@ export default function TeamPage() {
   useEffect(() => {
     fetchTeam();
     fetchProjects();
-    fetchRevenue();
-    fetchExpenses();
+    fetchRevenueAndExpenses();
   }, []);
 
-  const fetchRevenue = async () => {
+  const fetchRevenueAndExpenses = async () => {
     try {
       const res = await fetch('/api/revenue');
       const data = await res.json();
-      setRevenue(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        const { revenueData, expensesData } = normalizeRevenueFromMongo(data);
+        setRevenue(revenueData);
+        setExpenses(expensesData);
+      } else {
+        setRevenue([]);
+        setExpenses([]);
+      }
     } catch (error) {
-      console.error('Error fetching revenue:', error);
+      console.error('Error fetching revenue & expenses:', error);
       setRevenue([]);
-    }
-  };
-
-  const fetchExpenses = async () => {
-    try {
-      const res = await fetch('/api/revenue');
-      const data = await res.json();
-      const expenses = Array.isArray(data)
-        ? data
-            .filter((r: any) => r.type === 'expense')
-            .map((r: any) => ({
-              category: r.description || 'Expense',
-              amount: r.amount,
-              date: r.date,
-              campaignName: r.campaignName,
-              developerPaid: r.developerPaid,
-              uiuxDesignerPaid: r.uiuxDesignerPaid,
-              notes: r.notes,
-            }))
-        : [];
-      setExpenses(expenses);
-    } catch (error) {
-      console.error('Error fetching expenses:', error);
       setExpenses([]);
     }
   };

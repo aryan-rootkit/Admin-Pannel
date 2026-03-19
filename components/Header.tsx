@@ -32,14 +32,7 @@ export default function Header() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const navLinks = [
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/projects', label: 'Projects' },
-    { href: '/clients', label: 'Clients' },
-    { href: '/revenue', label: 'Revenue' },
-    { href: '/team', label: 'Team' },
-    { href: '/settings', label: 'Settings' },
-  ];
+  const navLinks: { href: string; label: string }[] = [];
 
   useEffect(() => {
     fetchNotifications();
@@ -237,36 +230,19 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm h-16">
+    <header className="sticky top-0 z-30 h-16 bg-slate-900/80 backdrop-blur border-b border-slate-800">
       <div className="flex items-center justify-between px-6 h-full">
-        {/* Left Side - Logo & Navigation */}
-        <div className="flex items-center gap-6 flex-1">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">N</span>
-            </div>
+        {/* Left Side - App title */}
+        <div className="flex items-center gap-3 flex-1">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-400 to-indigo-400 flex items-center justify-center shadow-sm">
+            <span className="text-slate-900 font-bold text-sm">R</span>
           </div>
-          
-          {/* Horizontal Navigation Menu */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => {
-              const isActive = pathname === link.href || pathname?.startsWith(link.href + '/');
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <div className="hidden sm:flex flex-col">
+            <span className="text-sm font-semibold text-slate-100">Rootkit Admin</span>
+            <span className="text-xs text-slate-400">
+              {pathname === '/dashboard' ? 'Dashboard overview' : 'Admin workspace'}
+            </span>
+          </div>
           
           {/* Hamburger Menu (Mobile) */}
           <button
@@ -277,17 +253,8 @@ export default function Header() {
           </button>
         </div>
 
-        {/* Right Side - Actions, Notifications & User */}
+        {/* Right Side - Notifications & User */}
         <div className="flex items-center gap-4">
-          {/* Action Buttons */}
-          <div className="hidden lg:flex items-center gap-2">
-            <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-              Export Data
-            </button>
-            <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
-              Share
-            </button>
-          </div>
           
           {/* Notifications Dropdown */}
           <div className="relative notification-dropdown">
@@ -370,9 +337,9 @@ export default function Header() {
             </AnimatePresence>
           </div>
 
-          {/* User Profile */}
-          <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white font-semibold shadow-sm cursor-pointer hover:shadow-md transition-all">
+          {/* User avatar (profile access lives on Dashboard via button) */}
+          <div className="flex items-center gap-2 pl-3 border-l border-slate-800">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-300 to-rose-400 flex items-center justify-center text-slate-900 font-semibold shadow-sm">
               {session?.user?.name?.charAt(0).toUpperCase() || 'A'}
             </div>
           </div>

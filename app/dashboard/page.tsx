@@ -1,38 +1,30 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
-import { DollarSign, FolderKanban, Users, TrendingUp, Wallet, AlertCircle, UserPlus, TrendingDown, CheckCircle, Receipt, Activity, ArrowRight } from 'lucide-react';
+import { DollarSign, FolderKanban, Users, TrendingUp, Wallet, AlertCircle, UserPlus, TrendingDown, CheckCircle, Activity, ArrowRight, UserCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { formatINR } from '@/lib/utils/currency';
 import { formatDate } from '@/lib/utils/date';
-import { useApp } from '@/lib/contexts/AppContext';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  normalizeRevenueFromMongo,
+  buildDashboardPayload,
+  type ActivityItem,
+  type MonthlyRevenuePoint,
+} from '@/lib/dashboard/analytics';
+import HolidaysWidget from '@/components/dashboard/HolidaysWidget';
 
 /**
  * Home Page - Agency Command Center
  * Executive overview with charts, financial snapshot, team pulse, and recent activity
  */
 
-interface ActivityItem {
-  id: string;
-  type: 'project_complete' | 'new_client' | 'payment' | 'project_created' | 'client_updated' | 'revenue_added';
-  message: string;
-  timestamp: Date;
-  icon: string;
-  color: string;
-}
-
-const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#14B8A6', '#6366F1', '#EC4899'];
-
 export default function HomePage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const { projects, clients } = useApp();
-  const [revenue, setRevenue] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [stats, setStats] = useState({
     totalRevenue: 0,
@@ -53,331 +45,56 @@ export default function HomePage() {
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Chart data
-  const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
-  const [projectStatusData, setProjectStatusData] = useState<any[]>([]);
-  const [expenseCategoryData, setExpenseCategoryData] = useState<any[]>([]);
-  const [revenueVsExpenses, setRevenueVsExpenses] = useState<any[]>([]);
-  const [clientStatusData, setClientStatusData] = useState<any[]>([]);
-
-  // Chart + stats helpers
-  const calculateChartData = useCallback((revenueData: any[], projectsData: any[], clientsData: any[], expensesData: any[]) => {
-    // Monthly Revenue (Last 6 months)
-    const monthlyData: Record<string, number> = {};
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      monthlyData[key] = 0;
-    }
-    revenueData.forEach((r: any) => {
-      const date = r.createdAt ? new Date(r.createdAt) : new Date();
-      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      if (monthlyData.hasOwnProperty(key)) {
-        monthlyData[key] += r.totalContractValue || 0;
-      }
-    });
-    setMonthlyRevenue(Object.entries(monthlyData).map(([name, value]) => ({ name, revenue: value })));
-
-    // Project Status Distribution
-    const statusCounts: Record<string, number> = {};
-    projectsData.forEach((p: any) => {
-      const status = p.status || 'Pending';
-      statusCounts[status] = (statusCounts[status] || 0) + 1;
-    });
-    setProjectStatusData(Object.entries(statusCounts).map(([name, value]) => ({ name, value })));
-
-    // Expense Categories
-    const categoryCounts: Record<string, number> = {};
-    expensesData.forEach((e: any) => {
-      const category = e.category || 'Miscellaneous';
-      categoryCounts[category] = (categoryCounts[category] || 0) + (e.amount || 0);
-    });
-    setExpenseCategoryData(Object.entries(categoryCounts).map(([name, value]) => ({ name, value })));
-
-    // Revenue vs Expenses (Last 6 months)
-    const revenueExpenseData: Record<string, { revenue: number; expenses: number }> = {};
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      revenueExpenseData[key] = { revenue: 0, expenses: 0 };
-    }
-    revenueData.forEach((r: any) => {
-      const date = r.createdAt ? new Date(r.createdAt) : new Date();
-      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      if (revenueExpenseData[key]) {
-        revenueExpenseData[key].revenue += r.totalContractValue || 0;
-      }
-    });
-    expensesData.forEach((e: any) => {
-      const date = e.date ? new Date(e.date) : new Date();
-      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      if (revenueExpenseData[key]) {
-        revenueExpenseData[key].expenses += e.amount || 0;
-      }
-    });
-    setRevenueVsExpenses(Object.entries(revenueExpenseData).map(([name, data]) => ({ name, ...data })));
-
-    // Client Status Distribution
-    const clientStatusCounts: Record<string, number> = {};
-    clientsData.forEach((c: any) => {
-      const status = c.status || 'Lead';
-      clientStatusCounts[status] = (clientStatusCounts[status] || 0) + 1;
-    });
-    setClientStatusData(Object.entries(clientStatusCounts).map(([name, value]) => ({ name, value })));
-  }, []);
-
-  // Define calculation functions before fetchAllData
-  const calculateStats = useCallback((revenueData: any[], projectsData: any[], clientsData: any[], teamData: any[], expensesData: any[]) => {
-    // Total Revenue
-    const totalRevenue = revenueData.reduce((sum, r) => sum + (r.totalContractValue || 0), 0);
-    
-    // Total Expenses
-    const totalExpenses = expensesData.reduce((sum, e) => sum + (e.amount || 0), 0);
-    
-    // Team Earnings (from expenses with category "Developer Payout")
-    const teamEarnings = expensesData
-      .filter((e: any) => e.category === 'Developer Payout')
-      .reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
-    
-    // Profit = Revenue - Expenses
-    const profit = totalRevenue - totalExpenses;
-    const profitMargin = totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0;
-    
-    // Cash Position = Received Amount - Expenses
-    const receivedAmount = revenueData.reduce((sum, r) => {
-      const advance = r.advanceAmount || 0;
-      const payments = (r.paymentsReceived || []).reduce((pSum: number, p: any) => {
-        const paymentDate = p.date ? new Date(p.date) : null;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (paymentDate && paymentDate <= today) {
-          return pSum + (p.amount || 0);
-        }
-        return pSum;
-      }, 0);
-      return sum + advance + payments;
-    }, 0);
-    const cashPosition = receivedAmount - totalExpenses;
-    
-    // Month Growth
-    const thisMonth = new Date().getMonth();
-    const thisYear = new Date().getFullYear();
-    const thisMonthRevenue = revenueData
-      .filter((r: any) => {
-        const date = r.createdAt ? new Date(r.createdAt) : new Date();
-        return date.getMonth() === thisMonth && date.getFullYear() === thisYear;
-      })
-      .reduce((sum: number, r: any) => sum + (r.totalContractValue || 0), 0);
-    const lastMonthRevenue = revenueData
-      .filter((r: any) => {
-        const date = r.createdAt ? new Date(r.createdAt) : new Date();
-        const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
-        const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear;
-        return date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear;
-      })
-      .reduce((sum: number, r: any) => sum + (r.totalContractValue || 0), 0);
-    const monthGrowth = lastMonthRevenue > 0 ? Math.round(((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100) : 0;
-    
-    // Overdue Invoices
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const overdueInvoices = revenueData.filter((r: any) => {
-      if (r.paymentStatus === 'Paid') return false;
-      const dueDate = r.expectedPaymentDate ? new Date(r.expectedPaymentDate) : null;
-      return dueDate && dueDate < today;
-    }).length;
-    
-    // Team Utilization
-    const billableCount = teamData.filter((t: any) => 
-      t.availability === 'Available' || t.availability === 'Busy'
-    ).length;
-    const totalTeamCount = teamData.length;
-    const utilizationRate = totalTeamCount > 0 ? Math.round((billableCount / totalTeamCount) * 100) : 0;
-    
-    // Top Earner
-    const earnerMap: Record<string, number> = {};
-    expensesData
-      .filter((e: any) => e.category === 'Developer Payout' && e.developerPaid)
-      .forEach((e: any) => {
-        const name = e.developerPaid;
-        earnerMap[name] = (earnerMap[name] || 0) + (e.amount || 0);
-      });
-    const topEarnerEntry = Object.entries(earnerMap).sort((a, b) => (b[1] as number) - (a[1] as number))[0];
-    const topEarner = topEarnerEntry 
-      ? { name: topEarnerEntry[0], amount: topEarnerEntry[1] as number }
-      : { name: 'N/A', amount: 0 };
-    
-    // Available Devs
-    const availableDevs = teamData.filter((t: any) => 
-      t.availability === 'Available'
-    ).length;
-    
-    setStats({
-      totalRevenue,
-      teamEarnings,
-      expenses: totalExpenses,
-      profit,
-      profitMargin,
-      totalProjects: projectsData.length,
-      totalClients: clientsData.length,
-      cashPosition,
-      monthGrowth,
-      overdueInvoices,
-      utilizationRate,
-      billableCount,
-      topEarner,
-      availableDevs,
-    });
-    
-    setTeamMembers(Array.isArray(teamData) ? teamData : []);
-
-    // Calculate chart data
-    calculateChartData(revenueData, projectsData, clientsData, expensesData);
-  }, [calculateChartData]);
-
-  const calculateRecentActivity = useCallback((projectsData: any[], clientsData: any[], revenueData: any[]) => {
-    const activities: ActivityItem[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    projectsData
-      .filter((p: any) => {
-        if (p.status !== 'Completed') return false;
-        const updatedAt = p.updatedAt ? new Date(p.updatedAt) : null;
-        return updatedAt && updatedAt >= yesterday;
-      })
-      .forEach((p: any) => {
-        activities.push({
-          id: `project_${p._id}`,
-          type: 'project_complete',
-          message: `${p.name} marked complete`,
-          timestamp: p.updatedAt ? new Date(p.updatedAt) : new Date(),
-          icon: '✅',
-          color: 'text-green-600',
-        });
-      });
-    
-    clientsData
-      .filter((c: any) => {
-        const createdAt = c.createdAt ? new Date(c.createdAt) : null;
-        return createdAt && createdAt >= yesterday;
-      })
-      .forEach((c: any) => {
-        activities.push({
-          id: `client_${c._id}`,
-          type: 'new_client',
-          message: `New client ${c.name} (${c.status || 'Lead'})`,
-          timestamp: c.createdAt ? new Date(c.createdAt) : new Date(),
-          icon: '➕',
-          color: 'text-blue-600',
-        });
-      });
-    
-    revenueData.forEach((r: any) => {
-      if (r.paymentsReceived && Array.isArray(r.paymentsReceived)) {
-        r.paymentsReceived.forEach((payment: any) => {
-          const paymentDate = payment.date ? new Date(payment.date) : null;
-          if (paymentDate && paymentDate >= yesterday && paymentDate < new Date()) {
-            activities.push({
-              id: `payment_${r._id}_${payment.date}`,
-              type: 'payment',
-              message: `Paid ${formatINR(payment.amount)} for ${r.project}`,
-              timestamp: paymentDate,
-              icon: '💰',
-              color: 'text-emerald-600',
-            });
-          }
-        });
-      }
-    });
-    
-    projectsData
-      .filter((p: any) => {
-        const createdAt = p.createdAt ? new Date(p.createdAt) : null;
-        return createdAt && createdAt >= yesterday;
-      })
-      .forEach((p: any) => {
-        activities.push({
-          id: `project_new_${p._id}`,
-          type: 'project_created',
-          message: `New project ${p.name} created`,
-          timestamp: p.createdAt ? new Date(p.createdAt) : new Date(),
-          icon: '📋',
-          color: 'text-purple-600',
-        });
-      });
-    
-    activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-    setRecentActivity(activities.slice(0, 10));
-  }, []);
-
-  const fetchAllData = useCallback(async () => {
-    try {
-      const [revenueRes, projectsRes, clientsRes, teamRes] = await Promise.all([
-        fetch('/api/revenue'),
-        fetch('/api/projects'),
-        fetch('/api/clients'),
-        fetch('/api/team'),
-      ]);
-
-      if (!revenueRes.ok || !projectsRes.ok || !clientsRes.ok || !teamRes.ok) {
-        throw new Error('Failed to fetch dashboard dependencies');
-      }
-
-      const revenueAll = (await revenueRes.json()) as any[];
-      const projectsData = (await projectsRes.json()) as any[];
-      const clientsData = (await clientsRes.json()) as any[];
-      const teamData = (await teamRes.json()) as any[];
-
-      const normalizedRevenue = Array.isArray(revenueAll) ? revenueAll : [];
-
-      // Map MongoDB revenue documents into the shape expected by existing dashboard calculations.
-      const revenueData = normalizedRevenue
-        .filter((r: any) => r.type === 'income' || r.type === 'invoice')
-        .map((r: any) => {
-          const paymentStatus =
-            r.status === 'paid' ? 'Paid' : r.status === 'overdue' ? 'Overdue' : 'Pending';
-          const paymentsReceived =
-            paymentStatus === 'Paid' ? [{ amount: r.amount, date: r.date }] : [];
-
-          return {
-            ...r,
-            totalContractValue: r.amount,
-            advanceAmount: 0,
-            paymentsReceived,
-            paymentStatus,
-            expectedPaymentDate: r.date,
-          };
-        });
-
-      const expensesData = normalizedRevenue
-        .filter((r: any) => r.type === 'expense')
-        .map((r: any) => ({
-          category: r.description || 'Expense',
-          amount: r.amount,
-          date: r.date,
-        }));
-
-      setRevenue(Array.isArray(revenueData) ? revenueData : []);
-      setExpenses(Array.isArray(expensesData) ? expensesData : []);
-
-      calculateStats(revenueData, projectsData, clientsData, teamData, expensesData);
-      calculateRecentActivity(projectsData, clientsData, revenueData);
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setLoading(false);
-    }
-  }, [calculateStats, calculateRecentActivity]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenuePoint[]>([]);
 
   useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [revenueRes, projectsRes, clientsRes, teamRes] = await Promise.all([
+          fetch('/api/revenue'),
+          fetch('/api/projects'),
+          fetch('/api/clients'),
+          fetch('/api/team'),
+        ]);
+
+        if (!revenueRes.ok || !projectsRes.ok || !clientsRes.ok || !teamRes.ok) {
+          throw new Error('Failed to fetch dashboard dependencies');
+        }
+
+        const revenueAll = (await revenueRes.json()) as any[];
+        const projectsData = (await projectsRes.json()) as any[];
+        const clientsData = (await clientsRes.json()) as any[];
+        const teamData = (await teamRes.json()) as any[];
+
+        const { revenueData, expensesData } = normalizeRevenueFromMongo(revenueAll);
+        const { stats, monthlyRevenue: monthlySeries, recentActivity } = buildDashboardPayload(
+          revenueData,
+          projectsData,
+          clientsData,
+          teamData,
+          expensesData,
+          formatINR
+        );
+
+        if (cancelled) return;
+
+        setStats(stats);
+        setTeamMembers(Array.isArray(teamData) ? teamData : []);
+        setMonthlyRevenue(monthlySeries);
+        setRecentActivity(recentActivity);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -399,16 +116,137 @@ export default function HomePage() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Welcome Section - Modern Design */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">
-            {getGreeting()}, {session?.user?.name?.split(' ')[0] || 'Admin'}
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">Welcome back to your dashboard</p>
+        {/* Welcome + profile access */}
+        <div className="mb-2 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-50">
+              {getGreeting()}, {session?.user?.name?.split(' ')[0] || 'Admin'}
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">Overview of your agency finances and team.</p>
+          </div>
+          <Link
+            href="/settings/profile"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sky-500/20 text-sky-100 border border-sky-400/50 text-sm font-medium hover:bg-sky-500/30 transition-colors"
+          >
+            <UserCircle2 className="w-5 h-5" />
+            <span>View profile</span>
+          </Link>
         </div>
 
-        {/* KPI Cards - Large Prominent Design */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Top row: 7 key metric cards (Cash, Month Growth, etc.) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4">
+          {/* Cash Position */}
+          <div className="bg-sky-50/80 rounded-xl p-4 border border-sky-100 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2.5 bg-sky-200 rounded-xl flex-shrink-0 shadow-sm">
+                <Wallet className="w-5 h-5 text-sky-800" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-sky-900/80 uppercase tracking-wide">Cash Position</p>
+                <p className="text-[11px] text-sky-900/60">Available funds after expenses</p>
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-slate-900 mb-1">{formatINR(stats.cashPosition)}</p>
+          </div>
+
+          {/* Month Growth */}
+          <div className="bg-emerald-50/80 rounded-xl p-4 border border-emerald-100 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`p-2.5 rounded-xl flex-shrink-0 shadow-sm ${stats.monthGrowth >= 0 ? 'bg-emerald-200' : 'bg-rose-200'}`}>
+                {stats.monthGrowth >= 0 ? (
+                  <TrendingUp className="w-5 h-5 text-emerald-800" />
+                ) : (
+                  <TrendingDown className="w-5 h-5 text-rose-700" />
+                )}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-emerald-900/80 uppercase tracking-wide">Month Growth</p>
+                <p className="text-[11px] text-emerald-900/60">Revenue vs last month</p>
+              </div>
+            </div>
+            <p className={`text-2xl font-bold mb-1 ${stats.monthGrowth >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+              {stats.monthGrowth >= 0 ? '+' : ''}{stats.monthGrowth}%
+            </p>
+          </div>
+
+          {/* Action Items */}
+          <div className="bg-rose-50/80 rounded-xl p-4 border border-rose-100 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue?status=Overdue')}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2.5 bg-rose-200 rounded-xl flex-shrink-0 shadow-sm">
+                <AlertCircle className="w-5 h-5 text-rose-700" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-rose-900/80 uppercase tracking-wide">Action Items</p>
+                <p className="text-[11px] text-rose-900/60">Overdue invoices</p>
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-rose-700 mb-1">{stats.overdueInvoices}</p>
+          </div>
+
+          {/* Utilization */}
+          <div className="bg-indigo-50/80 rounded-xl p-4 border border-indigo-100 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team')}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2.5 bg-indigo-200 rounded-xl flex-shrink-0 shadow-sm">
+                <Users className="w-5 h-5 text-indigo-800" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-indigo-900/80 uppercase tracking-wide">Utilization</p>
+                <p className="text-[11px] text-indigo-900/60">Team capacity</p>
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-slate-900 mb-1">{stats.utilizationRate}%</p>
+            <p className="text-[11px] text-slate-600">{stats.billableCount}/{teamMembers.length} people billable</p>
+          </div>
+
+          {/* Top Earner */}
+          <div className="bg-violet-50/80 rounded-xl p-4 border border-violet-100 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team')}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2.5 bg-violet-200 rounded-xl flex-shrink-0 shadow-sm">
+                <TrendingUp className="w-5 h-5 text-violet-800" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-violet-900/80 uppercase tracking-wide">Top Earner</p>
+                <p className="text-[11px] text-violet-900/60">This period</p>
+              </div>
+            </div>
+            <p className="text-sm font-bold text-slate-900 mb-1">{stats.topEarner.name}</p>
+            <p className="text-[11px] text-slate-600">{formatINR(stats.topEarner.amount)}</p>
+          </div>
+
+          {/* Available */}
+          <div className="bg-teal-50/80 rounded-xl p-4 border border-teal-100 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team?availability=Available')}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2.5 bg-teal-200 rounded-xl flex-shrink-0 shadow-sm">
+                <CheckCircle className="w-5 h-5 text-teal-800" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-teal-900/80 uppercase tracking-wide">Available</p>
+                <p className="text-[11px] text-teal-900/60">Ready to start</p>
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-slate-900 mb-1">{stats.availableDevs}</p>
+          </div>
+
+          {/* View People */}
+          <Link
+            href="/team"
+            className="bg-amber-50/80 rounded-xl p-4 border border-amber-100 shadow-sm transition-all duration-300 ease-out hover:shadow-lg hover:-translate-y-1 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-200 rounded-xl flex-shrink-0 shadow-sm">
+                <UserPlus className="w-5 h-5 text-amber-800" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-amber-900/80 uppercase tracking-wide">View People</p>
+                <p className="text-[11px] text-amber-900/60">Manage team members</p>
+              </div>
+            </div>
+            <ArrowRight className="w-5 h-5 text-amber-700" />
+          </Link>
+        </div>
+
+        {/* KPI Cards - secondary metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
           {/* Today's Revenue - Prominent Blue Card */}
           <div className="bg-blue-600 rounded-xl p-6 border border-blue-700 shadow-lg cursor-pointer hover:shadow-xl transition-all" onClick={() => router.push('/revenue')}>
             <div className="flex items-center justify-between mb-4">
@@ -474,10 +312,10 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Charts Section - Modern Design */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
           {/* Total Customers Chart */}
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+          <div className="bg-slate-900/40 rounded-xl p-6 border border-slate-800 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Total Customers</h3>
@@ -507,7 +345,7 @@ export default function HomePage() {
           </div>
 
           {/* Total Sales Chart */}
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+          <div className="bg-slate-900/40 rounded-xl p-6 border border-slate-800 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Total Sales</h3>
@@ -536,7 +374,7 @@ export default function HomePage() {
           </div>
 
           {/* Pipeline Deals Chart */}
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+          <div className="bg-slate-900/40 rounded-xl p-6 border border-slate-800 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Pipeline Deals</h3>
@@ -565,124 +403,12 @@ export default function HomePage() {
 
         </div>
 
-        {/* Financial Snapshot - Compact Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Cash Position */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-blue-100 rounded-xl flex-shrink-0 shadow-sm">
-                <Wallet className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-500">Cash Position</p>
-                <p className="text-xs text-slate-500">Available funds</p>
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-slate-900 mb-2">{formatINR(stats.cashPosition)}</p>
-            <p className="text-xs text-slate-500">After expenses</p>
-          </div>
-
-          {/* Month Growth */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue')}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`p-2.5 rounded-xl flex-shrink-0 shadow-sm ${stats.monthGrowth >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                {stats.monthGrowth >= 0 ? (
-                  <TrendingUp className="w-6 h-6 text-green-600" />
-                ) : (
-                  <TrendingDown className="w-6 h-6 text-red-600" />
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-500">Month Growth</p>
-                <p className="text-xs text-slate-500">Revenue change</p>
-              </div>
-            </div>
-            <p className={`text-3xl font-bold mb-2 ${stats.monthGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {stats.monthGrowth >= 0 ? '+' : ''}{stats.monthGrowth}%
-            </p>
-            <p className="text-xs text-slate-500">vs Last month</p>
-          </div>
-
-          {/* Action Items */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/revenue?status=Overdue')}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-red-100 rounded-xl flex-shrink-0 shadow-sm">
-                <AlertCircle className="w-6 h-6 text-red-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-500">Action Items</p>
-                <p className="text-xs text-slate-500">Requires attention</p>
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-slate-900 mb-2">{stats.overdueInvoices}</p>
-            <p className="text-xs text-slate-500">Overdue invoices</p>
-          </div>
-        </div>
-
-        {/* Section 4: Team Pulse (People Overview) */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* Utilization */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team')}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-indigo-100 rounded-xl flex-shrink-0 shadow-sm">
-                <Users className="w-6 h-6 text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-500">Utilization</p>
-                <p className="text-xs text-slate-500">Team capacity</p>
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-slate-900 mb-2">{stats.utilizationRate}%</p>
-            <p className="text-xs text-slate-500">{stats.billableCount}/{teamMembers.length} people billable</p>
-          </div>
-
-          {/* Top Earner */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team')}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-purple-100 rounded-xl flex-shrink-0 shadow-sm">
-                <TrendingUp className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-500">Top Earner</p>
-                <p className="text-xs text-slate-500">This period</p>
-              </div>
-            </div>
-            <p className="text-lg font-bold text-slate-900 mb-1">{stats.topEarner.name}</p>
-            <p className="text-xs text-slate-500">{formatINR(stats.topEarner.amount)}</p>
-          </div>
-
-          {/* Available */}
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1" onClick={() => router.push('/team?availability=Available')}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-green-100 rounded-xl flex-shrink-0 shadow-sm">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-500">Available</p>
-                <p className="text-xs text-slate-500">Ready to work</p>
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-slate-900 mb-2">{stats.availableDevs}</p>
-            <p className="text-xs text-slate-500">Devs free next week</p>
-          </div>
-
-          {/* View People Link */}
-          <Link href="/team" className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm transition-all duration-300 ease-out cursor-pointer hover:shadow-lg hover:-translate-y-1 flex items-center justify-center flex-col">
-            <div className="p-2.5 bg-teal-100 rounded-xl flex-shrink-0 shadow-sm mb-4">
-              <UserPlus className="w-6 h-6 text-teal-600" />
-            </div>
-            <p className="text-sm font-semibold text-slate-900 mb-2">View People</p>
-            <p className="text-xs text-slate-500 text-center">Manage team members</p>
-            <ArrowRight className="w-5 h-5 text-teal-600 mt-2" />
-          </Link>
-        </div>
-
-        {/* Section 5: Recent Activity (Feed) */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+        {/* Recent Activity (Feed) */}
+        <div className="bg-slate-900/40 rounded-xl p-6 border border-slate-800 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-bold text-slate-900 mb-1">Recent Activity</h2>
-              <p className="text-sm text-slate-500">Last 24 hours</p>
+              <h2 className="text-xl font-bold text-slate-50 mb-1">Recent Activity</h2>
+              <p className="text-sm text-slate-400">Last 24 hours</p>
             </div>
             <Link href="/revenue" className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
               View All <ArrowRight className="w-4 h-4" />
@@ -708,8 +434,11 @@ export default function HomePage() {
                 <p className="text-xs mt-1">Activity will appear here as things happen</p>
               </div>
             )}
+            </div>
           </div>
-        </div>
+
+          {/* Public Holidays */}
+          <HolidaysWidget />
       </div>
     </Layout>
   );
