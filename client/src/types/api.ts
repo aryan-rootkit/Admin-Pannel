@@ -1,0 +1,66 @@
+export type Client = {
+  _id: string;
+  name: string;
+  email?: string;
+  contact?: string;
+  phone?: string;
+  notes?: string;
+  address?: string;
+  company?: string;
+  status?: string;
+};
+
+export type PopulatedRef = { _id: string; name: string; email?: string; contact?: string };
+
+export type Project = {
+  _id: string;
+  name: string;
+  clientId: string | PopulatedRef;
+  status?: string;
+  budget?: number;
+  assignedTeam?: Array<PopulatedRef | string>;
+  peopleIds?: string[];
+  teamIds?: string[];
+};
+
+export type AssignedProjectRef = { _id: string; name: string };
+
+export type PersonRow = {
+  _id: string;
+  name?: string;
+  role?: string;
+  email?: string;
+  contact?: string;
+  assignedProjects?: Array<AssignedProjectRef | string>;
+};
+
+export type RevenueRow = {
+  _id: string;
+  projectId: string | { _id: string; name: string; clientId?: unknown };
+  totalAmount?: number;
+  advanceAmount?: number;
+  pendingAmount?: number;
+  paymentDate?: string;
+  amount?: number;
+  currency?: string;
+  receivedAt?: string;
+  description?: string;
+};
+
+export type PayoutRow = {
+  _id: string;
+  type?: "subscription" | "payout";
+  amount: number;
+  currency?: string;
+  paymentDate?: string;
+  paidAt?: string;
+  name?: string;
+  status?: string;
+  projectId?: string | { _id: string; name: string };
+  peopleId?: string | { _id: string; name: string; role?: string; email?: string; contact?: string };
+  personId?: string | { _id: string; name: string; role?: string };
+  clientId?: string | { _id: string; name: string };
+  category?: string;
+  notes?: string;
+};
+
