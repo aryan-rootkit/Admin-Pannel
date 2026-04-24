@@ -1,4 +1,7 @@
-require("dotenv").config();
+const path = require("path");
+
+// Always load server/.env (works when cwd is repo root: npm --prefix server run ...)
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const connectDB = require("./config/db");
 const createApp = require("./app");

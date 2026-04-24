@@ -1,5 +1,3 @@
-require("dotenv").config();
-
 const mongoose = require("mongoose");
 
 const DB_NAME = "admin-pannel-rootkit";
@@ -15,6 +13,11 @@ const connectDB = async () => {
     console.log("✅ DB Connected:", mongoose.connection.name, `(explicit dbName: ${DB_NAME})`);
   } catch (err) {
     console.error("❌ DB Error:", err.message);
+    if (String(err.message).includes("querySrv") || String(err.message).includes("ECONNREFUSED")) {
+      console.error(
+        "   Hint: Check internet/VPN/firewall, Atlas cluster is running, and IP access allows your network (0.0.0.0/0 for dev)."
+      );
+    }
     process.exit(1);
   }
 };
