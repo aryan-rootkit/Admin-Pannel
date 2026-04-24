@@ -13,17 +13,13 @@ const holidaysRoutes = require("./modules/holidays/routes");
 const settingsRoutes = require("./modules/settings/routes");
 const usersRoutes = require("./modules/users/routes");
 
-const createApp = ({ corsOrigin }) => {
+const createApp = () => {
   const app = express();
 
   app.use(helmet());
   app.use(morgan("dev"));
-  app.use(
-    cors({
-      origin: corsOrigin,
-      credentials: true,
-    })
-  );
+  // Permissive CORS for deploy (Railway, etc.); tighten with origin whitelist later via env.
+  app.use(cors());
   app.use(express.json({ limit: "1mb" }));
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
