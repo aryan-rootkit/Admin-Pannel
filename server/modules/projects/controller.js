@@ -5,7 +5,7 @@
  *   .populate("assignedTeam", "name email contact");
  */
 const { Project } = require("./model");
-const { Person } = require("../peoples/model");
+const { People } = require("../peoples/model");
 const { memberIdsFromProjectLean } = require("../lib/memberIndex");
 
 async function hydrateAssignedTeamForProjects(projectsLean) {
@@ -17,7 +17,7 @@ async function hydrateAssignedTeamForProjects(projectsLean) {
     }
   }
   if (!needIds.size) return;
-  const people = await Person.find({ _id: { $in: [...needIds] } })
+  const people = await People.find({ _id: { $in: [...needIds] } })
     .select("name email contact")
     .lean();
   const byId = new Map(people.map((doc) => [String(doc._id), doc]));
@@ -73,7 +73,7 @@ const createProject = async (req, res) => {
     });
 
     if (mergedTeam.length) {
-      await Person.updateMany(
+      await People.updateMany(
         { _id: { $in: mergedTeam } },
         { $addToSet: { assignedProjects: project._id } }
       );
@@ -92,13 +92,13 @@ const createProject = async (req, res) => {
 
 async function syncProjectMembers(projectId, memberIds) {
   const pid = projectId;
-  await Person.updateMany(
+  await People.updateMany(
     { assignedProjects: pid },
     { $pull: { assignedProjects: pid } }
   );
   const ids = [...new Set((memberIds || []).map(String))].filter(Boolean);
   if (ids.length) {
-    await Person.updateMany(
+    await People.updateMany(
       { _id: { $in: ids } },
       { $addToSet: { assignedProjects: pid } }
     );
@@ -148,7 +148,7 @@ const updateProject = async (req, res) => {
 const deleteProject = async (req, res) => {
   try {
     const id = req.params.id;
-    await Person.updateMany(
+    await People.updateMany(
       { assignedProjects: id },
       { $pull: { assignedProjects: id } }
     );

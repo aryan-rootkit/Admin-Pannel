@@ -1,6 +1,6 @@
 /**
  * Build map personId -> minimal project refs from projects that list members
- * via assignedTeam, legacy peopleIds, or teamIds (same collection as Person).
+ * via assignedTeam, legacy peopleIds, or teamIds (same collection as People).
  */
 async function buildPersonIdToProjectsMap(Project) {
   const projects = await Project.find({

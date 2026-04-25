@@ -3,9 +3,10 @@ const mongoose = require("mongoose");
 const { Types } = mongoose.Schema;
 
 /**
- * Peoples module → existing Atlas collection `people` (no collection rename = no data loss).
+ * People resource → MongoDB collection `people`.
+ * Model name `People` matches refs in Project / Payout schemas.
  */
-const PersonSchema = new mongoose.Schema(
+const PeopleSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true },
     email: { type: String, trim: true },
@@ -18,10 +19,11 @@ const PersonSchema = new mongoose.Schema(
     hoursWorkedThisWeek: { type: Number },
     skills: [{ type: String }],
   },
-  { timestamps: true, collection: "people", strict: false }
+  { timestamps: true, strict: false }
 );
 
-const Person =
-  mongoose.models.Person || mongoose.model("Person", PersonSchema);
+const People =
+  mongoose.models.People ||
+  mongoose.model("People", PeopleSchema, "people");
 
-module.exports = { Person };
+module.exports = { People };

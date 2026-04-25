@@ -1,4 +1,4 @@
-const { Person } = require("./model");
+const { People } = require("./model");
 const { Project } = require("../projects/model");
 const { buildPersonIdToProjectsMap } = require("../lib/memberIndex");
 
@@ -13,7 +13,7 @@ const getPeople = async (_req, res) => {
   try {
     const extraByPerson = await buildPersonIdToProjectsMap(Project);
 
-    const people = await Person.find()
+    const people = await People.find()
       .populate({
         path: "assignedProjects",
         select: "name budget clientId",
@@ -41,17 +41,17 @@ const getPeople = async (_req, res) => {
       person.assignedProjects = merged;
     }
 
-    console.log("[GET /api/people|peoples] count:", people.length);
+    console.log("[GET /api/people] count:", people.length);
     return res.json(people);
   } catch (err) {
-    console.error("[GET /api/people|peoples] error:", err.message);
+    console.error("[GET /api/people] error:", err.message);
     return res.status(500).json({ message: err.message || "Server error" });
   }
 };
 
 const getPersonById = async (req, res) => {
   try {
-    const person = await Person.findById(req.params.id).lean();
+    const person = await People.findById(req.params.id).lean();
     if (!person) return res.status(404).json({ message: "Person not found" });
     return res.json(person);
   } catch (err) {
@@ -86,7 +86,7 @@ const createPerson = async (req, res) => {
     if (!name) return res.status(400).json({ message: "name is required" });
     const projectIds = [...new Set((assignedProjects || []).map(String))].filter(Boolean);
 
-    const person = await Person.create({
+    const person = await People.create({
       name,
       email,
       contact,
@@ -96,7 +96,7 @@ const createPerson = async (req, res) => {
 
     if (projectIds.length) await syncPersonProjects(person._id, projectIds);
 
-    const doc = await Person.findById(person._id).lean();
+    const doc = await People.findById(person._id).lean();
     return res.status(201).json(doc);
   } catch (err) {
     return res.status(500).json({ message: err.message || "Server error" });
@@ -106,7 +106,7 @@ const createPerson = async (req, res) => {
 const updatePerson = async (req, res) => {
   try {
     const { name, email, contact, role, assignedProjects } = req.body || {};
-    const person = await Person.findById(req.params.id);
+    const person = await People.findById(req.params.id);
     if (!person) return res.status(404).json({ message: "Person not found" });
 
     if (assignedProjects !== undefined) {
@@ -120,7 +120,7 @@ const updatePerson = async (req, res) => {
     if (role !== undefined) person.role = role;
     await person.save();
 
-    const doc = await Person.findById(person._id).lean();
+    const doc = await People.findById(person._id).lean();
     return res.json(doc);
   } catch (err) {
     return res.status(500).json({ message: err.message || "Server error" });
@@ -140,7 +140,7 @@ const deletePerson = async (req, res) => {
         },
       }
     );
-    const removed = await Person.findByIdAndDelete(id).lean();
+    const removed = await People.findByIdAndDelete(id).lean();
     if (!removed) return res.status(404).json({ message: "Person not found" });
     return res.json({ ok: true, id });
   } catch (err) {

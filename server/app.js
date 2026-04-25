@@ -27,7 +27,6 @@ const createApp = () => {
   app.use("/api/clients", clientRoutes);
   app.use("/api/projects", projectRoutes);
   app.use("/api/people", peopleRoutes);
-  app.use("/api/peoples", peopleRoutes);
   app.use("/api/revenues", revenuesRoutes);
   app.use("/api/payouts", payoutsRoutes);
   app.use("/api/events", eventsRoutes);

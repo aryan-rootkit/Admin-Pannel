@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchJson, getApiBase } from "@/lib/fetchApi";
+import { API_PEOPLE, fetchJson, getApiBase } from "@/lib/fetchApi";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
 
@@ -24,7 +24,7 @@ export default function DashboardPage() {
         const [clients, projects, people, revenues, payouts] = await Promise.all([
           fetchJson<unknown[]>("/clients"),
           fetchJson<unknown[]>("/projects"),
-          fetchJson<unknown[]>("/people"),
+          fetchJson<unknown[]>(API_PEOPLE),
           fetchJson<unknown[]>("/revenues"),
           fetchJson<unknown[]>("/payouts"),
         ]);

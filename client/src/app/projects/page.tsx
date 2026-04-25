@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchJson } from "@/lib/fetchApi";
+import { API_PEOPLE, fetchJson } from "@/lib/fetchApi";
 import { apiDelete, apiPost, apiPut } from "@/lib/api";
 import type { Client, PersonRow, Project } from "@/types/api";
 import { Button } from "@/components/ui/Button";
@@ -57,7 +57,7 @@ export default function ProjectsPage() {
     const [p, c, t] = await Promise.all([
       fetchJson<Project[]>("/projects"),
       fetchJson<Client[]>("/clients"),
-      fetchJson<PersonRow[]>("/people"),
+      fetchJson<PersonRow[]>(API_PEOPLE),
     ]);
     setProjects(Array.isArray(p) ? p : []);
     setClients(Array.isArray(c) ? c : []);

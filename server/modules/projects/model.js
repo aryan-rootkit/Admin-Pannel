@@ -7,11 +7,11 @@ const ProjectSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     clientId: { type: Types.ObjectId, ref: "Client", required: true, index: true },
     budget: { type: Number, min: 0 },
-    assignedTeam: [{ type: Types.ObjectId, ref: "Person", index: true }],
+    assignedTeam: [{ type: Types.ObjectId, ref: "People", index: true }],
     /** @deprecated prefer `assignedTeam` */
-    peopleIds: [{ type: Types.ObjectId, ref: "Person", index: true }],
+    peopleIds: [{ type: Types.ObjectId, ref: "People", index: true }],
     /** @deprecated prefer `assignedTeam` */
-    teamIds: [{ type: Types.ObjectId, ref: "Person", index: true }],
+    teamIds: [{ type: Types.ObjectId, ref: "People", index: true }],
     status: { type: String, trim: true, default: "active" },
   },
   { timestamps: true, collection: "projects" }

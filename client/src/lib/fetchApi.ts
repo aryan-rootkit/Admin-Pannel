@@ -1,3 +1,9 @@
+/**
+ * Path for the people REST resource, relative to {@link getApiBase} (which ends with `/api`).
+ * Resolved URL: `…/api/people` — use with `fetchJson`, `apiGet`, etc.
+ */
+export const API_PEOPLE = "/people" as const;
+
 /** Browser-safe GET helper — uses NEXT_PUBLIC_API_BASE_URL */
 export function getApiBase(): string {
   const API = process.env.NEXT_PUBLIC_API_BASE_URL;

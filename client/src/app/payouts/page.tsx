@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchJson } from "@/lib/fetchApi";
+import { API_PEOPLE, fetchJson } from "@/lib/fetchApi";
 import { apiDelete, apiPost, apiPut } from "@/lib/api";
 import type { PersonRow, PayoutRow, Project } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -60,7 +60,7 @@ export default function PayoutsPage() {
     const [pay, p, t] = await Promise.all([
       fetchJson<PayoutRow[]>("/payouts"),
       fetchJson<Project[]>("/projects"),
-      fetchJson<PersonRow[]>("/people"),
+      fetchJson<PersonRow[]>(API_PEOPLE),
     ]);
     setRows(Array.isArray(pay) ? pay : []);
     setProjects(Array.isArray(p) ? p : []);

@@ -23,9 +23,9 @@ const PayoutSchema = new mongoose.Schema(
     status: { type: String, trim: true },
     /** Dev payout */
     projectId: { type: Types.ObjectId, ref: "Project", index: true },
-    peopleId: { type: Types.ObjectId, ref: "Person", index: true },
+    peopleId: { type: Types.ObjectId, ref: "People", index: true },
     /** @deprecated use `peopleId` */
-    personId: { type: Types.ObjectId, ref: "Person", index: true },
+    personId: { type: Types.ObjectId, ref: "People", index: true },
     /** @deprecated not in new spec; kept for legacy rows */
     clientId: { type: Types.ObjectId, ref: "Client", index: true },
     /** @deprecated use `paymentDate` */

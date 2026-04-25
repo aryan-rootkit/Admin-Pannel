@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchJson } from "@/lib/fetchApi";
+import { API_PEOPLE, fetchJson } from "@/lib/fetchApi";
 import { apiDelete, apiPost, apiPut, apiGet } from "@/lib/api";
 import type { PersonRow, Project } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -36,7 +36,7 @@ export default function PeoplesPage() {
 
   const load = useCallback(async () => {
     const [t, p] = await Promise.all([
-      fetchJson<PersonRow[]>("/people"),
+      fetchJson<PersonRow[]>(API_PEOPLE),
       fetchJson<Project[]>("/projects"),
     ]);
     setPeople(Array.isArray(t) ? t : []);
@@ -81,7 +81,7 @@ export default function PeoplesPage() {
         contact?: string;
         role?: string;
         assignedProjects?: string[];
-      }>(`/people/${p._id}`);
+      }>(`${API_PEOPLE}/${p._id}`);
       setName(raw.name || "");
       setEmail(raw.email || "");
       setContact(raw.contact || "");
@@ -118,10 +118,10 @@ export default function PeoplesPage() {
     };
     try {
       if (editingId) {
-        await apiPut(`/people/${editingId}`, body);
+        await apiPut(`${API_PEOPLE}/${editingId}`, body);
         toast.updated();
       } else {
-        await apiPost("/people", body);
+        await apiPost(API_PEOPLE, body);
         toast.saved();
       }
       await load();
@@ -136,7 +136,7 @@ export default function PeoplesPage() {
   async function onDelete(id: string) {
     if (!window.confirm("Delete this person?")) return;
     try {
-      await apiDelete(`/people/${id}`);
+      await apiDelete(`${API_PEOPLE}/${id}`);
       toast.deleted();
       await load();
     } catch {
