@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const { Types } = mongoose.Schema;
 
 /**
- * Peoples module → existing Atlas collection `teams` (no collection rename = no data loss).
+ * Peoples module → existing Atlas collection `people` (no collection rename = no data loss).
  */
 const PersonSchema = new mongoose.Schema(
   {
@@ -18,7 +18,7 @@ const PersonSchema = new mongoose.Schema(
     hoursWorkedThisWeek: { type: Number },
     skills: [{ type: String }],
   },
-  { timestamps: true, collection: "teams", strict: false }
+  { timestamps: true, collection: "people", strict: false }
 );
 
 const Person =

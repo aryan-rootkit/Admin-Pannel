@@ -21,17 +21,17 @@ export default function DashboardPage() {
     (async () => {
       try {
         getApiBase();
-        const [clients, projects, teams, revenues, payouts] = await Promise.all([
+        const [clients, projects, people, revenues, payouts] = await Promise.all([
           fetchJson<unknown[]>("/clients"),
           fetchJson<unknown[]>("/projects"),
-          fetchJson<unknown[]>("/teams"),
+          fetchJson<unknown[]>("/people"),
           fetchJson<unknown[]>("/revenues"),
           fetchJson<unknown[]>("/payouts"),
         ]);
         console.log("[dashboard] API rows:", {
           clients: clients.length,
           projects: projects.length,
-          teams: teams.length,
+          people: people.length,
           revenues: revenues.length,
           payouts: payouts.length,
         });
@@ -39,7 +39,7 @@ export default function DashboardPage() {
           setCounts({
             clients: clients.length,
             projects: projects.length,
-            peoples: teams.length,
+            peoples: people.length,
             revenues: revenues.length,
             payouts: payouts.length,
           });

@@ -5,7 +5,7 @@ const morgan = require("morgan");
 
 const clientRoutes = require("./modules/clients/routes");
 const projectRoutes = require("./modules/projects/routes");
-const teamsRoutes = require("./modules/peoples/routes");
+const peopleRoutes = require("./modules/peoples/routes");
 const revenuesRoutes = require("./modules/revenues/routes");
 const payoutsRoutes = require("./modules/payouts/routes");
 const eventsRoutes = require("./modules/events/routes");
@@ -26,8 +26,8 @@ const createApp = () => {
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
   app.use("/api/clients", clientRoutes);
   app.use("/api/projects", projectRoutes);
-  app.use("/api/teams", teamsRoutes);
-  app.use("/api/peoples", teamsRoutes);
+  app.use("/api/people", peopleRoutes);
+  app.use("/api/peoples", peopleRoutes);
   app.use("/api/revenues", revenuesRoutes);
   app.use("/api/payouts", payoutsRoutes);
   app.use("/api/events", eventsRoutes);

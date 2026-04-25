@@ -60,7 +60,7 @@ export default function PayoutsPage() {
     const [pay, p, t] = await Promise.all([
       fetchJson<PayoutRow[]>("/payouts"),
       fetchJson<Project[]>("/projects"),
-      fetchJson<PersonRow[]>("/teams"),
+      fetchJson<PersonRow[]>("/people"),
     ]);
     setRows(Array.isArray(pay) ? pay : []);
     setProjects(Array.isArray(p) ? p : []);

@@ -41,10 +41,10 @@ const getTeams = async (_req, res) => {
       person.assignedProjects = merged;
     }
 
-    console.log("[GET /api/teams|peoples] count:", people.length);
+    console.log("[GET /api/people|peoples] count:", people.length);
     return res.json(people);
   } catch (err) {
-    console.error("[GET /api/teams|peoples] error:", err.message);
+    console.error("[GET /api/people|peoples] error:", err.message);
     return res.status(500).json({ message: err.message || "Server error" });
   }
 };

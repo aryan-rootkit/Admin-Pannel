@@ -57,7 +57,7 @@ export default function ProjectsPage() {
     const [p, c, t] = await Promise.all([
       fetchJson<Project[]>("/projects"),
       fetchJson<Client[]>("/clients"),
-      fetchJson<PersonRow[]>("/teams"),
+      fetchJson<PersonRow[]>("/people"),
     ]);
     setProjects(Array.isArray(p) ? p : []);
     setClients(Array.isArray(c) ? c : []);

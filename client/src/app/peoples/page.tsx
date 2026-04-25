@@ -36,7 +36,7 @@ export default function PeoplesPage() {
 
   const load = useCallback(async () => {
     const [t, p] = await Promise.all([
-      fetchJson<PersonRow[]>("/teams"),
+      fetchJson<PersonRow[]>("/people"),
       fetchJson<Project[]>("/projects"),
     ]);
     setPeople(Array.isArray(t) ? t : []);
@@ -81,7 +81,7 @@ export default function PeoplesPage() {
         contact?: string;
         role?: string;
         assignedProjects?: string[];
-      }>(`/teams/${p._id}`);
+      }>(`/people/${p._id}`);
       setName(raw.name || "");
       setEmail(raw.email || "");
       setContact(raw.contact || "");
@@ -118,10 +118,10 @@ export default function PeoplesPage() {
     };
     try {
       if (editingId) {
-        await apiPut(`/teams/${editingId}`, body);
+        await apiPut(`/people/${editingId}`, body);
         toast.updated();
       } else {
-        await apiPost("/teams", body);
+        await apiPost("/people", body);
         toast.saved();
       }
       await load();
@@ -136,7 +136,7 @@ export default function PeoplesPage() {
   async function onDelete(id: string) {
     if (!window.confirm("Delete this person?")) return;
     try {
-      await apiDelete(`/teams/${id}`);
+      await apiDelete(`/people/${id}`);
       toast.deleted();
       await load();
     } catch {
