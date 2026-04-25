@@ -13,11 +13,12 @@ const PeopleSchema = new mongoose.Schema(
     contact: { type: String, trim: true },
     assignedProjects: [{ type: Types.ObjectId, ref: "Project", index: true }],
     role: { type: String, trim: true },
-    avatar: { type: String, trim: true },
-    employmentType: { type: String, trim: true },
-    hourlyRate: { type: Number },
-    hoursWorkedThisWeek: { type: Number },
+    avatar: { type: String, trim: true, default: "" },
+    employmentType: { type: String, trim: true, default: "Unknown" },
+    hourlyRate: { type: Number, default: 0 },
+    hoursWorkedThisWeek: { type: Number, default: 0 },
     skills: [{ type: String }],
+    subRole: { type: String, default: "" },
   },
   { timestamps: true, strict: false }
 );
