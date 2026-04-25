@@ -14,7 +14,7 @@ const ProjectSchema = new mongoose.Schema(
     peopleIds: [{ type: Types.ObjectId, ref: "People", index: true }],
     /** @deprecated prefer `assignedTeam` */
     teamIds: [{ type: Types.ObjectId, ref: "People", index: true }],
-    status: { type: String, trim: true, default: "active" },
+    status: { type: String, trim: true, default: "Active" },
   },
   { timestamps: true, collection: "projects" }
 );

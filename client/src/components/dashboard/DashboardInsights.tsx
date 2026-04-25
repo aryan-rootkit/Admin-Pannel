@@ -189,13 +189,14 @@ export function DashboardInsights({ finance, monthly, loading, error }: Props) {
               <p className="text-sm text-[var(--purity-muted)]">No projects yet.</p>
             ) : (
               <div className="max-h-[28rem] overflow-x-auto overflow-y-auto">
-                <table className="w-full min-w-[640px] text-left text-sm">
+                <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="sticky top-0 z-[1] border-b border-[var(--purity-border)] bg-[var(--purity-card)] text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
                     <tr>
                       <th className="pb-2 pr-3">Project</th>
                       <th className="pb-2 pr-3 text-right">Total value</th>
                       <th className="pb-2 pr-3 text-right">Received</th>
-                      <th className="pb-2 pr-3 text-right">Pending</th>
+                      <th className="pb-2 pr-3 text-right">Pending (collectible)</th>
+                      <th className="pb-2 pr-3 text-right">Cancelled bal.</th>
                       <th className="pb-2 pr-3 text-right">Cost</th>
                       <th className="pb-2 text-right">Profit</th>
                     </tr>
@@ -216,6 +217,9 @@ export function DashboardInsights({ finance, monthly, loading, error }: Props) {
                             className={`py-2.5 pr-3 text-right tabular-nums ${row.pending < 0 ? "text-red-700" : ""}`}
                           >
                             {formatInr(row.pending)}
+                          </td>
+                          <td className="py-2.5 pr-3 text-right tabular-nums text-amber-800 dark:text-amber-200">
+                            {formatInr(row.cancelledBalance ?? 0)}
                           </td>
                           <td className="py-2.5 pr-3 text-right tabular-nums">
                             {formatInr(row.projectCost)}

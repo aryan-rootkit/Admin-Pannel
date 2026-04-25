@@ -6,6 +6,7 @@ const {
   payoutProjectCostAmount,
   payoutExpenseAmount,
 } = require("../lib/financeHelpers");
+const { projectStatusBucket } = require("../lib/projectFinance");
 
 /**
  * Company + project finance snapshot.
@@ -23,6 +24,7 @@ const {
  *     totalValue: number,
  *     totalReceived: number,
  *     pending: number,
+ *     cancelledBalance: number,
  *     projectCost: number,
  *     projectProfit: number
  *   }>
@@ -69,7 +71,10 @@ async function computeFinanceAnalytics() {
     const id = String(proj._id);
     const totalValue = Number(proj.totalValue ?? proj.budget ?? 0) || 0;
     const totalReceived = receivedByProject.get(id) || 0;
-    const pending = Math.max(0, totalValue - totalReceived);
+    const rawGap = Math.max(0, totalValue - totalReceived);
+    const bucket = projectStatusBucket(proj.status);
+    const cancelledBalance = bucket === "cancelled" ? rawGap : 0;
+    const pending = bucket === "cancelled" ? 0 : rawGap;
     pendingRevenue += pending;
     const projectCost = projectCostById.get(id) || 0;
     const rowProfit = totalReceived - projectCost;
@@ -79,6 +84,7 @@ async function computeFinanceAnalytics() {
       totalValue,
       totalReceived,
       pending,
+      cancelledBalance,
       projectCost,
       projectProfit: rowProfit,
     };

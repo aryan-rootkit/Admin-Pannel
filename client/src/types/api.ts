@@ -86,6 +86,7 @@ export type FinanceAnalytics = {
     totalValue: number;
     totalReceived: number;
     pending: number;
+    cancelledBalance?: number;
     projectCost: number;
     projectProfit: number;
   }>;

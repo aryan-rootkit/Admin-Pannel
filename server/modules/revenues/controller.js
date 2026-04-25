@@ -5,7 +5,9 @@
  *     populate: { path: "clientId", select: "name email contact" } });
  */
 const { Revenue } = require("./model");
+const { Project } = require("../projects/model");
 const { revenueLineAmount, revenueLineStatus, revenueLineDate } = require("../lib/financeHelpers");
+const { projectReceivesNewPayments } = require("../lib/projectFinance");
 
 function normalizeRevenueLean(doc) {
   const amount = revenueLineAmount(doc);
@@ -39,7 +41,7 @@ const getRevenues = async (_req, res) => {
     const revenues = await Revenue.find()
       .populate({
         path: "projectId",
-        select: "name budget clientId totalValue",
+        select: "name budget clientId totalValue status",
         populate: { path: "clientId", select: "name email contact" },
       })
       .lean();
@@ -66,7 +68,6 @@ const createRevenue = async (req, res) => {
       amount,
       totalAmount,
       advanceAmount,
-      pendingAmount,
       date,
       paymentDate,
       currency,
@@ -77,6 +78,14 @@ const createRevenue = async (req, res) => {
     } = body;
     if (!projectId) return res.status(400).json({ message: "projectId is required" });
 
+    const proj = await Project.findById(projectId).select("status").lean();
+    if (!proj) return res.status(400).json({ message: "Project not found" });
+    if (!projectReceivesNewPayments(proj.status)) {
+      return res.status(400).json({
+        message: "This project is cancelled; new payments cannot be recorded.",
+      });
+    }
+
     const line =
       amount != null && amount !== ""
         ? Number(amount)
@@ -84,10 +93,8 @@ const createRevenue = async (req, res) => {
           ? Number(totalAmount)
           : 0;
     const advance = advanceAmount != null ? Number(advanceAmount) : 0;
-    const pending =
-      pendingAmount != null
-        ? Number(pendingAmount)
-        : Math.max(0, line - advance);
+    /** Line-level remainder only (project pending is derived from Project + all payments). */
+    const pending = Math.max(0, line - advance);
 
     const ptRaw = type || paymentType;
     const pt =
@@ -116,7 +123,7 @@ const createRevenue = async (req, res) => {
     const populated = await Revenue.findById(doc._id)
       .populate({
         path: "projectId",
-        select: "name budget clientId totalValue",
+        select: "name budget clientId totalValue status",
         populate: { path: "clientId", select: "name email contact" },
       })
       .lean();
@@ -134,7 +141,6 @@ const updateRevenue = async (req, res) => {
       amount,
       totalAmount,
       advanceAmount,
-      pendingAmount,
       date,
       paymentDate,
       currency,
@@ -143,6 +149,21 @@ const updateRevenue = async (req, res) => {
       type,
       status,
     } = body;
+    const existing = await Revenue.findById(req.params.id).lean();
+    if (!existing) return res.status(404).json({ message: "Revenue not found" });
+
+    const targetProjectId = projectId !== undefined ? projectId : existing.projectId;
+    const targetProj = await Project.findById(targetProjectId).select("status").lean();
+    if (!targetProj) return res.status(400).json({ message: "Project not found" });
+    if (
+      !projectReceivesNewPayments(targetProj.status) &&
+      String(targetProjectId) !== String(existing.projectId)
+    ) {
+      return res.status(400).json({
+        message: "Cannot attach or move payments to a cancelled project.",
+      });
+    }
+
     const patch = {};
     if (projectId !== undefined) patch.projectId = projectId;
     if (amount !== undefined || totalAmount !== undefined) {
@@ -158,7 +179,6 @@ const updateRevenue = async (req, res) => {
       }
     }
     if (advanceAmount !== undefined) patch.advanceAmount = Number(advanceAmount);
-    if (pendingAmount !== undefined) patch.pendingAmount = Number(pendingAmount);
     if (date !== undefined || paymentDate !== undefined) {
       const dt = date !== undefined ? date : paymentDate;
       patch.date = dt || null;
@@ -178,6 +198,16 @@ const updateRevenue = async (req, res) => {
         : "Received";
     }
 
+    const lineAfter =
+      patch.amount !== undefined && !Number.isNaN(patch.amount)
+        ? patch.amount
+        : revenueLineAmount(existing);
+    const advAfter =
+      patch.advanceAmount !== undefined
+        ? Number(patch.advanceAmount)
+        : Number(existing.advanceAmount ?? 0);
+    patch.pendingAmount = Math.max(0, Number(lineAfter) - Number(advAfter));
+
     const doc = await Revenue.findByIdAndUpdate(req.params.id, patch, {
       new: true,
       runValidators: true,
@@ -186,7 +216,7 @@ const updateRevenue = async (req, res) => {
     const populated = await Revenue.findById(doc._id)
       .populate({
         path: "projectId",
-        select: "name budget clientId totalValue",
+        select: "name budget clientId totalValue status",
         populate: { path: "clientId", select: "name email contact" },
       })
       .lean();

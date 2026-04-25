@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchJson } from "@/lib/fetchApi";
-import { apiDelete, apiPost, apiPut } from "@/lib/api";
+import { ApiError, apiDelete, apiPost, apiPut } from "@/lib/api";
 import type { Project, RevenuePaymentType, RevenueRow, RevenueStatus } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
@@ -14,6 +14,12 @@ import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { REVENUE_PAYMENT_TYPES, REVENUE_STATUS_OPTIONS } from "@/lib/formOptions";
+import {
+  displayFinancialStatus,
+  projectReceivesNewPayments,
+  projectStatusBucket,
+  type FinancialLifecycle,
+} from "@/lib/projectFinance";
 import { useToast } from "@/components/providers/ToastProvider";
 
 function refId(v: string | { _id: string } | undefined | null): string {
@@ -38,11 +44,22 @@ function paymentReceivedInGroup(r: RevenueRow): number {
   return paymentLineAmount(r);
 }
 
+function statusBadgeClass(s: FinancialLifecycle): string {
+  if (s === "Cancelled") return "bg-red-100 text-red-900 dark:bg-red-950/60 dark:text-red-200";
+  if (s === "Completed") return "bg-sky-100 text-sky-900 dark:bg-sky-950/50 dark:text-sky-100";
+  return "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100";
+}
+
 type ProjectRevenueGroup = {
   projectId: string;
   projectName: string;
+  project?: Project;
   payments: RevenueRow[];
   totalReceived: number;
+  totalProjectValue: number;
+  pendingAmount: number;
+  cancelledBalance: number;
+  financialStatus: FinancialLifecycle;
 };
 
 export default function RevenuesPage() {
@@ -56,7 +73,7 @@ export default function RevenuesPage() {
   const [saving, setSaving] = useState(false);
   const [projectId, setProjectId] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
-  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [advanceAmount, setAdvanceAmount] = useState("0");
   const [paymentDate, setPaymentDate] = useState("");
   const [currency, setCurrency] = useState("INR");
   const [paymentType, setPaymentType] = useState<RevenuePaymentType>("Installment");
@@ -71,29 +88,84 @@ export default function RevenuesPage() {
     setProjects(Array.isArray(p) ? p : []);
   }, []);
 
+  const canRecordNewPayments = useMemo(
+    () => projects.some((p) => projectReceivesNewPayments(p.status)),
+    [projects]
+  );
+
   const groupedByProject = useMemo((): ProjectRevenueGroup[] => {
     const map = new Map<string, ProjectRevenueGroup>();
+
+    for (const p of projects) {
+      const tv = Math.max(0, Number(p.totalValue ?? p.budget ?? 0) || 0);
+      map.set(p._id, {
+        projectId: p._id,
+        projectName: p.name || "—",
+        project: p,
+        payments: [],
+        totalReceived: 0,
+        totalProjectValue: tv,
+        pendingAmount: 0,
+        cancelledBalance: 0,
+        financialStatus: displayFinancialStatus(p.status),
+      });
+    }
+
     for (const r of rows) {
       const pid = refId(r.projectId);
-      const name = resolveProjectName(r.projectId);
       if (!map.has(pid)) {
-        map.set(pid, { projectId: pid, projectName: name, payments: [], totalReceived: 0 });
+        map.set(pid, {
+          projectId: pid,
+          projectName: resolveProjectName(r.projectId),
+          project: undefined,
+          payments: [],
+          totalReceived: 0,
+          totalProjectValue: 0,
+          pendingAmount: 0,
+          cancelledBalance: 0,
+          financialStatus: "Active",
+        });
       }
       const g = map.get(pid)!;
       g.payments.push(r);
       g.totalReceived += paymentReceivedInGroup(r);
     }
+
     for (const g of map.values()) {
+      const received = Math.max(0, g.totalReceived);
+      const tv = g.project
+        ? Math.max(0, Number(g.project.totalValue ?? g.project.budget ?? 0) || 0)
+        : Math.max(0, g.totalProjectValue);
+      g.totalProjectValue = tv;
+      const rawGap = Math.max(0, tv - received);
+      const bucket = projectStatusBucket(g.project?.status);
+      if (bucket === "cancelled") {
+        g.cancelledBalance = rawGap;
+        g.pendingAmount = 0;
+      } else {
+        g.pendingAmount = rawGap;
+        g.cancelledBalance = 0;
+      }
+      if (g.project) g.financialStatus = displayFinancialStatus(g.project.status);
+
       g.payments.sort(
         (a, b) =>
           new Date(b.date || b.paymentDate || b.receivedAt || 0).getTime() -
           new Date(a.date || a.paymentDate || a.receivedAt || 0).getTime()
       );
     }
+
     return [...map.values()].sort((a, b) =>
       a.projectName.localeCompare(b.projectName, undefined, { sensitivity: "base" })
     );
-  }, [rows]);
+  }, [rows, projects]);
+
+  const modalProjectOptions = useMemo(() => {
+    if (!editingId) return projects.filter((p) => projectReceivesNewPayments(p.status));
+    return projects.filter(
+      (p) => projectReceivesNewPayments(p.status) || p._id === projectId
+    );
+  }, [projects, editingId, projectId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,7 +187,8 @@ export default function RevenuesPage() {
 
   function openCreate() {
     setEditingId(null);
-    setProjectId(projects[0]?._id || "");
+    const first = projects.find((p) => projectReceivesNewPayments(p.status));
+    setProjectId(first?._id || "");
     setTotalAmount("");
     setAdvanceAmount("0");
     setPaymentDate(toInputDate(new Date().toISOString()));
@@ -162,14 +235,14 @@ export default function RevenuesPage() {
     }
     setSaving(true);
     const advance = Number(advanceAmount) || 0;
-    const pending = Math.max(0, total - advance);
+    const linePending = Math.max(0, total - advance);
     const isoDate = paymentDate ? new Date(paymentDate).toISOString() : undefined;
     const body = {
       projectId,
       amount: total,
       totalAmount: total,
       advanceAmount: advance,
-      pendingAmount: pending,
+      pendingAmount: linePending,
       date: isoDate,
       paymentDate: isoDate,
       currency,
@@ -186,8 +259,14 @@ export default function RevenuesPage() {
       }
       await load();
       closeModal();
-    } catch {
-      toast.error();
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : undefined;
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -199,8 +278,14 @@ export default function RevenuesPage() {
       await apiDelete(`/revenues/${id}`);
       toast.deleted();
       await load();
-    } catch {
-      toast.error();
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : undefined;
+      toast.error(msg);
     }
   }
 
@@ -208,19 +293,31 @@ export default function RevenuesPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <PageHeader title="Revenues" />
-        <Button type="button" onClick={openCreate} disabled={!projects.length}>
+        <Button
+          type="button"
+          onClick={openCreate}
+          disabled={!projects.length || !canRecordNewPayments}
+        >
           Add payment
         </Button>
       </div>
 
       <p className="mb-4 max-w-2xl text-sm text-[var(--purity-muted)]">
-        Each row is a <strong className="text-[var(--purity-text)]">payment</strong> (advance,
-        installment, or final). Totals below are <strong className="text-[var(--purity-text)]">sum
-        of received payments</strong> per project (status = Received).
+        Per project, <strong className="text-[var(--purity-text)]">contract value</strong> and{" "}
+        <strong className="text-[var(--purity-text)]">pending</strong> are computed from the
+        project record and the sum of payments with status{" "}
+        <strong className="text-[var(--purity-text)]">Received</strong>. Each line is one payment
+        (advance, installment, or final).
       </p>
 
       {!projects.length && !loading ? (
         <p className="mb-4 text-sm text-amber-800">Create a project first.</p>
+      ) : null}
+      {projects.length > 0 && !canRecordNewPayments && !loading ? (
+        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          All projects are cancelled — you cannot add new payments. You can still edit or delete
+          existing lines, or move a payment to an active project.
+        </p>
       ) : null}
 
       {loading ? (
@@ -235,10 +332,10 @@ export default function RevenuesPage() {
         </div>
       ) : null}
 
-      {!loading && !error && rows.length === 0 ? (
-        <div className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] px-6 py-10 text-center text-sm text-[var(--purity-muted)]">
-          No payment records yet.
-        </div>
+      {!loading && !error && rows.length === 0 && projects.length > 0 ? (
+        <p className="mb-4 text-sm text-[var(--purity-muted)]">
+          No payment lines yet. Summary rows still show each project&apos;s contract and pending.
+        </p>
       ) : null}
 
       <div className="space-y-6">
@@ -248,64 +345,125 @@ export default function RevenuesPage() {
               key={g.projectId}
               className="overflow-hidden rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] shadow-sm"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--purity-border)] bg-[var(--purity-sidebar-active)] px-4 py-3">
-                <h2 className="text-sm font-bold text-[var(--purity-text)]">{g.projectName}</h2>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
-                    Total received
-                  </p>
-                  <p className="text-lg font-bold tabular-nums text-[var(--purity-text)]">
-                    {formatMoney(g.totalReceived, "INR")}
-                  </p>
-                </div>
-              </div>
-              <ul className="divide-y divide-[var(--purity-border)]">
-                {g.payments.map((r) => (
-                  <li
-                    key={r._id}
-                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+              <div className="border-b border-[var(--purity-border)] bg-[var(--purity-sidebar-active)] px-4 py-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold text-[var(--purity-text)]">{g.projectName}</h2>
+                  <span
+                    className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide ${statusBadgeClass(g.financialStatus)}`}
                   >
-                    <div className="min-w-0 flex-1">
-                      <span className="font-semibold text-[var(--purity-text)]">
-                        {formatMoney(paymentLineAmount(r), r.currency || "INR")}
-                      </span>
-                      <span className="ml-2 rounded-md bg-[var(--purity-sidebar-active)] px-2 py-0.5 text-xs font-medium text-[var(--purity-accent-hover)]">
-                        {r.paymentType || r.type || "Installment"}
-                      </span>
-                      <span
-                        className={`ml-2 rounded-md px-2 py-0.5 text-xs font-medium ${
-                          r.status === "Pending"
-                            ? "bg-amber-100 text-amber-900"
-                            : r.status === "Failed"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-emerald-50 text-emerald-800"
-                        }`}
-                      >
-                        {r.status || "Received"}
-                      </span>
-                      <span className="ml-2 text-xs text-[var(--purity-muted)]">
-                        {formatDate(r.date || r.paymentDate || r.receivedAt)}
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        type="button"
-                        className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
-                        onClick={() => openEdit(r)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
-                        onClick={() => onDelete(r._id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    {g.financialStatus}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
+                      Total project value
+                    </p>
+                    <p className="mt-0.5 text-base font-bold tabular-nums text-[var(--purity-text)]">
+                      {formatMoney(g.totalProjectValue, "INR")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
+                      Total received
+                    </p>
+                    <p className="mt-0.5 text-base font-bold tabular-nums text-[var(--purity-text)]">
+                      {formatMoney(g.totalReceived, "INR")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
+                      {g.financialStatus === "Cancelled" ? "Cancelled balance" : "Pending"}
+                    </p>
+                    <p
+                      className={`mt-0.5 text-base font-bold tabular-nums ${
+                        g.financialStatus === "Cancelled"
+                          ? "text-amber-800 dark:text-amber-200"
+                          : g.pendingAmount <= 0
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-[var(--purity-text)]"
+                      }`}
+                    >
+                      {formatMoney(
+                        g.financialStatus === "Cancelled" ? g.cancelledBalance : g.pendingAmount,
+                        "INR"
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {g.financialStatus === "Cancelled" ? (
+                  <p className="mt-3 text-xs text-[var(--purity-muted)]">
+                    Cancelled: no new payments. Remaining contract vs received is shown as cancelled
+                    balance (not expected revenue). You may still edit existing payment lines.
+                  </p>
+                ) : null}
+              </div>
+              {g.payments.length === 0 ? (
+                <p className="px-4 py-6 text-sm text-[var(--purity-muted)]">No payment lines yet.</p>
+              ) : (
+                <ul className="divide-y divide-[var(--purity-border)]">
+                  {g.payments.map((r) => (
+                    <li
+                      key={r._id}
+                      className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="font-semibold text-[var(--purity-text)]">
+                          {formatMoney(paymentLineAmount(r), r.currency || "INR")}
+                        </span>
+                        <span className="ml-2 rounded-md bg-[var(--purity-sidebar-active)] px-2 py-0.5 text-xs font-medium text-[var(--purity-accent-hover)]">
+                          {r.paymentType || r.type || "Installment"}
+                        </span>
+                        <span
+                          className={`ml-2 rounded-md px-2 py-0.5 text-xs font-medium ${
+                            r.status === "Pending"
+                              ? "bg-amber-100 text-amber-900"
+                              : r.status === "Failed"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-emerald-50 text-emerald-800"
+                          }`}
+                        >
+                          {r.status || "Received"}
+                        </span>
+                        <span className="ml-2 text-xs text-[var(--purity-muted)]">
+                          {formatDate(r.date || r.paymentDate || r.receivedAt)}
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          type="button"
+                          className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
+                          onClick={() => openEdit(r)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
+                          onClick={() => onDelete(r._id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {g.payments.length > 0 ? (
+                <div className="flex flex-wrap justify-between gap-2 border-t border-[var(--purity-border)] bg-[var(--purity-card)] px-4 py-2.5 text-xs text-[var(--purity-muted)]">
+                  <span>
+                    Received {formatMoney(g.totalReceived, "INR")} ·{" "}
+                    {g.financialStatus === "Cancelled" ? "Cancelled balance" : "Pending"}{" "}
+                    {formatMoney(
+                      g.financialStatus === "Cancelled" ? g.cancelledBalance : g.pendingAmount,
+                      "INR"
+                    )}
+                  </span>
+                  <span className="tabular-nums">
+                    Contract {formatMoney(g.totalProjectValue, "INR")}
+                  </span>
+                </div>
+              ) : null}
             </div>
           ))}
       </div>
@@ -329,13 +487,18 @@ export default function RevenuesPage() {
           <FormField label="Project">
             <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} required>
               <option value="">Select project</option>
-              {projects.map((p) => (
+              {modalProjectOptions.map((p) => (
                 <option key={p._id} value={p._id}>
                   {p.name}
+                  {!projectReceivesNewPayments(p.status) ? " (cancelled)" : ""}
                 </option>
               ))}
             </Select>
           </FormField>
+          <p className="text-xs text-[var(--purity-muted)]">
+            Project-level pending is computed automatically (contract value minus all received
+            payments). It cannot be edited here.
+          </p>
           <FormField label="Payment type">
             <Select
               value={paymentType}
@@ -360,19 +523,22 @@ export default function RevenuesPage() {
               ))}
             </Select>
           </FormField>
-          <FormField label="Payment amount (this installment)">
+          <FormField label="Payment amount (this line)">
             <Input
               inputMode="decimal"
               value={totalAmount}
               onChange={(e) => setTotalAmount(e.target.value)}
             />
           </FormField>
-          <FormField label="Advance amount (optional split)">
+          <FormField label="Advance split on this line (optional, legacy)">
             <Input
               inputMode="decimal"
               value={advanceAmount}
               onChange={(e) => setAdvanceAmount(e.target.value)}
             />
+            <p className="mt-1 text-xs text-[var(--purity-muted)]">
+              Stored on this row only; project pending comes from contract minus received.
+            </p>
           </FormField>
           <FormField label="Payment date">
             <Input
