@@ -12,6 +12,7 @@ const eventsRoutes = require("./modules/events/routes");
 const holidaysRoutes = require("./modules/holidays/routes");
 const settingsRoutes = require("./modules/settings/routes");
 const usersRoutes = require("./modules/users/routes");
+const analyticsRoutes = require("./modules/analytics/routes");
 
 const createApp = () => {
   const app = express();
@@ -33,6 +34,7 @@ const createApp = () => {
   app.use("/api/holidays", holidaysRoutes);
   app.use("/api/settings", settingsRoutes);
   app.use("/api/users", usersRoutes);
+  app.use("/api/analytics", analyticsRoutes);
 
   return app;
 };

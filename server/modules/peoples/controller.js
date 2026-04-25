@@ -1,6 +1,12 @@
+const mongoose = require("mongoose");
 const { People } = require("./model");
 const { Project } = require("../projects/model");
 const { buildPersonIdToProjectsMap } = require("../lib/memberIndex");
+const {
+  dedupeProjectIds,
+  syncPersonProjects,
+  assignProjectToPerson,
+} = require("./projectAssignment");
 
 function normalizeAssignedProjectEntry(entry) {
   if (!entry) return null;
@@ -59,32 +65,11 @@ const getPersonById = async (req, res) => {
   }
 };
 
-async function syncPersonProjects(personId, newProjectIds) {
-  const pid = personId;
-  const ids = [...new Set((newProjectIds || []).map(String))].filter(Boolean);
-  await Project.updateMany(
-    {},
-    {
-      $pull: {
-        assignedTeam: pid,
-        peopleIds: pid,
-        teamIds: pid,
-      },
-    }
-  );
-  for (const prId of ids) {
-    await Project.updateOne(
-      { _id: prId },
-      { $addToSet: { assignedTeam: pid } }
-    );
-  }
-}
-
 const createPerson = async (req, res) => {
   try {
     const { name, email, contact, role, assignedProjects } = req.body || {};
     if (!name) return res.status(400).json({ message: "name is required" });
-    const projectIds = [...new Set((assignedProjects || []).map(String))].filter(Boolean);
+    const projectIds = dedupeProjectIds(assignedProjects);
 
     const person = await People.create({
       name,
@@ -110,9 +95,11 @@ const updatePerson = async (req, res) => {
     if (!person) return res.status(404).json({ message: "Person not found" });
 
     if (assignedProjects !== undefined) {
-      const projectIds = [...new Set(assignedProjects.map(String))].filter(Boolean);
+      const projectIds = dedupeProjectIds(assignedProjects);
       await syncPersonProjects(person._id, projectIds);
-      person.assignedProjects = projectIds;
+      person.assignedProjects = projectIds.map(
+        (id) => new mongoose.Types.ObjectId(id)
+      );
     }
     if (name !== undefined) person.name = name;
     if (email !== undefined) person.email = email;
@@ -154,4 +141,5 @@ module.exports = {
   createPerson,
   updatePerson,
   deletePerson,
+  assignProjectToPerson,
 };
