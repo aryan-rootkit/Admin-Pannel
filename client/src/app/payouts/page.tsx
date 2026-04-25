@@ -23,6 +23,19 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { FormattedNumberInput } from "@/components/ui/FormattedNumberInput";
+import {
+  PAYOUT_KIND_OPTIONS,
+  payoutKindIsSubscription,
+  type PayoutKindValue,
+} from "@/lib/formOptions";
+import {
+  validateAmountPositive,
+  validatePayoutKind,
+  validatePayoutPerson,
+  validatePayoutProject,
+} from "@/lib/formValidation";
+import { buildPayoutPayload, payoutRowToKind } from "@/lib/payoutPayload";
 import { useToast } from "@/components/providers/ToastProvider";
 
 function refId(v: string | { _id: string } | undefined | null): string {
@@ -37,6 +50,13 @@ function toInputDate(iso?: string | null) {
   return d.toISOString().slice(0, 10);
 }
 
+type PayoutFormErrors = {
+  kind?: string;
+  project?: string;
+  person?: string;
+  amount?: string;
+};
+
 export default function PayoutsPage() {
   const toast = useToast();
   const [rows, setRows] = useState<PayoutRow[]>([]);
@@ -47,14 +67,13 @@ export default function PayoutsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [kind, setKind] = useState<"subscription" | "payout">("payout");
-  const [name, setName] = useState("");
-  const [status, setStatus] = useState("active");
+  const [kind, setKind] = useState<PayoutKindValue>("dev_payout");
   const [projectId, setProjectId] = useState("");
   const [peopleId, setPeopleId] = useState("");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState<number | undefined>(undefined);
   const [paymentDate, setPaymentDate] = useState("");
   const [currency, setCurrency] = useState("INR");
+  const [fieldErrors, setFieldErrors] = useState<PayoutFormErrors>({});
 
   const load = useCallback(async () => {
     const [pay, p, t] = await Promise.all([
@@ -87,71 +106,63 @@ export default function PayoutsPage() {
 
   function openCreate() {
     setEditingId(null);
-    setKind("payout");
-    setName("");
-    setStatus("active");
-    setProjectId(projects[0]?._id || "");
-    setPeopleId(people[0]?._id || "");
-    setAmount("");
+    setKind("dev_payout");
+    setProjectId("");
+    setPeopleId("");
+    setAmount(undefined);
     setPaymentDate(toInputDate(new Date().toISOString()));
     setCurrency("INR");
+    setFieldErrors({});
     setModalOpen(true);
   }
 
   function openEdit(r: PayoutRow) {
     setEditingId(r._id);
-    const t = r.type === "subscription" ? "subscription" : "payout";
-    setKind(t);
-    setName(r.name || "");
-    setStatus(r.status || "active");
+    setKind(payoutRowToKind(r));
     setProjectId(refId(r.projectId));
     setPeopleId(refId(r.peopleId) || refId(r.personId));
-    setAmount(String(r.amount ?? ""));
+    const a = Number(r.amount);
+    setAmount(Number.isFinite(a) ? a : undefined);
     setPaymentDate(toInputDate(r.paymentDate || r.paidAt || null));
     setCurrency(r.currency || "INR");
+    setFieldErrors({});
     setModalOpen(true);
   }
 
   function closeModal() {
     setModalOpen(false);
     setEditingId(null);
+    setFieldErrors({});
+  }
+
+  function validatePayoutForm(): boolean {
+    const next: PayoutFormErrors = {};
+    const ke = validatePayoutKind(kind);
+    if (ke) next.kind = ke;
+    const ae = validateAmountPositive(amount);
+    if (ae) next.amount = ae;
+    const sub = payoutKindIsSubscription(kind);
+    const pe = validatePayoutProject(projectId, sub);
+    if (pe) next.project = pe;
+    const per = validatePayoutPerson(peopleId, sub);
+    if (per) next.person = per;
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
   }
 
   async function onSave() {
-    const amt = Number(amount);
-    if (Number.isNaN(amt) || amt < 0) {
-      toast.error("Valid amount is required");
-      return;
-    }
-    if (kind === "subscription" && !name.trim()) {
-      toast.error("Name is required for subscriptions");
-      return;
-    }
-    if (kind === "payout" && (!projectId || !peopleId)) {
-      toast.error("Project and person are required for payouts");
-      return;
-    }
+    if (!validatePayoutForm()) return;
+    if (amount == null) return;
     setSaving(true);
-    const pd = paymentDate ? new Date(paymentDate).toISOString() : new Date().toISOString();
-    const body =
-      kind === "subscription"
-        ? {
-            type: "subscription" as const,
-            name: name.trim(),
-            amount: amt,
-            paymentDate: pd,
-            status: status.trim() || "active",
-            currency,
-          }
-        : {
-            type: "payout" as const,
-            projectId,
-            peopleId,
-            amount: amt,
-            paymentDate: pd,
-            currency,
-          };
     try {
+      const body = buildPayoutPayload({
+        kind,
+        amount,
+        paymentDate,
+        currency,
+        projectId,
+        peopleId,
+      });
       if (editingId) {
         await apiPut(`/payouts/${editingId}`, body);
         toast.updated();
@@ -180,7 +191,8 @@ export default function PayoutsPage() {
   }
 
   function typeLabel(p: PayoutRow) {
-    if (p.type === "subscription") return "Subscription";
+    if (p.category && String(p.category).trim()) return String(p.category).trim();
+    if (p.type === "subscription") return "Subscriptions";
     if (p.type === "payout") return "Dev payout";
     return p.category || "—";
   }
@@ -195,6 +207,8 @@ export default function PayoutsPage() {
     );
     return bits.length ? bits.join(" · ") : "—";
   }
+
+  const showProjectPerson = !payoutKindIsSubscription(kind);
 
   return (
     <div>
@@ -280,27 +294,19 @@ export default function PayoutsPage() {
         }
       >
         <div className="space-y-3">
-          <FormField label="Kind">
-            <Select
-              value={kind}
-              onChange={(e) => setKind(e.target.value as "subscription" | "payout")}
-            >
-              <option value="payout">Dev payout</option>
-              <option value="subscription">Subscription</option>
+          <FormField label="Kind" error={fieldErrors.kind}>
+            <Select value={kind} onChange={(e) => setKind(e.target.value as PayoutKindValue)}>
+              {PAYOUT_KIND_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </Select>
           </FormField>
-          {kind === "subscription" ? (
+
+          {showProjectPerson ? (
             <>
-              <FormField label="Name">
-                <Input value={name} onChange={(e) => setName(e.target.value)} />
-              </FormField>
-              <FormField label="Status">
-                <Input value={status} onChange={(e) => setStatus(e.target.value)} />
-              </FormField>
-            </>
-          ) : (
-            <>
-              <FormField label="Project">
+              <FormField label="Project" error={fieldErrors.project}>
                 <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
                   <option value="">Select project</option>
                   {projects.map((p) => (
@@ -310,7 +316,7 @@ export default function PayoutsPage() {
                   ))}
                 </Select>
               </FormField>
-              <FormField label="Person">
+              <FormField label="Person" error={fieldErrors.person}>
                 <Select value={peopleId} onChange={(e) => setPeopleId(e.target.value)}>
                   <option value="">Select person</option>
                   {people.map((m) => (
@@ -321,15 +327,20 @@ export default function PayoutsPage() {
                 </Select>
               </FormField>
             </>
-          )}
-          <FormField label="Amount">
-            <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          ) : null}
+
+          <FormField label="Amount" error={fieldErrors.amount}>
+            <FormattedNumberInput
+              value={amount}
+              onChange={setAmount}
+              placeholder="e.g. 50000"
+            />
           </FormField>
           <FormField label="Payment date">
             <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
           </FormField>
           <FormField label="Currency">
-            <Input value={currency} onChange={(e) => setCurrency(e.target.value)} />
+            <Input value={currency} onChange={(e) => setCurrency(e.target.value)} maxLength={8} />
           </FormField>
         </div>
       </Modal>

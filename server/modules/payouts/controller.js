@@ -69,6 +69,7 @@ const createPayout = async (req, res) => {
         status: body.status || "active",
         currency: body.currency || "INR",
         notes: body.notes,
+        category: body.category,
       });
     } else {
       if (!body.projectId || !(body.peopleId || body.personId))
@@ -83,6 +84,7 @@ const createPayout = async (req, res) => {
         paymentDate,
         currency: body.currency || "INR",
         notes: body.notes,
+        category: body.category,
       });
     }
 
@@ -113,6 +115,7 @@ const updatePayout = async (req, res) => {
     if (body.peopleId !== undefined) patch.peopleId = body.peopleId;
     if (body.personId !== undefined) patch.personId = body.personId;
     if (body.clientId !== undefined) patch.clientId = body.clientId;
+    if (body.category !== undefined) patch.category = body.category;
 
     const doc = await Payout.findByIdAndUpdate(req.params.id, patch, {
       new: true,

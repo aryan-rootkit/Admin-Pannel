@@ -19,6 +19,14 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { MultiSelect } from "@/components/ui/MultiSelect";
+import { FormattedNumberInput } from "@/components/ui/FormattedNumberInput";
+import { PROJECT_STATUS_OPTIONS } from "@/lib/formOptions";
+import {
+  validateBudgetPositive,
+  validateClientId,
+  validateProjectName,
+} from "@/lib/formValidation";
 import { useToast } from "@/components/providers/ToastProvider";
 
 function refId(v: string | { _id: string } | undefined | null): string {
@@ -37,6 +45,12 @@ function teamMemberIds(p: Project): string[] {
     .filter(Boolean);
 }
 
+type ProjectFormErrors = {
+  name?: string;
+  client?: string;
+  budget?: string;
+};
+
 export default function ProjectsPage() {
   const toast = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -49,9 +63,10 @@ export default function ProjectsPage() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [clientId, setClientId] = useState("");
-  const [budget, setBudget] = useState("");
-  const [status, setStatus] = useState("active");
+  const [budgetAmount, setBudgetAmount] = useState<number | undefined>(undefined);
+  const [status, setStatus] = useState<string>(PROJECT_STATUS_OPTIONS[0]);
   const [teamIds, setTeamIds] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<ProjectFormErrors>({});
 
   const load = useCallback(async () => {
     const [p, c, t] = await Promise.all([
@@ -85,10 +100,11 @@ export default function ProjectsPage() {
   function openCreate() {
     setEditingId(null);
     setName("");
-    setClientId(clients[0]?._id || "");
-    setBudget("");
-    setStatus("active");
+    setClientId("");
+    setBudgetAmount(undefined);
+    setStatus(PROJECT_STATUS_OPTIONS[0]);
     setTeamIds([]);
+    setFieldErrors({});
     setModalOpen(true);
   }
 
@@ -96,28 +112,40 @@ export default function ProjectsPage() {
     setEditingId(p._id);
     setName(p.name || "");
     setClientId(refId(p.clientId));
-    setBudget(p.budget != null ? String(p.budget) : "");
-    setStatus(p.status || "active");
+    const b = p.budget;
+    setBudgetAmount(b != null && Number.isFinite(Number(b)) ? Number(b) : undefined);
+    setStatus(p.status && p.status.trim() ? p.status : PROJECT_STATUS_OPTIONS[0]);
     setTeamIds(teamMemberIds(p));
+    setFieldErrors({});
     setModalOpen(true);
   }
 
   function closeModal() {
     setModalOpen(false);
     setEditingId(null);
+    setFieldErrors({});
+  }
+
+  function validateProjectForm(): boolean {
+    const next: ProjectFormErrors = {};
+    const ne = validateProjectName(name);
+    if (ne) next.name = ne;
+    const ce = validateClientId(clientId);
+    if (ce) next.client = ce;
+    const be = validateBudgetPositive(budgetAmount);
+    if (be) next.budget = be;
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
   }
 
   async function onSave() {
-    if (!name.trim() || !clientId) {
-      toast.error("Name and client are required");
-      return;
-    }
+    if (!validateProjectForm()) return;
     setSaving(true);
     const body = {
       name: name.trim(),
       clientId,
-      status: status.trim() || "active",
-      budget: budget ? Number(budget) : undefined,
+      status: status.trim(),
+      budget: budgetAmount,
       assignedTeam: teamIds,
     };
     try {
@@ -146,6 +174,16 @@ export default function ProjectsPage() {
     } catch {
       toast.error();
     }
+  }
+
+  const peopleOptions = people.map((m) => ({
+    value: m._id,
+    label: m.name || m.email || m._id,
+  }));
+
+  const statusOptions = [...PROJECT_STATUS_OPTIONS];
+  if (status && !statusOptions.includes(status as (typeof PROJECT_STATUS_OPTIONS)[number])) {
+    statusOptions.push(status as (typeof PROJECT_STATUS_OPTIONS)[number]);
   }
 
   return (
@@ -239,11 +277,11 @@ export default function ProjectsPage() {
         }
       >
         <div className="space-y-3">
-          <FormField label="Name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          <FormField label="Name" error={fieldErrors.name}>
+            <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
           </FormField>
-          <FormField label="Client">
-            <Select value={clientId} onChange={(e) => setClientId(e.target.value)} required>
+          <FormField label="Client" error={fieldErrors.client}>
+            <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
               <option value="">Select client</option>
               {clients.map((c) => (
                 <option key={c._id} value={c._id}>
@@ -252,32 +290,30 @@ export default function ProjectsPage() {
               ))}
             </Select>
           </FormField>
-          <FormField label="Budget">
-            <Input
-              inputMode="numeric"
-              value={budget}
-              onChange={(e) => setBudget(e.target.value)}
-              placeholder="Optional"
+          <FormField label="Budget" error={fieldErrors.budget}>
+            <FormattedNumberInput
+              value={budgetAmount}
+              onChange={setBudgetAmount}
+              placeholder="e.g. 100000"
             />
           </FormField>
           <FormField label="Status">
-            <Input value={status} onChange={(e) => setStatus(e.target.value)} />
-          </FormField>
-          <FormField label="Assigned team (multi-select)">
-            <select
-              multiple
-              className="min-h-[120px] w-full rounded-lg border border-[var(--purity-border)] bg-[var(--purity-card)] px-3 py-2 text-sm text-[var(--purity-text)] outline-none focus:ring-2 focus:ring-[var(--purity-accent)]/40"
-              value={teamIds}
-              onChange={(e) =>
-                setTeamIds(Array.from(e.target.selectedOptions, (o) => o.value))
-              }
-            >
-              {people.map((m) => (
-                <option key={m._id} value={m._id}>
-                  {m.name || m.email || m._id}
+            <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+              {statusOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
                 </option>
               ))}
-            </select>
+            </Select>
+          </FormField>
+          <FormField label="Assigned team">
+            <MultiSelect
+              options={peopleOptions}
+              value={teamIds}
+              onChange={setTeamIds}
+              disabled={!peopleOptions.length}
+            />
+            <p className="text-xs text-[var(--purity-muted)]">Hold Ctrl or Cmd to select multiple.</p>
           </FormField>
         </div>
       </Modal>

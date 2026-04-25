@@ -17,7 +17,23 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { MultiSelect } from "@/components/ui/MultiSelect";
+import { PEOPLE_ROLE_OPTIONS } from "@/lib/formOptions";
+import {
+  validateContactTenDigits,
+  validateEmail,
+  validatePersonName,
+  validateRole,
+} from "@/lib/formValidation";
 import { useToast } from "@/components/providers/ToastProvider";
+
+type PeopleFormErrors = {
+  name?: string;
+  email?: string;
+  contact?: string;
+  role?: string;
+};
 
 export default function PeoplesPage() {
   const toast = useToast();
@@ -33,6 +49,7 @@ export default function PeoplesPage() {
   const [contact, setContact] = useState("");
   const [role, setRole] = useState("");
   const [projectIds, setProjectIds] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<PeopleFormErrors>({});
 
   const load = useCallback(async () => {
     const [t, p] = await Promise.all([
@@ -68,12 +85,14 @@ export default function PeoplesPage() {
     setContact("");
     setRole("");
     setProjectIds([]);
+    setFieldErrors({});
     setModalOpen(true);
   }
 
   async function openEdit(p: PersonRow) {
     setEditingId(p._id);
     setModalOpen(true);
+    setFieldErrors({});
     try {
       const raw = await apiGet<{
         name?: string;
@@ -84,7 +103,8 @@ export default function PeoplesPage() {
       }>(`${API_PEOPLE}/${p._id}`);
       setName(raw.name || "");
       setEmail(raw.email || "");
-      setContact(raw.contact || "");
+      const c = (raw.contact || "").replace(/\D/g, "").slice(0, 10);
+      setContact(c);
       setRole(raw.role || "");
       setProjectIds(
         (raw.assignedProjects || []).map((id) => String(id)).filter(Boolean)
@@ -92,7 +112,7 @@ export default function PeoplesPage() {
     } catch {
       setName(p.name || "");
       setEmail(p.email || "");
-      setContact(p.contact || "");
+      setContact((p.contact || "").replace(/\D/g, "").slice(0, 10));
       setRole(p.role || "");
       setProjectIds([]);
     }
@@ -101,19 +121,35 @@ export default function PeoplesPage() {
   function closeModal() {
     setModalOpen(false);
     setEditingId(null);
+    setFieldErrors({});
+  }
+
+  function onContactChange(v: string) {
+    setContact(v.replace(/\D/g, "").slice(0, 10));
+  }
+
+  function validatePeopleForm(): boolean {
+    const next: PeopleFormErrors = {};
+    const ne = validatePersonName(name);
+    if (ne) next.name = ne;
+    const ee = validateEmail(email);
+    if (ee) next.email = ee;
+    const ce = validateContactTenDigits(contact);
+    if (ce) next.contact = ce;
+    const re = validateRole(role);
+    if (re) next.role = re;
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
   }
 
   async function onSave() {
-    if (!name.trim()) {
-      toast.error("Name is required");
-      return;
-    }
+    if (!validatePeopleForm()) return;
     setSaving(true);
     const body = {
       name: name.trim(),
-      email: email.trim() || undefined,
-      contact: contact.trim() || undefined,
-      role: role.trim() || undefined,
+      email: email.trim(),
+      contact: contact.trim(),
+      role: role.trim(),
       assignedProjects: projectIds,
     };
     try {
@@ -144,6 +180,16 @@ export default function PeoplesPage() {
     }
   }
 
+  const projectOptions = projects.map((pr) => ({
+    value: pr._id,
+    label: pr.name,
+  }));
+
+  const roleOptions = [...PEOPLE_ROLE_OPTIONS];
+  if (role && !roleOptions.includes(role as (typeof PEOPLE_ROLE_OPTIONS)[number])) {
+    roleOptions.push(role as (typeof PEOPLE_ROLE_OPTIONS)[number]);
+  }
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -170,8 +216,9 @@ export default function PeoplesPage() {
           <div className="col-span-2">Name</div>
           <div className="col-span-2">Email</div>
           <div className="col-span-2">Contact</div>
-          <div className="col-span-3">Assigned projects</div>
-          <div className="col-span-3 text-right">Actions</div>
+          <div className="col-span-2">Role</div>
+          <div className="col-span-2">Assigned projects</div>
+          <div className="col-span-2 text-right">Actions</div>
         </div>
         {!loading && !error && people.length === 0 ? (
           <EmptyState message="No data" />
@@ -182,10 +229,11 @@ export default function PeoplesPage() {
               <div className="col-span-2 font-semibold text-[var(--purity-text)]">{p.name || "—"}</div>
               <div className="col-span-2 text-[var(--purity-muted)]">{p.email || "—"}</div>
               <div className="col-span-2 text-[var(--purity-muted)]">{p.contact || "—"}</div>
-              <div className="col-span-3 text-xs text-[var(--purity-muted)]">
+              <div className="col-span-2 text-xs text-[var(--purity-muted)]">{p.role || "—"}</div>
+              <div className="col-span-2 text-xs text-[var(--purity-muted)]">
                 {resolveAssignedProjectNames(p.assignedProjects)}
               </div>
-              <div className="col-span-3 flex justify-end gap-2">
+              <div className="col-span-2 flex justify-end gap-2">
                 <button
                   type="button"
                   className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
@@ -221,33 +269,45 @@ export default function PeoplesPage() {
         }
       >
         <div className="space-y-3">
-          <FormField label="Name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          <FormField label="Name" error={fieldErrors.name}>
+            <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
           </FormField>
-          <FormField label="Email">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <FormField label="Email" error={fieldErrors.email}>
+            <Input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </FormField>
-          <FormField label="Contact">
-            <Input value={contact} onChange={(e) => setContact(e.target.value)} />
+          <FormField label="Contact" error={fieldErrors.contact}>
+            <Input
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="10-digit mobile"
+              value={contact}
+              onChange={(e) => onContactChange(e.target.value)}
+            />
           </FormField>
-          <FormField label="Role">
-            <Input value={role} onChange={(e) => setRole(e.target.value)} />
-          </FormField>
-          <FormField label="Assigned projects (multi-select)">
-            <select
-              multiple
-              className="min-h-[120px] w-full rounded-lg border border-[var(--purity-border)] bg-[var(--purity-card)] px-3 py-2 text-sm text-[var(--purity-text)] outline-none focus:ring-2 focus:ring-[var(--purity-accent)]/40"
-              value={projectIds}
-              onChange={(e) =>
-                setProjectIds(Array.from(e.target.selectedOptions, (o) => o.value))
-              }
-            >
-              {projects.map((pr) => (
-                <option key={pr._id} value={pr._id}>
-                  {pr.name}
+          <FormField label="Role" error={fieldErrors.role}>
+            <Select value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="">Select role</option>
+              {roleOptions.map((r) => (
+                <option key={r} value={r}>
+                  {r}
                 </option>
               ))}
-            </select>
+            </Select>
+          </FormField>
+          <FormField label="Assigned projects">
+            <MultiSelect
+              options={projectOptions}
+              value={projectIds}
+              onChange={setProjectIds}
+              disabled={!projectOptions.length}
+            />
+            <p className="text-xs text-[var(--purity-muted)]">Hold Ctrl or Cmd to select multiple.</p>
           </FormField>
         </div>
       </Modal>
