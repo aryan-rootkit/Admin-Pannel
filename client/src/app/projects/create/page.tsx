@@ -13,12 +13,12 @@ import { FormattedNumberInput } from "@/components/ui/FormattedNumberInput";
 import { FormField } from "@/components/ui/FormField";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/formOptions";
 import {
-  validateBudgetPositive,
   validateClientId,
+  validateContractValuePositive,
   validateProjectName,
 } from "@/lib/formValidation";
 
-type FieldErrors = { name?: string; client?: string; budget?: string };
+type FieldErrors = { name?: string; client?: string; contract?: string };
 
 export default function CreateProjectPage() {
   const router = useRouter();
@@ -28,7 +28,7 @@ export default function CreateProjectPage() {
   const [name, setName] = useState("");
   const [clientId, setClientId] = useState("");
   const [status, setStatus] = useState<string>(PROJECT_STATUS_OPTIONS[0]);
-  const [budgetAmount, setBudgetAmount] = useState<number | undefined>(undefined);
+  const [contractAmount, setContractAmount] = useState<number | undefined>(undefined);
   const [teamIds, setTeamIds] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [saving, setSaving] = useState(false);
@@ -62,8 +62,8 @@ export default function CreateProjectPage() {
     if (ne) next.name = ne;
     const ce = validateClientId(clientId);
     if (ce) next.client = ce;
-    const be = validateBudgetPositive(budgetAmount);
-    if (be) next.budget = be;
+    const be = validateContractValuePositive(contractAmount);
+    if (be) next.contract = be;
     setFieldErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -78,7 +78,8 @@ export default function CreateProjectPage() {
         name: name.trim(),
         clientId,
         status: status.trim(),
-        budget: budgetAmount,
+        totalValue: contractAmount,
+        budget: contractAmount,
         assignedTeam: teamIds,
       });
       router.push("/projects");
@@ -124,10 +125,10 @@ export default function CreateProjectPage() {
           </Select>
         </FormField>
 
-        <FormField label="Budget" error={fieldErrors.budget}>
+        <FormField label="Contract value (total)" error={fieldErrors.contract}>
           <FormattedNumberInput
-            value={budgetAmount}
-            onChange={setBudgetAmount}
+            value={contractAmount}
+            onChange={setContractAmount}
             placeholder="e.g. 100000"
           />
         </FormField>

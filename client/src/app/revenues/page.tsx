@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchJson } from "@/lib/fetchApi";
 import { apiDelete, apiPost, apiPut } from "@/lib/api";
-import type { Project, RevenuePaymentType, RevenueRow } from "@/types/api";
+import type { Project, RevenuePaymentType, RevenueRow, RevenueStatus } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -13,7 +13,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { REVENUE_PAYMENT_TYPES } from "@/lib/formOptions";
+import { REVENUE_PAYMENT_TYPES, REVENUE_STATUS_OPTIONS } from "@/lib/formOptions";
 import { useToast } from "@/components/providers/ToastProvider";
 
 function refId(v: string | { _id: string } | undefined | null): string {
@@ -29,7 +29,13 @@ function toInputDate(iso?: string | null) {
 }
 
 function paymentLineAmount(r: RevenueRow): number {
-  return Number(r.totalAmount ?? r.amount ?? 0) || 0;
+  return Number(r.amount ?? r.totalAmount ?? 0) || 0;
+}
+
+function paymentReceivedInGroup(r: RevenueRow): number {
+  const st = r.status || "Received";
+  if (st !== "Received") return 0;
+  return paymentLineAmount(r);
 }
 
 type ProjectRevenueGroup = {
@@ -54,6 +60,7 @@ export default function RevenuesPage() {
   const [paymentDate, setPaymentDate] = useState("");
   const [currency, setCurrency] = useState("INR");
   const [paymentType, setPaymentType] = useState<RevenuePaymentType>("Installment");
+  const [status, setStatus] = useState<RevenueStatus>("Received");
 
   const load = useCallback(async () => {
     const [r, p] = await Promise.all([
@@ -74,13 +81,13 @@ export default function RevenuesPage() {
       }
       const g = map.get(pid)!;
       g.payments.push(r);
-      g.totalReceived += paymentLineAmount(r);
+      g.totalReceived += paymentReceivedInGroup(r);
     }
     for (const g of map.values()) {
       g.payments.sort(
         (a, b) =>
-          new Date(b.paymentDate || b.receivedAt || 0).getTime() -
-          new Date(a.paymentDate || a.receivedAt || 0).getTime()
+          new Date(b.date || b.paymentDate || b.receivedAt || 0).getTime() -
+          new Date(a.date || a.paymentDate || a.receivedAt || 0).getTime()
       );
     }
     return [...map.values()].sort((a, b) =>
@@ -114,6 +121,7 @@ export default function RevenuesPage() {
     setPaymentDate(toInputDate(new Date().toISOString()));
     setCurrency("INR");
     setPaymentType("Installment");
+    setStatus("Received");
     setModalOpen(true);
   }
 
@@ -122,11 +130,17 @@ export default function RevenuesPage() {
     setProjectId(refId(r.projectId));
     setTotalAmount(String(r.totalAmount ?? r.amount ?? 0));
     setAdvanceAmount(String(r.advanceAmount ?? 0));
-    setPaymentDate(toInputDate(r.paymentDate || r.receivedAt || null));
+    setPaymentDate(toInputDate(r.date || r.paymentDate || r.receivedAt || null));
     setCurrency(r.currency || "INR");
-    const pt = r.paymentType;
+    const pt = r.paymentType || r.type;
     setPaymentType(
       pt && (REVENUE_PAYMENT_TYPES as readonly string[]).includes(pt) ? pt : "Installment"
+    );
+    const st = r.status;
+    setStatus(
+      st && (REVENUE_STATUS_OPTIONS as readonly string[]).includes(st)
+        ? (st as RevenueStatus)
+        : "Received"
     );
     setModalOpen(true);
   }
@@ -149,14 +163,18 @@ export default function RevenuesPage() {
     setSaving(true);
     const advance = Number(advanceAmount) || 0;
     const pending = Math.max(0, total - advance);
+    const isoDate = paymentDate ? new Date(paymentDate).toISOString() : undefined;
     const body = {
       projectId,
+      amount: total,
       totalAmount: total,
       advanceAmount: advance,
       pendingAmount: pending,
-      paymentDate: paymentDate ? new Date(paymentDate).toISOString() : undefined,
+      date: isoDate,
+      paymentDate: isoDate,
       currency,
       paymentType,
+      status,
     };
     try {
       if (editingId) {
@@ -198,7 +216,7 @@ export default function RevenuesPage() {
       <p className="mb-4 max-w-2xl text-sm text-[var(--purity-muted)]">
         Each row is a <strong className="text-[var(--purity-text)]">payment</strong> (advance,
         installment, or final). Totals below are <strong className="text-[var(--purity-text)]">sum
-        of payments</strong> per project.
+        of received payments</strong> per project (status = Received).
       </p>
 
       {!projects.length && !loading ? (
@@ -252,10 +270,21 @@ export default function RevenuesPage() {
                         {formatMoney(paymentLineAmount(r), r.currency || "INR")}
                       </span>
                       <span className="ml-2 rounded-md bg-[var(--purity-sidebar-active)] px-2 py-0.5 text-xs font-medium text-[var(--purity-accent-hover)]">
-                        {r.paymentType || "Installment"}
+                        {r.paymentType || r.type || "Installment"}
+                      </span>
+                      <span
+                        className={`ml-2 rounded-md px-2 py-0.5 text-xs font-medium ${
+                          r.status === "Pending"
+                            ? "bg-amber-100 text-amber-900"
+                            : r.status === "Failed"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-emerald-50 text-emerald-800"
+                        }`}
+                      >
+                        {r.status || "Received"}
                       </span>
                       <span className="ml-2 text-xs text-[var(--purity-muted)]">
-                        {formatDate(r.paymentDate || r.receivedAt)}
+                        {formatDate(r.date || r.paymentDate || r.receivedAt)}
                       </span>
                     </div>
                     <div className="flex shrink-0 gap-2">
@@ -315,6 +344,18 @@ export default function RevenuesPage() {
               {REVENUE_PAYMENT_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {t}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Status">
+            <Select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as RevenueStatus)}
+            >
+              {REVENUE_STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
                 </option>
               ))}
             </Select>

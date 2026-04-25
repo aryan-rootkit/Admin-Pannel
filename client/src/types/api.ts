@@ -18,6 +18,7 @@ export type Project = {
   clientId: string | PopulatedRef;
   status?: string;
   budget?: number;
+  totalValue?: number;
   assignedTeam?: Array<PopulatedRef | string>;
   peopleIds?: string[];
   teamIds?: string[];
@@ -37,18 +38,24 @@ export type PersonRow = {
 
 export type RevenuePaymentType = "Advance" | "Installment" | "Final";
 
+export type RevenueStatus = "Received" | "Pending" | "Failed";
+
 export type RevenueRow = {
   _id: string;
-  projectId: string | { _id: string; name: string; clientId?: unknown };
+  projectId: string | { _id: string; name: string; clientId?: unknown; totalValue?: number };
   totalAmount?: number;
   advanceAmount?: number;
   pendingAmount?: number;
   paymentDate?: string;
+  date?: string;
   amount?: number;
   currency?: string;
   receivedAt?: string;
   description?: string;
   paymentType?: RevenuePaymentType;
+  /** Same as paymentType in API responses */
+  type?: RevenuePaymentType;
+  status?: RevenueStatus;
 };
 
 export type ProfitAnalytics = {
@@ -63,6 +70,24 @@ export type ProfitAnalytics = {
     labourCost: number;
     payoutCost: number;
     totalCost: number;
+  }>;
+};
+
+export type FinanceAnalytics = {
+  totalRevenue: number;
+  totalProjectCost: number;
+  totalExpenses: number;
+  projectProfit: number;
+  netProfit: number;
+  pendingRevenue: number;
+  projectBreakdown: Array<{
+    projectId: string;
+    projectName: string;
+    totalValue: number;
+    totalReceived: number;
+    pending: number;
+    projectCost: number;
+    projectProfit: number;
   }>;
 };
 

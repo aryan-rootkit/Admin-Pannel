@@ -49,7 +49,7 @@ const getProjects = async (_req, res) => {
 
 const createProject = async (req, res) => {
   try {
-    const { name, clientId, budget, status, assignedTeam, peopleIds, teamIds } =
+    const { name, clientId, budget, totalValue, status, assignedTeam, peopleIds, teamIds } =
       req.body || {};
     if (!name) return res.status(400).json({ message: "name is required" });
     if (!clientId) return res.status(400).json({ message: "clientId is required" });
@@ -68,6 +68,7 @@ const createProject = async (req, res) => {
       name,
       clientId,
       budget,
+      totalValue: totalValue != null ? Number(totalValue) : undefined,
       status,
       assignedTeam: mergedTeam.length ? mergedTeam : undefined,
     });
@@ -107,7 +108,7 @@ async function syncProjectMembers(projectId, memberIds) {
 
 const updateProject = async (req, res) => {
   try {
-    const { name, clientId, budget, status, assignedTeam, peopleIds, teamIds } =
+    const { name, clientId, budget, totalValue, status, assignedTeam, peopleIds, teamIds } =
       req.body || {};
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: "Project not found" });
@@ -128,6 +129,7 @@ const updateProject = async (req, res) => {
     if (name !== undefined) project.name = name;
     if (clientId !== undefined) project.clientId = clientId;
     if (budget !== undefined) project.budget = budget;
+    if (totalValue !== undefined) project.totalValue = totalValue;
     if (status !== undefined) project.status = status;
     if (assignedTeam !== undefined || peopleIds !== undefined || teamIds !== undefined) {
       project.assignedTeam = mergedTeam.length ? mergedTeam : [];

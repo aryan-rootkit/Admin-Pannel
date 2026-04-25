@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import {
+  API_ANALYTICS_FINANCE,
   API_ANALYTICS_MONTHLY,
-  API_ANALYTICS_PROFIT,
   API_PEOPLE,
   fetchJson,
   getApiBase,
 } from "@/lib/fetchApi";
-import type { MonthlyAnalyticsRow, ProfitAnalytics } from "@/types/api";
+import type { FinanceAnalytics, MonthlyAnalyticsRow } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
 import { DashboardInsights } from "@/components/dashboard/DashboardInsights";
@@ -26,7 +26,7 @@ export default function DashboardPage() {
 
   const [insightLoading, setInsightLoading] = useState(true);
   const [insightError, setInsightError] = useState<string | null>(null);
-  const [profit, setProfit] = useState<ProfitAnalytics | null>(null);
+  const [finance, setFinance] = useState<FinanceAnalytics | null>(null);
   const [monthly, setMonthly] = useState<MonthlyAnalyticsRow[]>([]);
 
   useEffect(() => {
@@ -75,12 +75,12 @@ export default function DashboardPage() {
     (async () => {
       try {
         getApiBase();
-        const [p, m] = await Promise.all([
-          fetchJson<ProfitAnalytics>(API_ANALYTICS_PROFIT),
+        const [f, m] = await Promise.all([
+          fetchJson<FinanceAnalytics>(API_ANALYTICS_FINANCE),
           fetchJson<MonthlyAnalyticsRow[]>(API_ANALYTICS_MONTHLY),
         ]);
         if (!cancelled) {
-          setProfit(p);
+          setFinance(f);
           setMonthly(Array.isArray(m) ? m : []);
           setInsightError(null);
         }
@@ -139,7 +139,7 @@ export default function DashboardPage() {
       ) : null}
 
       <DashboardInsights
-        profit={profit}
+        finance={finance}
         monthly={monthly}
         loading={insightLoading}
         error={insightError}

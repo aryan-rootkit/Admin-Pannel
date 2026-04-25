@@ -6,6 +6,8 @@ const ProjectSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     clientId: { type: Types.ObjectId, ref: "Client", required: true, index: true },
+    /** Full contract / deal value (used for pending revenue) */
+    totalValue: { type: Number, min: 0 },
     budget: { type: Number, min: 0 },
     assignedTeam: [{ type: Types.ObjectId, ref: "People", index: true }],
     /** @deprecated prefer `assignedTeam` */

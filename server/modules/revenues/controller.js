@@ -5,27 +5,32 @@
  *     populate: { path: "clientId", select: "name email contact" } });
  */
 const { Revenue } = require("./model");
+const { revenueLineAmount, revenueLineStatus, revenueLineDate } = require("../lib/financeHelpers");
 
 function normalizeRevenueLean(doc) {
-  const total =
-    doc.totalAmount != null ? doc.totalAmount : doc.amount != null ? doc.amount : 0;
+  const amount = revenueLineAmount(doc);
   const advance = doc.advanceAmount != null ? doc.advanceAmount : 0;
   const pending =
     doc.pendingAmount != null
       ? doc.pendingAmount
-      : Math.max(0, Number(total) - Number(advance));
-  const paymentDate = doc.paymentDate || doc.receivedAt;
+      : Math.max(0, Number(amount) - Number(advance));
+  const date = revenueLineDate(doc);
+  const status = revenueLineStatus(doc);
   const paymentType =
     doc.paymentType && ["Advance", "Installment", "Final"].includes(doc.paymentType)
       ? doc.paymentType
       : "Installment";
   return {
     ...doc,
-    totalAmount: total,
+    amount,
+    totalAmount: amount,
     advanceAmount: advance,
     pendingAmount: pending,
-    paymentDate,
+    date,
+    paymentDate: date,
     paymentType,
+    type: paymentType,
+    status,
   };
 }
 
@@ -34,14 +39,14 @@ const getRevenues = async (_req, res) => {
     const revenues = await Revenue.find()
       .populate({
         path: "projectId",
-        select: "name budget clientId",
+        select: "name budget clientId totalValue",
         populate: { path: "clientId", select: "name email contact" },
       })
       .lean();
 
     revenues.sort((a, b) => {
-      const da = new Date(a.paymentDate || a.receivedAt || 0).getTime();
-      const db = new Date(b.paymentDate || b.receivedAt || 0).getTime();
+      const da = new Date(revenueLineDate(a) || 0).getTime();
+      const db = new Date(revenueLineDate(b) || 0).getTime();
       return db - da;
     });
 
@@ -55,43 +60,63 @@ const getRevenues = async (_req, res) => {
 
 const createRevenue = async (req, res) => {
   try {
+    const body = req.body || {};
     const {
       projectId,
+      amount,
       totalAmount,
       advanceAmount,
       pendingAmount,
+      date,
       paymentDate,
       currency,
       description,
       paymentType,
-    } = req.body || {};
+      type,
+      status,
+    } = body;
     if (!projectId) return res.status(400).json({ message: "projectId is required" });
-    const total = totalAmount != null ? Number(totalAmount) : 0;
+
+    const line =
+      amount != null && amount !== ""
+        ? Number(amount)
+        : totalAmount != null && totalAmount !== ""
+          ? Number(totalAmount)
+          : 0;
     const advance = advanceAmount != null ? Number(advanceAmount) : 0;
     const pending =
       pendingAmount != null
         ? Number(pendingAmount)
-        : Math.max(0, total - advance);
+        : Math.max(0, line - advance);
 
+    const ptRaw = type || paymentType;
     const pt =
-      paymentType && ["Advance", "Installment", "Final"].includes(paymentType)
-        ? paymentType
+      ptRaw && ["Advance", "Installment", "Final"].includes(ptRaw)
+        ? ptRaw
         : "Installment";
+
+    const st =
+      status && ["Received", "Pending", "Failed"].includes(status) ? status : "Received";
+
+    const dt = date || paymentDate || undefined;
 
     const doc = await Revenue.create({
       projectId,
-      totalAmount: total,
+      amount: line,
+      totalAmount: line,
       advanceAmount: advance,
       pendingAmount: pending,
-      paymentDate: paymentDate || undefined,
+      date: dt || undefined,
+      paymentDate: dt || undefined,
       currency: currency || "INR",
       description,
       paymentType: pt,
+      status: st,
     });
     const populated = await Revenue.findById(doc._id)
       .populate({
         path: "projectId",
-        select: "name budget clientId",
+        select: "name budget clientId totalValue",
         populate: { path: "clientId", select: "name email contact" },
       })
       .lean();
@@ -103,28 +128,54 @@ const createRevenue = async (req, res) => {
 
 const updateRevenue = async (req, res) => {
   try {
+    const body = req.body || {};
     const {
       projectId,
+      amount,
       totalAmount,
       advanceAmount,
       pendingAmount,
+      date,
       paymentDate,
       currency,
       description,
       paymentType,
-    } = req.body || {};
+      type,
+      status,
+    } = body;
     const patch = {};
     if (projectId !== undefined) patch.projectId = projectId;
-    if (totalAmount !== undefined) patch.totalAmount = Number(totalAmount);
+    if (amount !== undefined || totalAmount !== undefined) {
+      const line =
+        amount !== undefined && amount !== ""
+          ? Number(amount)
+          : totalAmount !== undefined && totalAmount !== ""
+            ? Number(totalAmount)
+            : undefined;
+      if (line !== undefined && !Number.isNaN(line)) {
+        patch.amount = line;
+        patch.totalAmount = line;
+      }
+    }
     if (advanceAmount !== undefined) patch.advanceAmount = Number(advanceAmount);
     if (pendingAmount !== undefined) patch.pendingAmount = Number(pendingAmount);
-    if (paymentDate !== undefined) patch.paymentDate = paymentDate || null;
+    if (date !== undefined || paymentDate !== undefined) {
+      const dt = date !== undefined ? date : paymentDate;
+      patch.date = dt || null;
+      patch.paymentDate = dt || null;
+    }
     if (currency !== undefined) patch.currency = currency;
     if (description !== undefined) patch.description = description;
-    if (paymentType !== undefined) {
-      patch.paymentType = ["Advance", "Installment", "Final"].includes(paymentType)
-        ? paymentType
+    const ptRaw = type !== undefined ? type : paymentType;
+    if (ptRaw !== undefined) {
+      patch.paymentType = ["Advance", "Installment", "Final"].includes(ptRaw)
+        ? ptRaw
         : "Installment";
+    }
+    if (status !== undefined) {
+      patch.status = ["Received", "Pending", "Failed"].includes(status)
+        ? status
+        : "Received";
     }
 
     const doc = await Revenue.findByIdAndUpdate(req.params.id, patch, {
@@ -135,7 +186,7 @@ const updateRevenue = async (req, res) => {
     const populated = await Revenue.findById(doc._id)
       .populate({
         path: "projectId",
-        select: "name budget clientId",
+        select: "name budget clientId totalValue",
         populate: { path: "clientId", select: "name email contact" },
       })
       .lean();

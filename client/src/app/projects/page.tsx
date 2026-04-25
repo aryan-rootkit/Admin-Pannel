@@ -23,8 +23,8 @@ import { MultiSelect } from "@/components/ui/MultiSelect";
 import { FormattedNumberInput } from "@/components/ui/FormattedNumberInput";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/formOptions";
 import {
-  validateBudgetPositive,
   validateClientId,
+  validateContractValuePositive,
   validateProjectName,
 } from "@/lib/formValidation";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -48,7 +48,7 @@ function teamMemberIds(p: Project): string[] {
 type ProjectFormErrors = {
   name?: string;
   client?: string;
-  budget?: string;
+  contract?: string;
 };
 
 export default function ProjectsPage() {
@@ -63,7 +63,7 @@ export default function ProjectsPage() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [clientId, setClientId] = useState("");
-  const [budgetAmount, setBudgetAmount] = useState<number | undefined>(undefined);
+  const [contractAmount, setContractAmount] = useState<number | undefined>(undefined);
   const [status, setStatus] = useState<string>(PROJECT_STATUS_OPTIONS[0]);
   const [teamIds, setTeamIds] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<ProjectFormErrors>({});
@@ -101,7 +101,7 @@ export default function ProjectsPage() {
     setEditingId(null);
     setName("");
     setClientId("");
-    setBudgetAmount(undefined);
+    setContractAmount(undefined);
     setStatus(PROJECT_STATUS_OPTIONS[0]);
     setTeamIds([]);
     setFieldErrors({});
@@ -112,8 +112,8 @@ export default function ProjectsPage() {
     setEditingId(p._id);
     setName(p.name || "");
     setClientId(refId(p.clientId));
-    const b = p.budget;
-    setBudgetAmount(b != null && Number.isFinite(Number(b)) ? Number(b) : undefined);
+    const v = p.totalValue ?? p.budget;
+    setContractAmount(v != null && Number.isFinite(Number(v)) ? Number(v) : undefined);
     setStatus(p.status && p.status.trim() ? p.status : PROJECT_STATUS_OPTIONS[0]);
     setTeamIds(teamMemberIds(p));
     setFieldErrors({});
@@ -132,8 +132,8 @@ export default function ProjectsPage() {
     if (ne) next.name = ne;
     const ce = validateClientId(clientId);
     if (ce) next.client = ce;
-    const be = validateBudgetPositive(budgetAmount);
-    if (be) next.budget = be;
+    const be = validateContractValuePositive(contractAmount);
+    if (be) next.contract = be;
     setFieldErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -145,7 +145,8 @@ export default function ProjectsPage() {
       name: name.trim(),
       clientId,
       status: status.trim(),
-      budget: budgetAmount,
+      totalValue: contractAmount,
+      budget: contractAmount,
       assignedTeam: teamIds,
     };
     try {
@@ -219,7 +220,7 @@ export default function ProjectsPage() {
           <div className="col-span-2">Client</div>
           <div className="col-span-3">Team</div>
           <div className="col-span-2">Status</div>
-          <div className="col-span-1 text-right">Budget</div>
+          <div className="col-span-1 text-right">Contract</div>
           <div className="col-span-2 text-right">Actions</div>
         </div>
         {!loading && !error && projects.length === 0 ? (
@@ -239,7 +240,9 @@ export default function ProjectsPage() {
                 </span>
               </div>
               <div className="col-span-1 text-right text-sm font-semibold text-[var(--purity-text)]">
-                {p.budget != null ? formatMoney(p.budget) : "—"}
+                {p.totalValue != null || p.budget != null
+                  ? formatMoney(Number(p.totalValue ?? p.budget ?? 0))
+                  : "—"}
               </div>
               <div className="col-span-2 flex justify-end gap-2">
                 <button
@@ -290,10 +293,10 @@ export default function ProjectsPage() {
               ))}
             </Select>
           </FormField>
-          <FormField label="Budget" error={fieldErrors.budget}>
+          <FormField label="Contract value (total)" error={fieldErrors.contract}>
             <FormattedNumberInput
-              value={budgetAmount}
-              onChange={setBudgetAmount}
+              value={contractAmount}
+              onChange={setContractAmount}
               placeholder="e.g. 100000"
             />
           </FormField>

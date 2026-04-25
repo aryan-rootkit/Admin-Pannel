@@ -36,6 +36,12 @@ export function validateBudgetPositive(n: number | undefined | null): string | n
   return null;
 }
 
+export function validateContractValuePositive(n: number | undefined | null): string | null {
+  if (n == null || Number.isNaN(n)) return "Contract value is required";
+  if (n <= 0) return "Contract value must be greater than 0";
+  return null;
+}
+
 export function validatePersonName(value: string): string | null {
   if (!value.trim()) return "Name is required";
   return null;

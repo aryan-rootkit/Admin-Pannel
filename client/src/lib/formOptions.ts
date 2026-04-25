@@ -1,13 +1,15 @@
 export const REVENUE_PAYMENT_TYPES = ["Advance", "Installment", "Final"] as const;
 
+export const REVENUE_STATUS_OPTIONS = ["Received", "Pending", "Failed"] as const;
+
 export type RevenuePaymentTypeOption = (typeof REVENUE_PAYMENT_TYPES)[number];
 
 export const PROJECT_STATUS_OPTIONS = [
   "Pitched",
-  "Closed",
-  "Lost",
-  "Work In Progress",
+  "In Progress",
   "Delivered",
+  "Cancelled",
+  "Lost",
 ] as const;
 
 export type ProjectStatusOption = (typeof PROJECT_STATUS_OPTIONS)[number];

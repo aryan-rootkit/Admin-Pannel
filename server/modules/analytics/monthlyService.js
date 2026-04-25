@@ -1,16 +1,15 @@
 const { Revenue } = require("../revenues/model");
 const { Payout } = require("../payouts/model");
-const { revenueDocumentTotal } = require("./profitService");
+const {
+  revenueReceivedAmount,
+  revenueLineDate,
+} = require("../lib/financeHelpers");
 
 function toMonthKey(date) {
   if (!date) return null;
   const x = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(x.getTime())) return null;
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function effectiveRevenueDate(doc) {
-  return doc.paymentDate || doc.receivedAt || doc.createdAt;
 }
 
 function effectivePayoutDate(doc) {
@@ -36,30 +35,28 @@ function keyToLabel(key) {
 }
 
 /**
- * Monthly revenue (from revenue documents) and cost (from payout outflows).
- * Labour not recorded as payouts will not appear in monthly cost.
+ * Monthly **received** revenue vs all payout outflows.
  *
  * @param {number} months 1–36, default 12
- * @returns {Promise<Array<{ month: string, monthKey: string, revenue: number, cost: number, profit: number }>>}
  */
 async function computeMonthlyAnalytics(months = 12) {
   const span = Math.min(36, Math.max(1, Number(months) || 12));
 
   const [revenues, payouts] = await Promise.all([
     Revenue.find()
-      .select("totalAmount amount paymentDate receivedAt createdAt")
+      .select(
+        "amount totalAmount status paymentDate date receivedAt createdAt"
+      )
       .lean(),
-    Payout.find()
-      .select("amount paymentDate paidAt createdAt")
-      .lean(),
+    Payout.find().select("amount paymentDate paidAt createdAt").lean(),
   ]);
 
   const bucket = new Map();
   for (const doc of revenues) {
-    const k = toMonthKey(effectiveRevenueDate(doc));
+    const k = toMonthKey(revenueLineDate(doc));
     if (!k) continue;
     const row = bucket.get(k) || { revenue: 0, cost: 0 };
-    row.revenue += revenueDocumentTotal(doc);
+    row.revenue += revenueReceivedAmount(doc);
     bucket.set(k, row);
   }
 

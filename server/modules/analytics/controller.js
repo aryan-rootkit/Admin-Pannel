@@ -1,5 +1,6 @@
 const { computeProfitAnalytics } = require("./profitService");
 const { computeMonthlyAnalytics } = require("./monthlyService");
+const { computeFinanceAnalytics } = require("./financeService");
 
 const getProfit = async (_req, res) => {
   try {
@@ -7,6 +8,16 @@ const getProfit = async (_req, res) => {
     return res.json(data);
   } catch (err) {
     console.error("[GET /api/analytics/profit]", err.message);
+    return res.status(500).json({ message: err.message || "Server error" });
+  }
+};
+
+const getFinance = async (_req, res) => {
+  try {
+    const data = await computeFinanceAnalytics();
+    return res.json(data);
+  } catch (err) {
+    console.error("[GET /api/analytics/finance]", err.message);
     return res.status(500).json({ message: err.message || "Server error" });
   }
 };
@@ -25,4 +36,4 @@ const getMonthly = async (req, res) => {
   }
 };
 
-module.exports = { getProfit, getMonthly };
+module.exports = { getProfit, getMonthly, getFinance };
