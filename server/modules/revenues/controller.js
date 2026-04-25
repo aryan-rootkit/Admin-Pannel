@@ -8,6 +8,7 @@ const { Revenue } = require("./model");
 const { Project } = require("../projects/model");
 const { revenueLineAmount, revenueLineStatus, revenueLineDate } = require("../lib/financeHelpers");
 const { projectReceivesNewPayments } = require("../lib/projectFinance");
+const { appendDebugSessionLine } = require("../../debugSessionLog");
 
 function normalizeRevenueLean(doc) {
   const amount = revenueLineAmount(doc);
@@ -54,6 +55,51 @@ const getRevenues = async (_req, res) => {
 
     const normalized = revenues.map(normalizeRevenueLean);
     console.log("[GET /api/revenues] count:", normalized.length);
+    // #region agent log
+    const rawStatusOff = revenues.filter((d) => {
+      const s = d.status;
+      return (
+        s != null &&
+        String(s) !== "" &&
+        !["Received", "Pending", "Failed"].includes(String(s))
+      );
+    }).length;
+    const h1Data = {
+      count: revenues.length,
+      rawStatusOffEnumCount: rawStatusOff,
+      normalizedStatusCounts: normalized.reduce((acc, n) => {
+        const k = n.status || "?";
+        acc[k] = (acc[k] || 0) + 1;
+        return acc;
+      }, {}),
+    };
+    if (process.env.NODE_ENV !== "production") {
+      fetch("http://127.0.0.1:7810/ingest/2353a7f2-1034-4773-8e38-18bdf10d5d38", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Debug-Session-Id": "978955",
+        },
+        body: JSON.stringify({
+          sessionId: "978955",
+          runId: "post-fix",
+          hypothesisId: "H1",
+          location: "revenues/controller.js:getRevenues",
+          message: "revenues list raw vs normalized status",
+          data: h1Data,
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    }
+    appendDebugSessionLine({
+      sessionId: "978955",
+      runId: "post-fix",
+      hypothesisId: "H1",
+      location: "revenues/controller.js:getRevenues",
+      message: "revenues list raw vs normalized status",
+      data: h1Data,
+    });
+    // #endregion
     return res.json(normalized);
   } catch (err) {
     return res.status(500).json({ message: err.message || "Server error" });
@@ -82,7 +128,8 @@ const createRevenue = async (req, res) => {
     if (!proj) return res.status(400).json({ message: "Project not found" });
     if (!projectReceivesNewPayments(proj.status)) {
       return res.status(400).json({
-        message: "This project is cancelled; new payments cannot be recorded.",
+        message:
+          "This project is not active (completed or cancelled); new payments cannot be recorded.",
       });
     }
 
@@ -160,7 +207,7 @@ const updateRevenue = async (req, res) => {
       String(targetProjectId) !== String(existing.projectId)
     ) {
       return res.status(400).json({
-        message: "Cannot attach or move payments to a cancelled project.",
+        message: "Cannot attach or move payments to a non-active project (completed or cancelled).",
       });
     }
 

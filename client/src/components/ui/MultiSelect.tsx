@@ -31,7 +31,7 @@ const selectStyles: StylesConfig<MultiSelectOption, true> = {
     ...base,
     borderRadius: 8,
     padding: "2px 4px",
-    minHeight: 42,
+    minHeight: 44,
     borderColor: state.isFocused ? "var(--purity-accent)" : "var(--purity-border)",
     boxShadow: state.isFocused ? "0 0 0 2px rgba(79, 209, 197, 0.25)" : "none",
     backgroundColor: "var(--purity-card)",

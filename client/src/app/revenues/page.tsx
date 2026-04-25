@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchJson } from "@/lib/fetchApi";
+import { fetchJson, getApiBase } from "@/lib/fetchApi";
 import { ApiError, apiDelete, apiPost, apiPut } from "@/lib/api";
 import type { Project, RevenuePaymentType, RevenueRow, RevenueStatus } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { PageToolbar } from "@/components/layout/PageToolbar";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatDate, formatMoney } from "@/lib/format";
 import { resolveProjectName } from "@/lib/relations";
@@ -24,7 +25,9 @@ import { useToast } from "@/components/providers/ToastProvider";
 
 function refId(v: string | { _id: string } | undefined | null): string {
   if (v == null) return "";
-  return typeof v === "string" ? v : v._id;
+  if (typeof v === "string") return v;
+  const id = (v as { _id?: unknown })._id;
+  return id == null ? "" : String(id);
 }
 
 function toInputDate(iso?: string | null) {
@@ -42,6 +45,23 @@ function paymentReceivedInGroup(r: RevenueRow): number {
   const st = r.status || "Received";
   if (st !== "Received") return 0;
   return paymentLineAmount(r);
+}
+
+/** Persists client debug NDJSON via API (session header required server-side). */
+function mirrorClientDebugLog(payload: Record<string, unknown>) {
+  try {
+    const base = getApiBase();
+    fetch(`${base}/debug-session-log`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "978955",
+      },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  } catch {
+    /* missing NEXT_PUBLIC_API_BASE_URL */
+  }
 }
 
 function statusBadgeClass(s: FinancialLifecycle): string {
@@ -84,8 +104,57 @@ export default function RevenuesPage() {
       fetchJson<RevenueRow[]>("/revenues"),
       fetchJson<Project[]>("/projects"),
     ]);
-    setRows(Array.isArray(r) ? r : []);
-    setProjects(Array.isArray(p) ? p : []);
+    const rowArr = Array.isArray(r) ? r : [];
+    const projArr = Array.isArray(p) ? p : [];
+    // #region agent log
+    fetch("http://127.0.0.1:7810/ingest/2353a7f2-1034-4773-8e38-18bdf10d5d38", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "978955",
+      },
+      body: JSON.stringify({
+        sessionId: "978955",
+        runId: "post-fix",
+        hypothesisId: "H2,H3,H4",
+        location: "revenues/page.tsx:load",
+        message: "revenues/projects fetch merged",
+        data: {
+          revenueRows: rowArr.length,
+          projects: projArr.length,
+          projectIdShapes: rowArr.slice(0, 30).map((x) => ({
+            kind: typeof x.projectId,
+            isObj: typeof x.projectId === "object" && x.projectId !== null,
+          })),
+          amountFieldZeros: rowArr.filter((x) => {
+            const a = Number(x.amount ?? x.totalAmount ?? 0) || 0;
+            return a === 0;
+          }).length,
+        },
+      }),
+    }).catch(() => {});
+    mirrorClientDebugLog({
+      sessionId: "978955",
+      runId: "post-fix",
+      hypothesisId: "H2,H3,H4",
+      location: "revenues/page.tsx:load",
+      message: "revenues/projects fetch merged",
+      data: {
+        revenueRows: rowArr.length,
+        projects: projArr.length,
+        projectIdShapes: rowArr.slice(0, 30).map((x) => ({
+          kind: typeof x.projectId,
+          isObj: typeof x.projectId === "object" && x.projectId !== null,
+        })),
+        amountFieldZeros: rowArr.filter((x) => {
+          const a = Number(x.amount ?? x.totalAmount ?? 0) || 0;
+          return a === 0;
+        }).length,
+      },
+    });
+    // #endregion
+    setRows(rowArr);
+    setProjects(projArr);
   }, []);
 
   const canRecordNewPayments = useMemo(
@@ -155,9 +224,80 @@ export default function RevenuesPage() {
       );
     }
 
-    return [...map.values()].sort((a, b) =>
+    const sorted = [...map.values()].sort((a, b) =>
       a.projectName.localeCompare(b.projectName, undefined, { sensitivity: "base" })
     );
+    // #region agent log
+    fetch("http://127.0.0.1:7810/ingest/2353a7f2-1034-4773-8e38-18bdf10d5d38", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "978955",
+      },
+      body: JSON.stringify({
+        sessionId: "978955",
+        runId: "post-fix",
+        hypothesisId: "H2,H3,H5",
+        location: "revenues/page.tsx:groupedByProject",
+        message: "UI revenue groups computed",
+        data: {
+          rowCount: rows.length,
+          projectCount: projects.length,
+          groups: sorted.map((g) => {
+            const sumAllLines = g.payments.reduce((s, r) => s + paymentLineAmount(r), 0);
+            const sumReceivedLines = g.payments.reduce(
+              (s, r) => s + paymentReceivedInGroup(r),
+              0
+            );
+            return {
+              projectId: g.projectId,
+              hasProjectRef: Boolean(g.project),
+              rawProjectStatus: g.project?.status ?? null,
+              financialStatus: g.financialStatus,
+              totalProjectValue: g.totalProjectValue,
+              totalReceived: g.totalReceived,
+              pendingAmount: g.pendingAmount,
+              cancelledBalance: g.cancelledBalance,
+              paymentLines: g.payments.length,
+              sumAllLines,
+              sumReceivedLines,
+              mismatchAllVsReceived: sumAllLines !== sumReceivedLines,
+            };
+          }),
+        },
+      }),
+    }).catch(() => {});
+    mirrorClientDebugLog({
+      sessionId: "978955",
+      runId: "post-fix",
+      hypothesisId: "H2,H3,H5",
+      location: "revenues/page.tsx:groupedByProject",
+      message: "UI revenue groups computed",
+      data: {
+        rowCount: rows.length,
+        projectCount: projects.length,
+        groups: sorted.map((g) => {
+          const sumAllLines = g.payments.reduce((s, r) => s + paymentLineAmount(r), 0);
+          const sumReceivedLines = g.payments.reduce((s, r) => s + paymentReceivedInGroup(r), 0);
+          return {
+            projectId: g.projectId,
+            hasProjectRef: Boolean(g.project),
+            rawProjectStatus: g.project?.status ?? null,
+            financialStatus: g.financialStatus,
+            totalProjectValue: g.totalProjectValue,
+            totalReceived: g.totalReceived,
+            pendingAmount: g.pendingAmount,
+            cancelledBalance: g.cancelledBalance,
+            paymentLines: g.payments.length,
+            sumAllLines,
+            sumReceivedLines,
+            mismatchAllVsReceived: sumAllLines !== sumReceivedLines,
+          };
+        }),
+      },
+    });
+    // #endregion
+    return sorted;
   }, [rows, projects]);
 
   const modalProjectOptions = useMemo(() => {
@@ -290,19 +430,22 @@ export default function RevenuesPage() {
   }
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <PageHeader title="Revenues" />
-        <Button
-          type="button"
-          onClick={openCreate}
-          disabled={!projects.length || !canRecordNewPayments}
-        >
-          Add payment
-        </Button>
-      </div>
+    <div className="min-w-0">
+      <PageToolbar
+        title={<PageHeader title="Revenues" className="mb-0" />}
+        actions={
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            onClick={openCreate}
+            disabled={!projects.length || !canRecordNewPayments}
+          >
+            Add payment
+          </Button>
+        }
+      />
 
-      <p className="mb-4 max-w-2xl text-sm text-[var(--purity-muted)]">
+      <p className="mb-4 max-w-2xl text-sm leading-relaxed text-[var(--purity-muted)]">
         Per project, <strong className="text-[var(--purity-text)]">contract value</strong> and{" "}
         <strong className="text-[var(--purity-text)]">pending</strong> are computed from the
         project record and the sum of payments with status{" "}
@@ -315,8 +458,8 @@ export default function RevenuesPage() {
       ) : null}
       {projects.length > 0 && !canRecordNewPayments && !loading ? (
         <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          All projects are cancelled — you cannot add new payments. You can still edit or delete
-          existing lines, or move a payment to an active project.
+          No active projects — you cannot add new payments. You can still edit or delete existing
+          lines, or move a payment to an active project.
         </p>
       ) : null}
 
@@ -343,7 +486,7 @@ export default function RevenuesPage() {
           groupedByProject.map((g) => (
             <div
               key={g.projectId}
-              className="overflow-hidden rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] shadow-sm"
+              className="min-w-0 overflow-hidden rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] shadow-sm"
             >
               <div className="border-b border-[var(--purity-border)] bg-[var(--purity-sidebar-active)] px-4 py-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -354,7 +497,7 @@ export default function RevenuesPage() {
                     {g.financialStatus}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
                       Total project value
@@ -405,7 +548,7 @@ export default function RevenuesPage() {
                   {g.payments.map((r) => (
                     <li
                       key={r._id}
-                      className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+                      className="flex flex-col gap-3 px-4 py-4 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2 sm:py-3"
                     >
                       <div className="min-w-0 flex-1">
                         <span className="font-semibold text-[var(--purity-text)]">
@@ -429,29 +572,31 @@ export default function RevenuesPage() {
                           {formatDate(r.date || r.paymentDate || r.receivedAt)}
                         </span>
                       </div>
-                      <div className="flex shrink-0 gap-2">
-                        <button
+                      <div className="flex w-full shrink-0 gap-2 sm:w-auto sm:justify-end">
+                        <Button
                           type="button"
-                          className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
+                          variant="secondary"
+                          className="min-h-11 flex-1 sm:min-h-10 sm:flex-none sm:px-3"
                           onClick={() => openEdit(r)}
                         >
                           Edit
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
-                          className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
+                          variant="danger"
+                          className="min-h-11 flex-1 sm:min-h-10 sm:flex-none sm:px-3"
                           onClick={() => onDelete(r._id)}
                         >
                           Delete
-                        </button>
+                        </Button>
                       </div>
                     </li>
                   ))}
                 </ul>
               )}
               {g.payments.length > 0 ? (
-                <div className="flex flex-wrap justify-between gap-2 border-t border-[var(--purity-border)] bg-[var(--purity-card)] px-4 py-2.5 text-xs text-[var(--purity-muted)]">
-                  <span>
+                <div className="flex flex-col gap-1 border-t border-[var(--purity-border)] bg-[var(--purity-card)] px-4 py-3 text-xs text-[var(--purity-muted)] sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2 sm:py-2.5">
+                  <span className="min-w-0 break-words">
                     Received {formatMoney(g.totalReceived, "INR")} ·{" "}
                     {g.financialStatus === "Cancelled" ? "Cancelled balance" : "Pending"}{" "}
                     {formatMoney(
@@ -490,7 +635,7 @@ export default function RevenuesPage() {
               {modalProjectOptions.map((p) => (
                 <option key={p._id} value={p._id}>
                   {p.name}
-                  {!projectReceivesNewPayments(p.status) ? " (cancelled)" : ""}
+                  {!projectReceivesNewPayments(p.status) ? " (not active)" : ""}
                 </option>
               ))}
             </Select>

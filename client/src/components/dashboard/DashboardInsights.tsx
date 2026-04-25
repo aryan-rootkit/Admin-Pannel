@@ -41,7 +41,7 @@ export function DashboardInsights({ finance, monthly, loading, error }: Props) {
   const breakdown = finance?.projectBreakdown ?? [];
 
   return (
-    <section className="mt-10 space-y-8">
+    <section className="mt-10 min-w-0 space-y-8">
       <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--purity-muted)]">
         Finance overview
       </h2>
@@ -61,7 +61,7 @@ export function DashboardInsights({ finance, monthly, loading, error }: Props) {
 
       {!loading && !error && finance ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <div className={cardClass}>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
                 Total revenue
@@ -132,8 +132,8 @@ export function DashboardInsights({ finance, monthly, loading, error }: Props) {
             {!chartData.length ? (
               <p className="text-sm text-[var(--purity-muted)]">No data yet.</p>
             ) : (
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <ResponsiveContainer width="100%" height={280} className="min-h-[240px] sm:min-h-[280px]">
+                <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--purity-border)" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
                   <YAxis
@@ -188,8 +188,8 @@ export function DashboardInsights({ finance, monthly, loading, error }: Props) {
             {!breakdown.length ? (
               <p className="text-sm text-[var(--purity-muted)]">No projects yet.</p>
             ) : (
-              <div className="max-h-[28rem] overflow-x-auto overflow-y-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
+              <div className="-mx-1 max-h-[28rem] min-w-0 overflow-x-auto overflow-y-auto overscroll-x-contain px-1 sm:mx-0 sm:px-0">
+                <table className="w-full min-w-[34rem] text-left text-sm md:min-w-[42rem]">
                   <thead className="sticky top-0 z-[1] border-b border-[var(--purity-border)] bg-[var(--purity-card)] text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
                     <tr>
                       <th className="pb-2 pr-3">Project</th>

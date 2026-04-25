@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Prevent rare horizontal bleed from full-bleed children; body also uses overflow-x-hidden */
+html {
+  overflow-x: hidden;
+}
+
 :root {
   --purity-page: #f7fafc;
   --purity-card: #ffffff;
@@ -24,4 +29,9 @@ body {
   background: var(--purity-page);
   color: var(--purity-text);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* iOS home indicator + modal footers */
+.safe-area-pb {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
 }

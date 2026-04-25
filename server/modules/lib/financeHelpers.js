@@ -12,7 +12,21 @@ function revenueLineAmount(doc) {
 function revenueLineStatus(doc) {
   const s = doc.status;
   if (s === "Received" || s === "Pending" || s === "Failed") return s;
-  return RECEIVED;
+  const lower = String(s ?? "")
+    .trim()
+    .toLowerCase();
+  if (lower === "received" || lower === "paid" || lower === "success" || lower === "cleared") {
+    return RECEIVED;
+  }
+  if (lower === "pending" || lower === "scheduled" || lower === "processing") {
+    return "Pending";
+  }
+  if (lower === "failed" || lower === "bounced" || lower === "reversed") {
+    return "Failed";
+  }
+  /** Missing or unknown line status must not default to cash received (accounting-safe). */
+  if (!lower) return "Pending";
+  return "Pending";
 }
 
 function revenueLineDate(doc) {

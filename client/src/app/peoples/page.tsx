@@ -5,6 +5,8 @@ import { API_PEOPLE, fetchJson } from "@/lib/fetchApi";
 import { apiDelete, apiPost, apiPut, apiGet } from "@/lib/api";
 import type { PersonRow, Project } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { PageToolbar } from "@/components/layout/PageToolbar";
+import { ResponsiveDataList } from "@/components/layout/ResponsiveDataList";
 import {
   EmptyState,
   ListPanel,
@@ -192,12 +194,14 @@ export default function PeoplesPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <PageHeader title="Peoples" />
-        <Button type="button" onClick={openCreate}>
-          Add new
-        </Button>
-      </div>
+      <PageToolbar
+        title={<PageHeader title="Peoples" className="mb-0" />}
+        actions={
+          <Button type="button" className="w-full sm:w-auto" onClick={openCreate}>
+            Add new
+          </Button>
+        }
+      />
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-[var(--purity-muted)]">
@@ -211,47 +215,99 @@ export default function PeoplesPage() {
         </div>
       ) : null}
 
-      <ListPanel>
-        <div className={`${listHeadRowClass()} grid-cols-12`}>
-          <div className="col-span-2">Name</div>
-          <div className="col-span-2">Email</div>
-          <div className="col-span-2">Contact</div>
-          <div className="col-span-2">Role</div>
-          <div className="col-span-2">Assigned projects</div>
-          <div className="col-span-2 text-right">Actions</div>
-        </div>
-        {!loading && !error && people.length === 0 ? (
-          <EmptyState message="No data" />
-        ) : null}
-        {!loading &&
-          people.map((p) => (
-            <div key={p._id} className={`${listBodyRowClass()} grid-cols-12`}>
-              <div className="col-span-2 font-semibold text-[var(--purity-text)]">{p.name || "—"}</div>
-              <div className="col-span-2 text-[var(--purity-muted)]">{p.email || "—"}</div>
-              <div className="col-span-2 text-[var(--purity-muted)]">{p.contact || "—"}</div>
-              <div className="col-span-2 text-xs text-[var(--purity-muted)]">{p.role || "—"}</div>
-              <div className="col-span-2 text-xs text-[var(--purity-muted)]">
-                {resolveAssignedProjectNames(p.assignedProjects)}
-              </div>
-              <div className="col-span-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
-                  onClick={() => openEdit(p)}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
-                  onClick={() => onDelete(p._id)}
-                >
-                  Delete
-                </button>
-              </div>
+      <ResponsiveDataList
+        table={
+          <ListPanel>
+            <div className={`${listHeadRowClass()} grid-cols-12`}>
+              <div className="col-span-2">Name</div>
+              <div className="col-span-2">Email</div>
+              <div className="col-span-2">Contact</div>
+              <div className="col-span-2">Role</div>
+              <div className="col-span-2">Assigned projects</div>
+              <div className="col-span-2 text-right">Actions</div>
             </div>
-          ))}
-      </ListPanel>
+            {!loading && !error && people.length === 0 ? (
+              <EmptyState message="No data" />
+            ) : null}
+            {!loading &&
+              people.map((p) => (
+                <div key={p._id} className={`${listBodyRowClass()} grid-cols-12`}>
+                  <div className="col-span-2 font-semibold text-[var(--purity-text)]">{p.name || "—"}</div>
+                  <div className="col-span-2 break-words text-[var(--purity-muted)]">{p.email || "—"}</div>
+                  <div className="col-span-2 text-[var(--purity-muted)]">{p.contact || "—"}</div>
+                  <div className="col-span-2 text-xs text-[var(--purity-muted)]">{p.role || "—"}</div>
+                  <div className="col-span-2 text-xs text-[var(--purity-muted)]">
+                    {resolveAssignedProjectNames(p.assignedProjects)}
+                  </div>
+                  <div className="col-span-2 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
+                      onClick={() => openEdit(p)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
+                      onClick={() => onDelete(p._id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </ListPanel>
+        }
+        cards={
+          <>
+            {!loading && !error && people.length === 0 ? (
+              <div className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] px-4 py-10 text-center text-sm text-[var(--purity-muted)]">
+                No data
+              </div>
+            ) : null}
+            {!loading &&
+              people.map((p) => (
+                <div
+                  key={p._id}
+                  className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-4 shadow-sm"
+                >
+                  <div className="text-base font-semibold text-[var(--purity-text)]">{p.name || "—"}</div>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <div className="flex gap-2">
+                      <dt className="shrink-0 text-[var(--purity-muted)]">Email</dt>
+                      <dd className="min-w-0 flex-1 break-words text-right text-[var(--purity-text)]">
+                        {p.email || "—"}
+                      </dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="shrink-0 text-[var(--purity-muted)]">Contact</dt>
+                      <dd className="min-w-0 flex-1 text-right text-[var(--purity-text)]">{p.contact || "—"}</dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="shrink-0 text-[var(--purity-muted)]">Role</dt>
+                      <dd className="min-w-0 flex-1 text-right text-xs text-[var(--purity-text)]">{p.role || "—"}</dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="shrink-0 text-[var(--purity-muted)]">Projects</dt>
+                      <dd className="min-w-0 flex-1 break-words text-right text-xs text-[var(--purity-text)]">
+                        {resolveAssignedProjectNames(p.assignedProjects)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-4 flex flex-col gap-2 border-t border-[var(--purity-border)] pt-4">
+                    <Button type="button" variant="secondary" className="w-full" onClick={() => openEdit(p)}>
+                      Edit
+                    </Button>
+                    <Button type="button" variant="danger" className="w-full" onClick={() => onDelete(p._id)}>
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </>
+        }
+      />
 
       <Modal
         open={modalOpen}

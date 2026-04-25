@@ -6,6 +6,8 @@ import { ApiError, apiDelete, apiPost, apiPut } from "@/lib/api";
 import type { Client } from "@/types/api";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { PageToolbar } from "@/components/layout/PageToolbar";
+import { ResponsiveDataList } from "@/components/layout/ResponsiveDataList";
 import {
   EmptyState,
   ListPanel,
@@ -122,12 +124,14 @@ export default function ClientsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <PageHeader title="Clients" />
-        <Button type="button" onClick={openCreate}>
-          Add new
-        </Button>
-      </div>
+      <PageToolbar
+        title={<PageHeader title="Clients" className="mb-0" />}
+        actions={
+          <Button type="button" className="w-full sm:w-auto" onClick={openCreate}>
+            Add new
+          </Button>
+        }
+      />
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-[var(--purity-muted)]">
@@ -141,41 +145,85 @@ export default function ClientsPage() {
         </div>
       ) : null}
 
-      <ListPanel>
-        <div className={`${listHeadRowClass()} grid-cols-12`}>
-          <div className="col-span-4">Name</div>
-          <div className="col-span-3">Email</div>
-          <div className="col-span-2">Contact</div>
-          <div className="col-span-3 text-right">Actions</div>
-        </div>
-        {!loading && !error && clients.length === 0 ? (
-          <EmptyState message="No data" />
-        ) : null}
-        {!loading &&
-          clients.map((c) => (
-            <div key={c._id} className={`${listBodyRowClass()} grid-cols-12`}>
-              <div className="col-span-4 font-semibold text-[var(--purity-text)]">{c.name}</div>
-              <div className="col-span-3 text-[var(--purity-muted)]">{c.email || "—"}</div>
-              <div className="col-span-2 text-[var(--purity-muted)]">{c.contact || c.phone || "—"}</div>
-              <div className="col-span-3 flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
-                  onClick={() => openEdit(c)}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
-                  onClick={() => onDelete(c._id)}
-                >
-                  Delete
-                </button>
-              </div>
+      <ResponsiveDataList
+        table={
+          <ListPanel>
+            <div className={`${listHeadRowClass()} grid-cols-12`}>
+              <div className="col-span-4">Name</div>
+              <div className="col-span-3">Email</div>
+              <div className="col-span-2">Contact</div>
+              <div className="col-span-3 text-right">Actions</div>
             </div>
-          ))}
-      </ListPanel>
+            {!loading && !error && clients.length === 0 ? (
+              <EmptyState message="No data" />
+            ) : null}
+            {!loading &&
+              clients.map((c) => (
+                <div key={c._id} className={`${listBodyRowClass()} grid-cols-12`}>
+                  <div className="col-span-4 font-semibold text-[var(--purity-text)]">{c.name}</div>
+                  <div className="col-span-3 break-words text-[var(--purity-muted)]">{c.email || "—"}</div>
+                  <div className="col-span-2 text-[var(--purity-muted)]">{c.contact || c.phone || "—"}</div>
+                  <div className="col-span-3 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
+                      onClick={() => openEdit(c)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
+                      onClick={() => onDelete(c._id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </ListPanel>
+        }
+        cards={
+          <>
+            {!loading && !error && clients.length === 0 ? (
+              <div className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] px-4 py-10 text-center text-sm text-[var(--purity-muted)]">
+                No data
+              </div>
+            ) : null}
+            {!loading &&
+              clients.map((c) => (
+                <div
+                  key={c._id}
+                  className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-4 shadow-sm"
+                >
+                  <div className="text-base font-semibold text-[var(--purity-text)]">{c.name}</div>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <div className="flex gap-2">
+                      <dt className="shrink-0 text-[var(--purity-muted)]">Email</dt>
+                      <dd className="min-w-0 flex-1 break-words text-right text-[var(--purity-text)]">
+                        {c.email || "—"}
+                      </dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="shrink-0 text-[var(--purity-muted)]">Contact</dt>
+                      <dd className="min-w-0 flex-1 text-right text-[var(--purity-text)]">
+                        {c.contact || c.phone || "—"}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-4 flex flex-col gap-2 border-t border-[var(--purity-border)] pt-4">
+                    <Button type="button" variant="secondary" className="w-full" onClick={() => openEdit(c)}>
+                      Edit
+                    </Button>
+                    <Button type="button" variant="danger" className="w-full" onClick={() => onDelete(c._id)}>
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </>
+        }
+      />
 
       <Modal
         open={modalOpen}

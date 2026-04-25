@@ -96,7 +96,7 @@ export default function CreateProjectPage() {
   }));
 
   return (
-    <div className="max-w-xl space-y-4">
+    <div className="mx-auto w-full max-w-xl min-w-0 space-y-4">
       <h1 className="text-xl font-semibold">Create project</h1>
 
       {clients.length === 0 && !loadError ? (

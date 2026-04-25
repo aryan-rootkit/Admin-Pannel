@@ -5,6 +5,8 @@ import { API_PEOPLE, fetchJson } from "@/lib/fetchApi";
 import { apiDelete, apiPost, apiPut } from "@/lib/api";
 import type { PersonRow, PayoutRow, Project } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { PageToolbar } from "@/components/layout/PageToolbar";
+import { ResponsiveDataList } from "@/components/layout/ResponsiveDataList";
 import {
   EmptyState,
   ListPanel,
@@ -212,12 +214,14 @@ export default function PayoutsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <PageHeader title="Payouts" />
-        <Button type="button" onClick={openCreate}>
-          Add new
-        </Button>
-      </div>
+      <PageToolbar
+        title={<PageHeader title="Payouts" className="mb-0" />}
+        actions={
+          <Button type="button" className="w-full sm:w-auto" onClick={openCreate}>
+            Add new
+          </Button>
+        }
+      />
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-[var(--purity-muted)]">
@@ -231,52 +235,102 @@ export default function PayoutsPage() {
         </div>
       ) : null}
 
-      <ListPanel>
-        <div className={`${listHeadRowClass()} grid-cols-12`}>
-          <div className="col-span-2">Amount</div>
-          <div className="col-span-3">Type</div>
-          <div className="col-span-3">Related</div>
-          <div className="col-span-2">Date</div>
-          <div className="col-span-2 text-right">Actions</div>
-        </div>
-        {!loading && !error && rows.length === 0 ? (
-          <EmptyState message="No data" />
-        ) : null}
-        {!loading &&
-          rows.map((r) => (
-            <div key={r._id} className={`${listBodyRowClass()} grid-cols-12`}>
-              <div className="col-span-2 font-semibold text-[var(--purity-text)]">
-                {formatMoney(Number(r.amount) || 0, r.currency || "INR")}
-              </div>
-              <div className="col-span-3 text-[var(--purity-muted)]">
-                {typeLabel(r)}
-                {r.type === "subscription" && r.status ? (
-                  <div className="text-[10px] text-[var(--purity-muted)]">{r.status}</div>
-                ) : null}
-              </div>
-              <div className="col-span-3 text-xs text-[var(--purity-muted)]">{relatedLine(r)}</div>
-              <div className="col-span-2 text-xs text-[var(--purity-muted)]">
-                {formatDate(r.paymentDate || r.paidAt)}
-              </div>
-              <div className="col-span-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
-                  onClick={() => openEdit(r)}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
-                  onClick={() => onDelete(r._id)}
-                >
-                  Delete
-                </button>
-              </div>
+      <ResponsiveDataList
+        table={
+          <ListPanel>
+            <div className={`${listHeadRowClass()} grid-cols-12`}>
+              <div className="col-span-2">Amount</div>
+              <div className="col-span-3">Type</div>
+              <div className="col-span-3">Related</div>
+              <div className="col-span-2">Date</div>
+              <div className="col-span-2 text-right">Actions</div>
             </div>
-          ))}
-      </ListPanel>
+            {!loading && !error && rows.length === 0 ? (
+              <EmptyState message="No data" />
+            ) : null}
+            {!loading &&
+              rows.map((r) => (
+                <div key={r._id} className={`${listBodyRowClass()} grid-cols-12`}>
+                  <div className="col-span-2 font-semibold text-[var(--purity-text)]">
+                    {formatMoney(Number(r.amount) || 0, r.currency || "INR")}
+                  </div>
+                  <div className="col-span-3 text-[var(--purity-muted)]">
+                    {typeLabel(r)}
+                    {r.type === "subscription" && r.status ? (
+                      <div className="text-[10px] text-[var(--purity-muted)]">{r.status}</div>
+                    ) : null}
+                  </div>
+                  <div className="col-span-3 text-xs text-[var(--purity-muted)]">{relatedLine(r)}</div>
+                  <div className="col-span-2 text-xs text-[var(--purity-muted)]">
+                    {formatDate(r.paymentDate || r.paidAt)}
+                  </div>
+                  <div className="col-span-2 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
+                      onClick={() => openEdit(r)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
+                      onClick={() => onDelete(r._id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </ListPanel>
+        }
+        cards={
+          <>
+            {!loading && !error && rows.length === 0 ? (
+              <div className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] px-4 py-10 text-center text-sm text-[var(--purity-muted)]">
+                No data
+              </div>
+            ) : null}
+            {!loading &&
+              rows.map((r) => (
+                <div
+                  key={r._id}
+                  className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-4 shadow-sm"
+                >
+                  <div className="text-lg font-semibold tabular-nums text-[var(--purity-text)]">
+                    {formatMoney(Number(r.amount) || 0, r.currency || "INR")}
+                  </div>
+                  <div className="mt-1 text-sm text-[var(--purity-muted)]">{typeLabel(r)}</div>
+                  {r.type === "subscription" && r.status ? (
+                    <div className="text-xs text-[var(--purity-muted)]">{r.status}</div>
+                  ) : null}
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <div className="flex gap-2">
+                      <dt className="shrink-0 text-[var(--purity-muted)]">Related</dt>
+                      <dd className="min-w-0 flex-1 break-words text-right text-xs text-[var(--purity-text)]">
+                        {relatedLine(r)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-[var(--purity-muted)]">Date</dt>
+                      <dd className="text-xs text-[var(--purity-text)]">
+                        {formatDate(r.paymentDate || r.paidAt)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-4 flex flex-col gap-2 border-t border-[var(--purity-border)] pt-4">
+                    <Button type="button" variant="secondary" className="w-full" onClick={() => openEdit(r)}>
+                      Edit
+                    </Button>
+                    <Button type="button" variant="danger" className="w-full" onClick={() => onDelete(r._id)}>
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </>
+        }
+      />
 
       <Modal
         open={modalOpen}

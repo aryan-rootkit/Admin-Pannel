@@ -10,16 +10,17 @@ function projectStatusBucket(status) {
     .trim()
     .toLowerCase();
   if (!s) return "active";
-  if (s === "cancelled" || s === "lost") return "cancelled";
+  if (s === "cancelled" || s === "canceled" || s === "lost") return "cancelled";
   if (s === "completed" || s === "delivered") return "completed";
   return "active";
 }
 
 /**
+ * Only **active** projects accept new payment lines (completed/cancelled are closed books).
  * @param {string | undefined | null} status
  */
 function projectReceivesNewPayments(status) {
-  return projectStatusBucket(status) !== "cancelled";
+  return projectStatusBucket(status) === "active";
 }
 
 module.exports = { projectStatusBucket, projectReceivesNewPayments };

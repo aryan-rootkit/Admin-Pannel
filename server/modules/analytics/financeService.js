@@ -7,6 +7,7 @@ const {
   payoutExpenseAmount,
 } = require("../lib/financeHelpers");
 const { projectStatusBucket } = require("../lib/projectFinance");
+const { appendDebugSessionLine } = require("../../debugSessionLog");
 
 /**
  * Company + project finance snapshot.
@@ -90,7 +91,7 @@ async function computeFinanceAnalytics() {
     };
   });
 
-  return {
+  const payload = {
     totalRevenue,
     totalProjectCost,
     totalExpenses,
@@ -99,6 +100,54 @@ async function computeFinanceAnalytics() {
     pendingRevenue,
     projectBreakdown,
   };
+  // #region agent log
+  const overReceived = projectBreakdown.filter(
+    (row) => row.totalReceived > row.totalValue + 1e-6
+  ).length;
+  const zeroValueWithPayments = projectBreakdown.filter(
+    (row) => row.totalValue <= 0 && row.totalReceived > 0
+  ).length;
+  const financeLogData = {
+    revenueLineCount: revenues.length,
+    totalRevenue,
+    pendingRevenue,
+    projectRows: projectBreakdown.length,
+    overReceivedProjectCount: overReceived,
+    zeroContractWithReceivedCount: zeroValueWithPayments,
+    statusBuckets: projects.reduce((acc, p) => {
+      const b = projectStatusBucket(p.status);
+      acc[b] = (acc[b] || 0) + 1;
+      return acc;
+    }, {}),
+  };
+  if (process.env.NODE_ENV !== "production") {
+    fetch("http://127.0.0.1:7810/ingest/2353a7f2-1034-4773-8e38-18bdf10d5d38", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "978955",
+      },
+      body: JSON.stringify({
+        sessionId: "978955",
+        runId: "post-fix",
+        hypothesisId: "H1,H4,H5",
+        location: "analytics/financeService.js:computeFinanceAnalytics",
+        message: "finance aggregates snapshot",
+        data: financeLogData,
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+  }
+  appendDebugSessionLine({
+    sessionId: "978955",
+    runId: "post-fix",
+    hypothesisId: "H1,H4,H5",
+    location: "analytics/financeService.js:computeFinanceAnalytics",
+    message: "finance aggregates snapshot",
+    data: financeLogData,
+  });
+  // #endregion
+  return payload;
 }
 
 module.exports = { computeFinanceAnalytics };

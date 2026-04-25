@@ -50,7 +50,7 @@ export default function EditClientPage() {
   if (!client) return <div>Loading…</div>;
 
   return (
-    <div className="max-w-xl space-y-4">
+    <div className="mx-auto w-full max-w-xl min-w-0 space-y-4">
       <h1 className="text-xl font-semibold">Edit client</h1>
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1">

@@ -8,7 +8,7 @@ export function projectStatusBucket(
     .trim()
     .toLowerCase();
   if (!s) return "active";
-  if (s === "cancelled" || s === "lost") return "cancelled";
+  if (s === "cancelled" || s === "canceled" || s === "lost") return "cancelled";
   if (s === "completed" || s === "delivered") return "completed";
   return "active";
 }
@@ -21,5 +21,5 @@ export function displayFinancialStatus(status?: string | null): FinancialLifecyc
 }
 
 export function projectReceivesNewPayments(status?: string | null): boolean {
-  return projectStatusBucket(status) !== "cancelled";
+  return projectStatusBucket(status) === "active";
 }

@@ -13,6 +13,7 @@ const holidaysRoutes = require("./modules/holidays/routes");
 const settingsRoutes = require("./modules/settings/routes");
 const usersRoutes = require("./modules/users/routes");
 const analyticsRoutes = require("./modules/analytics/routes");
+const { appendDebugSessionLine } = require("./debugSessionLog");
 
 const createApp = () => {
   const app = express();
@@ -25,6 +26,14 @@ const createApp = () => {
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
+  app.post("/api/debug-session-log", (req, res) => {
+    if (String(req.get("x-debug-session-id") || "") !== "978955") {
+      return res.status(404).json({ ok: false });
+    }
+    const body = req.body;
+    if (body && typeof body === "object") appendDebugSessionLine(body);
+    return res.json({ ok: true });
+  });
   app.use("/api/clients", clientRoutes);
   app.use("/api/projects", projectRoutes);
   app.use("/api/people", peopleRoutes);

@@ -107,7 +107,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div>
+    <div className="min-w-0">
       <PageHeader title="Dashboard" />
 
       {loading ? (
@@ -123,7 +123,7 @@ export default function DashboardPage() {
       ) : null}
 
       {!loading && !error ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {tiles.map((t) => (
             <div
               key={t.label}

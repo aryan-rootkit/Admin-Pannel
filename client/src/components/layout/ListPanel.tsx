@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 export function ListPanel({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] shadow-sm">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] shadow-sm">
       {children}
     </div>
   );
