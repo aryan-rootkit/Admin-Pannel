@@ -148,8 +148,8 @@ export default function CreateProjectPage() {
             value={teamIds}
             onChange={setTeamIds}
             disabled={!peopleOptions.length}
+            placeholder="Search people…"
           />
-          <p className="text-xs text-[var(--purity-muted)]">Hold Ctrl or Cmd to select multiple.</p>
         </FormField>
 
         {submitError ? <div className="text-sm text-red-600">{submitError}</div> : null}

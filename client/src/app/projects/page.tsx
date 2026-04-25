@@ -312,8 +312,8 @@ export default function ProjectsPage() {
               value={teamIds}
               onChange={setTeamIds}
               disabled={!peopleOptions.length}
+              placeholder="Search people…"
             />
-            <p className="text-xs text-[var(--purity-muted)]">Hold Ctrl or Cmd to select multiple.</p>
           </FormField>
         </div>
       </Modal>
