@@ -48,6 +48,25 @@ export type RevenueRow = {
   description?: string;
 };
 
+export type ProfitAnalytics = {
+  totalRevenue: number;
+  totalCost: number;
+  profit: number;
+  projectBreakdown: Array<{
+    projectId: string;
+    projectName: string;
+    totalCost: number;
+  }>;
+};
+
+export type MonthlyAnalyticsRow = {
+  month: string;
+  monthKey: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+};
+
 export type PayoutRow = {
   _id: string;
   type?: "subscription" | "payout";
@@ -64,4 +83,4 @@ export type PayoutRow = {
   category?: string;
   notes?: string;
 };
-
+

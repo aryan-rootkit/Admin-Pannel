@@ -1,9 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_PEOPLE, fetchJson, getApiBase } from "@/lib/fetchApi";
+import {
+  API_ANALYTICS_MONTHLY,
+  API_ANALYTICS_PROFIT,
+  API_PEOPLE,
+  fetchJson,
+  getApiBase,
+} from "@/lib/fetchApi";
+import type { MonthlyAnalyticsRow, ProfitAnalytics } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
+import { DashboardInsights } from "@/components/dashboard/DashboardInsights";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -15,6 +23,11 @@ export default function DashboardPage() {
     revenues: 0,
     payouts: 0,
   });
+
+  const [insightLoading, setInsightLoading] = useState(true);
+  const [insightError, setInsightError] = useState<string | null>(null);
+  const [profit, setProfit] = useState<ProfitAnalytics | null>(null);
+  const [monthly, setMonthly] = useState<MonthlyAnalyticsRow[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +63,34 @@ export default function DashboardPage() {
           setError(e instanceof Error ? e.message : "Failed to load dashboard");
       } finally {
         if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        getApiBase();
+        const [p, m] = await Promise.all([
+          fetchJson<ProfitAnalytics>(API_ANALYTICS_PROFIT),
+          fetchJson<MonthlyAnalyticsRow[]>(API_ANALYTICS_MONTHLY),
+        ]);
+        if (!cancelled) {
+          setProfit(p);
+          setMonthly(Array.isArray(m) ? m : []);
+          setInsightError(null);
+        }
+      } catch (e) {
+        if (!cancelled)
+          setInsightError(
+            e instanceof Error ? e.message : "Failed to load analytics"
+          );
+      } finally {
+        if (!cancelled) setInsightLoading(false);
       }
     })();
     return () => {
@@ -96,6 +137,13 @@ export default function DashboardPage() {
           ))}
         </div>
       ) : null}
+
+      <DashboardInsights
+        profit={profit}
+        monthly={monthly}
+        loading={insightLoading}
+        error={insightError}
+      />
     </div>
   );
 }

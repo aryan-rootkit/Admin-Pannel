@@ -4,6 +4,12 @@
  */
 export const API_PEOPLE = "/people" as const;
 
+/** `GET` → `…/api/analytics/profit` */
+export const API_ANALYTICS_PROFIT = "/analytics/profit" as const;
+
+/** `GET` → `…/api/analytics/monthly` (optional `?months=12`) */
+export const API_ANALYTICS_MONTHLY = "/analytics/monthly" as const;
+
 /** Browser-safe GET helper — uses NEXT_PUBLIC_API_BASE_URL */
 export function getApiBase(): string {
   const API = process.env.NEXT_PUBLIC_API_BASE_URL;
