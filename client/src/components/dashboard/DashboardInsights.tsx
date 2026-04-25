@@ -69,7 +69,11 @@ export function DashboardInsights({ profit, monthly, loading, error }: Props) {
                 {formatInr(profit.totalCost)}
               </p>
               <p className="mt-1 text-xs text-[var(--purity-muted)]">
-                People: hourly × hours this week
+                Payouts (all) + weekly labour (hourly × hours this week)
+              </p>
+              <p className="mt-0.5 text-[10px] text-[var(--purity-muted)]">
+                Payouts {formatInr(profit.totalPayoutCost ?? 0)} · Labour{" "}
+                {formatInr(profit.totalLabourCost ?? 0)}
               </p>
             </div>
             <div className={cardClass}>
@@ -152,14 +156,16 @@ export function DashboardInsights({ profit, monthly, loading, error }: Props) {
           {profit.projectBreakdown.length > 0 ? (
             <div className={cardClass}>
               <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
-                Project cost (weekly labour snapshot)
+                Cost by project (payouts linked to project + weekly labour on roster)
               </p>
               <div className="max-h-56 overflow-y-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="sticky top-0 bg-[var(--purity-card)] text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
                     <tr>
-                      <th className="pb-2 pr-4">Project</th>
-                      <th className="pb-2 text-right">Weekly cost</th>
+                      <th className="pb-2 pr-2">Project</th>
+                      <th className="pb-2 pr-2 text-right">Payouts</th>
+                      <th className="pb-2 pr-2 text-right">Labour</th>
+                      <th className="pb-2 text-right">Total</th>
                     </tr>
                   </thead>
                   <tbody className="text-[var(--purity-text)]">
@@ -170,8 +176,14 @@ export function DashboardInsights({ profit, monthly, loading, error }: Props) {
                           key={row.projectId}
                           className="border-t border-[var(--purity-border)]"
                         >
-                          <td className="py-2 pr-4">{row.projectName || "—"}</td>
-                          <td className="py-2 text-right tabular-nums">
+                          <td className="py-2 pr-2">{row.projectName || "—"}</td>
+                          <td className="py-2 pr-2 text-right tabular-nums text-xs">
+                            {formatInr(row.payoutCost ?? 0)}
+                          </td>
+                          <td className="py-2 pr-2 text-right tabular-nums text-xs">
+                            {formatInr(row.labourCost ?? 0)}
+                          </td>
+                          <td className="py-2 text-right tabular-nums font-medium">
                             {formatInr(row.totalCost)}
                           </td>
                         </tr>

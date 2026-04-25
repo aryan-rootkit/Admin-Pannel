@@ -1,16 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchJson } from "@/lib/fetchApi";
 import { apiDelete, apiPost, apiPut } from "@/lib/api";
-import type { Project, RevenueRow } from "@/types/api";
+import type { Project, RevenuePaymentType, RevenueRow } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
-import {
-  EmptyState,
-  ListPanel,
-  listBodyRowClass,
-  listHeadRowClass,
-} from "@/components/layout/ListPanel";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatDate, formatMoney } from "@/lib/format";
 import { resolveProjectName } from "@/lib/relations";
@@ -19,6 +13,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { REVENUE_PAYMENT_TYPES } from "@/lib/formOptions";
 import { useToast } from "@/components/providers/ToastProvider";
 
 function refId(v: string | { _id: string } | undefined | null): string {
@@ -32,6 +27,17 @@ function toInputDate(iso?: string | null) {
   if (Number.isNaN(d.getTime())) return "";
   return d.toISOString().slice(0, 10);
 }
+
+function paymentLineAmount(r: RevenueRow): number {
+  return Number(r.totalAmount ?? r.amount ?? 0) || 0;
+}
+
+type ProjectRevenueGroup = {
+  projectId: string;
+  projectName: string;
+  payments: RevenueRow[];
+  totalReceived: number;
+};
 
 export default function RevenuesPage() {
   const toast = useToast();
@@ -47,6 +53,7 @@ export default function RevenuesPage() {
   const [advanceAmount, setAdvanceAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
   const [currency, setCurrency] = useState("INR");
+  const [paymentType, setPaymentType] = useState<RevenuePaymentType>("Installment");
 
   const load = useCallback(async () => {
     const [r, p] = await Promise.all([
@@ -56,6 +63,30 @@ export default function RevenuesPage() {
     setRows(Array.isArray(r) ? r : []);
     setProjects(Array.isArray(p) ? p : []);
   }, []);
+
+  const groupedByProject = useMemo((): ProjectRevenueGroup[] => {
+    const map = new Map<string, ProjectRevenueGroup>();
+    for (const r of rows) {
+      const pid = refId(r.projectId);
+      const name = resolveProjectName(r.projectId);
+      if (!map.has(pid)) {
+        map.set(pid, { projectId: pid, projectName: name, payments: [], totalReceived: 0 });
+      }
+      const g = map.get(pid)!;
+      g.payments.push(r);
+      g.totalReceived += paymentLineAmount(r);
+    }
+    for (const g of map.values()) {
+      g.payments.sort(
+        (a, b) =>
+          new Date(b.paymentDate || b.receivedAt || 0).getTime() -
+          new Date(a.paymentDate || a.receivedAt || 0).getTime()
+      );
+    }
+    return [...map.values()].sort((a, b) =>
+      a.projectName.localeCompare(b.projectName, undefined, { sensitivity: "base" })
+    );
+  }, [rows]);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +113,7 @@ export default function RevenuesPage() {
     setAdvanceAmount("0");
     setPaymentDate(toInputDate(new Date().toISOString()));
     setCurrency("INR");
+    setPaymentType("Installment");
     setModalOpen(true);
   }
 
@@ -92,6 +124,10 @@ export default function RevenuesPage() {
     setAdvanceAmount(String(r.advanceAmount ?? 0));
     setPaymentDate(toInputDate(r.paymentDate || r.receivedAt || null));
     setCurrency(r.currency || "INR");
+    const pt = r.paymentType;
+    setPaymentType(
+      pt && (REVENUE_PAYMENT_TYPES as readonly string[]).includes(pt) ? pt : "Installment"
+    );
     setModalOpen(true);
   }
 
@@ -107,7 +143,7 @@ export default function RevenuesPage() {
     }
     const total = Number(totalAmount);
     if (Number.isNaN(total) || total < 0) {
-      toast.error("Valid total amount is required");
+      toast.error("Valid payment amount is required");
       return;
     }
     setSaving(true);
@@ -120,6 +156,7 @@ export default function RevenuesPage() {
       pendingAmount: pending,
       paymentDate: paymentDate ? new Date(paymentDate).toISOString() : undefined,
       currency,
+      paymentType,
     };
     try {
       if (editingId) {
@@ -139,7 +176,7 @@ export default function RevenuesPage() {
   }
 
   async function onDelete(id: string) {
-    if (!window.confirm("Delete this revenue record?")) return;
+    if (!window.confirm("Delete this payment record?")) return;
     try {
       await apiDelete(`/revenues/${id}`);
       toast.deleted();
@@ -154,9 +191,15 @@ export default function RevenuesPage() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <PageHeader title="Revenues" />
         <Button type="button" onClick={openCreate} disabled={!projects.length}>
-          Add new
+          Add payment
         </Button>
       </div>
+
+      <p className="mb-4 max-w-2xl text-sm text-[var(--purity-muted)]">
+        Each row is a <strong className="text-[var(--purity-text)]">payment</strong> (advance,
+        installment, or final). Totals below are <strong className="text-[var(--purity-text)]">sum
+        of payments</strong> per project.
+      </p>
 
       {!projects.length && !loading ? (
         <p className="mb-4 text-sm text-amber-800">Create a project first.</p>
@@ -174,63 +217,73 @@ export default function RevenuesPage() {
         </div>
       ) : null}
 
-      <ListPanel>
-        <div className={`${listHeadRowClass()} grid-cols-12`}>
-          <div className="col-span-2">Total</div>
-          <div className="col-span-2">Advance</div>
-          <div className="col-span-2">Pending</div>
-          <div className="col-span-3">Project</div>
-          <div className="col-span-1">Date</div>
-          <div className="col-span-2 text-right">Actions</div>
+      {!loading && !error && rows.length === 0 ? (
+        <div className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] px-6 py-10 text-center text-sm text-[var(--purity-muted)]">
+          No payment records yet.
         </div>
-        {!loading && !error && rows.length === 0 ? (
-          <EmptyState message="No data" />
-        ) : null}
+      ) : null}
+
+      <div className="space-y-6">
         {!loading &&
-          rows.map((r) => (
-            <div key={r._id} className={`${listBodyRowClass()} grid-cols-12`}>
-              <div className="col-span-2 font-semibold text-[var(--purity-text)]">
-                {formatMoney(r.totalAmount ?? r.amount ?? 0, r.currency || "INR")}
+          groupedByProject.map((g) => (
+            <div
+              key={g.projectId}
+              className="overflow-hidden rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] shadow-sm"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--purity-border)] bg-[var(--purity-sidebar-active)] px-4 py-3">
+                <h2 className="text-sm font-bold text-[var(--purity-text)]">{g.projectName}</h2>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
+                    Total received
+                  </p>
+                  <p className="text-lg font-bold tabular-nums text-[var(--purity-text)]">
+                    {formatMoney(g.totalReceived, "INR")}
+                  </p>
+                </div>
               </div>
-              <div className="col-span-2 text-[var(--purity-muted)]">
-                {formatMoney(r.advanceAmount ?? 0, r.currency || "INR")}
-              </div>
-              <div className="col-span-2 text-[var(--purity-muted)]">
-                {formatMoney(
-                  r.pendingAmount ??
-                    Math.max(0, (r.totalAmount ?? r.amount ?? 0) - (r.advanceAmount ?? 0)),
-                  r.currency || "INR"
-                )}
-              </div>
-              <div className="col-span-3 text-[var(--purity-muted)]">
-                {resolveProjectName(r.projectId)}
-              </div>
-              <div className="col-span-1 text-xs text-[var(--purity-muted)]">
-                {formatDate(r.paymentDate || r.receivedAt)}
-              </div>
-              <div className="col-span-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
-                  onClick={() => openEdit(r)}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
-                  onClick={() => onDelete(r._id)}
-                >
-                  Delete
-                </button>
-              </div>
+              <ul className="divide-y divide-[var(--purity-border)]">
+                {g.payments.map((r) => (
+                  <li
+                    key={r._id}
+                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="font-semibold text-[var(--purity-text)]">
+                        {formatMoney(paymentLineAmount(r), r.currency || "INR")}
+                      </span>
+                      <span className="ml-2 rounded-md bg-[var(--purity-sidebar-active)] px-2 py-0.5 text-xs font-medium text-[var(--purity-accent-hover)]">
+                        {r.paymentType || "Installment"}
+                      </span>
+                      <span className="ml-2 text-xs text-[var(--purity-muted)]">
+                        {formatDate(r.paymentDate || r.receivedAt)}
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
+                        onClick={() => openEdit(r)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
+                        onClick={() => onDelete(r._id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
-      </ListPanel>
+      </div>
 
       <Modal
         open={modalOpen}
-        title={editingId ? "Edit revenue" : "New revenue"}
+        title={editingId ? "Edit payment" : "Record payment"}
         onClose={closeModal}
         footer={
           <>
@@ -254,14 +307,26 @@ export default function RevenuesPage() {
               ))}
             </Select>
           </FormField>
-          <FormField label="Total amount">
+          <FormField label="Payment type">
+            <Select
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value as RevenuePaymentType)}
+            >
+              {REVENUE_PAYMENT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Payment amount (this installment)">
             <Input
               inputMode="decimal"
               value={totalAmount}
               onChange={(e) => setTotalAmount(e.target.value)}
             />
           </FormField>
-          <FormField label="Advance amount">
+          <FormField label="Advance amount (optional split)">
             <Input
               inputMode="decimal"
               value={advanceAmount}

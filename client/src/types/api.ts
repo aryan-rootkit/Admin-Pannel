@@ -35,6 +35,8 @@ export type PersonRow = {
   assignedProjects?: Array<AssignedProjectRef | string>;
 };
 
+export type RevenuePaymentType = "Advance" | "Installment" | "Final";
+
 export type RevenueRow = {
   _id: string;
   projectId: string | { _id: string; name: string; clientId?: unknown };
@@ -46,15 +48,20 @@ export type RevenueRow = {
   currency?: string;
   receivedAt?: string;
   description?: string;
+  paymentType?: RevenuePaymentType;
 };
 
 export type ProfitAnalytics = {
   totalRevenue: number;
   totalCost: number;
+  totalPayoutCost: number;
+  totalLabourCost: number;
   profit: number;
   projectBreakdown: Array<{
     projectId: string;
     projectName: string;
+    labourCost: number;
+    payoutCost: number;
     totalCost: number;
   }>;
 };

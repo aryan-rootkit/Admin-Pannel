@@ -1,3 +1,7 @@
+export const REVENUE_PAYMENT_TYPES = ["Advance", "Installment", "Final"] as const;
+
+export type RevenuePaymentTypeOption = (typeof REVENUE_PAYMENT_TYPES)[number];
+
 export const PROJECT_STATUS_OPTIONS = [
   "Pitched",
   "Closed",

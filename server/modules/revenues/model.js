@@ -19,6 +19,12 @@ const RevenueSchema = new mongoose.Schema(
     currency: { type: String, default: "INR" },
     receivedAt: { type: Date },
     description: { type: String, trim: true },
+    /** Payment / installment classification */
+    paymentType: {
+      type: String,
+      enum: ["Advance", "Installment", "Final"],
+      default: "Installment",
+    },
   },
   { timestamps: true, collection: "revenues" }
 );

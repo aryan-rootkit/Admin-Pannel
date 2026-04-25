@@ -15,12 +15,17 @@ function normalizeRevenueLean(doc) {
       ? doc.pendingAmount
       : Math.max(0, Number(total) - Number(advance));
   const paymentDate = doc.paymentDate || doc.receivedAt;
+  const paymentType =
+    doc.paymentType && ["Advance", "Installment", "Final"].includes(doc.paymentType)
+      ? doc.paymentType
+      : "Installment";
   return {
     ...doc,
     totalAmount: total,
     advanceAmount: advance,
     pendingAmount: pending,
     paymentDate,
+    paymentType,
   };
 }
 
@@ -58,6 +63,7 @@ const createRevenue = async (req, res) => {
       paymentDate,
       currency,
       description,
+      paymentType,
     } = req.body || {};
     if (!projectId) return res.status(400).json({ message: "projectId is required" });
     const total = totalAmount != null ? Number(totalAmount) : 0;
@@ -67,6 +73,11 @@ const createRevenue = async (req, res) => {
         ? Number(pendingAmount)
         : Math.max(0, total - advance);
 
+    const pt =
+      paymentType && ["Advance", "Installment", "Final"].includes(paymentType)
+        ? paymentType
+        : "Installment";
+
     const doc = await Revenue.create({
       projectId,
       totalAmount: total,
@@ -75,6 +86,7 @@ const createRevenue = async (req, res) => {
       paymentDate: paymentDate || undefined,
       currency: currency || "INR",
       description,
+      paymentType: pt,
     });
     const populated = await Revenue.findById(doc._id)
       .populate({
@@ -99,6 +111,7 @@ const updateRevenue = async (req, res) => {
       paymentDate,
       currency,
       description,
+      paymentType,
     } = req.body || {};
     const patch = {};
     if (projectId !== undefined) patch.projectId = projectId;
@@ -108,6 +121,11 @@ const updateRevenue = async (req, res) => {
     if (paymentDate !== undefined) patch.paymentDate = paymentDate || null;
     if (currency !== undefined) patch.currency = currency;
     if (description !== undefined) patch.description = description;
+    if (paymentType !== undefined) {
+      patch.paymentType = ["Advance", "Installment", "Final"].includes(paymentType)
+        ? paymentType
+        : "Installment";
+    }
 
     const doc = await Revenue.findByIdAndUpdate(req.params.id, patch, {
       new: true,
