@@ -1,3 +1,9 @@
+/** General-purpose grouping with `en-IN` (same pattern as `Intl.NumberFormat("en-IN").format`). */
+export function formatNumber(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(Number(value))) return "";
+  return new Intl.NumberFormat("en-IN").format(Number(value));
+}
+
 const inrDecimal = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
   minimumFractionDigits: 0,

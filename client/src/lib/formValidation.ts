@@ -1,16 +1,22 @@
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+export function isValidPhone(phone: string): boolean {
+  return /^\d{10}$/.test(phone);
+}
 
 export function validateEmail(value: string): string | null {
   const v = value.trim();
   if (!v) return "Email is required";
-  if (!EMAIL_RE.test(v)) return "Enter a valid email address";
+  if (!isValidEmail(v)) return "Enter a valid email address";
   return null;
 }
 
 /** Exactly 10 digits (required). */
 export function validateContactTenDigits(value: string): string | null {
   const digits = value.replace(/\D/g, "");
-  if (digits.length !== 10) return "Contact must be exactly 10 digits";
+  if (!isValidPhone(digits)) return "Contact must be exactly 10 digits";
   return null;
 }
 
