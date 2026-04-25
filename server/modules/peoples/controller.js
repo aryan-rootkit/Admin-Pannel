@@ -9,7 +9,7 @@ function normalizeAssignedProjectEntry(entry) {
   return { _id: entry._id || entry, name: entry.name || "" };
 }
 
-const getTeams = async (_req, res) => {
+const getPeople = async (_req, res) => {
   try {
     const extraByPerson = await buildPersonIdToProjectsMap(Project);
 
@@ -149,7 +149,7 @@ const deletePerson = async (req, res) => {
 };
 
 module.exports = {
-  getTeams,
+  getPeople,
   getPersonById,
   createPerson,
   updatePerson,
