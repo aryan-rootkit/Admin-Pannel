@@ -280,7 +280,7 @@ export default function PayoutsPage() {
         }
       />
 
-      <div className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-4 shadow-sm lg:grid-cols-12">
+      <div className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-purity-border bg-purity-card p-4 shadow-sm lg:grid-cols-12">
         <div className="lg:col-span-4">
           <FormField label="Filter by project">
             <Select value={filterProjectId} onChange={(e) => setFilterProjectId(e.target.value)}>
@@ -311,34 +311,34 @@ export default function PayoutsPage() {
         </div>
         <div className="lg:col-span-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <div className="rounded-lg border border-[var(--purity-border)] bg-[var(--purity-bg)] px-3 py-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
+            <div className="rounded-lg border border-purity-border bg-purity-bg px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-purity-muted">
                 Paid (dev payouts)
               </div>
-              <div className="mt-1 text-lg font-semibold tabular-nums text-[var(--purity-text)]">
+              <div className="mt-1 text-lg font-semibold tabular-nums text-purity-text">
                 {formatMoney(filteredSummary.totalPaid, "INR")}
               </div>
-              <div className="mt-0.5 text-xs text-[var(--purity-muted)]">
+              <div className="mt-0.5 text-xs text-purity-muted">
                 {filteredSummary.devPayoutCount} payout lines
               </div>
             </div>
-            <div className="rounded-lg border border-[var(--purity-border)] bg-[var(--purity-bg)] px-3 py-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
+            <div className="rounded-lg border border-purity-border bg-purity-bg px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-purity-muted">
                 Project revenue (received)
               </div>
-              <div className="mt-1 text-lg font-semibold tabular-nums text-[var(--purity-text)]">
+              <div className="mt-1 text-lg font-semibold tabular-nums text-purity-text">
                 {filterProjectId ? formatMoney(filteredSummary.revenueForProject, "INR") : "—"}
               </div>
-              <div className="mt-0.5 text-xs text-[var(--purity-muted)]">Select a project to compute</div>
+              <div className="mt-0.5 text-xs text-purity-muted">Select a project to compute</div>
             </div>
-            <div className="rounded-lg border border-[var(--purity-border)] bg-[var(--purity-bg)] px-3 py-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
+            <div className="rounded-lg border border-purity-border bg-purity-bg px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-purity-muted">
                 Left with Rootkit (rev − cost)
               </div>
-              <div className="mt-1 text-lg font-semibold tabular-nums text-[var(--purity-text)]">
+              <div className="mt-1 text-lg font-semibold tabular-nums text-purity-text">
                 {filterProjectId ? formatMoney(filteredSummary.netLeft, "INR") : "—"}
               </div>
-              <div className="mt-0.5 text-xs text-[var(--purity-muted)]">
+              <div className="mt-0.5 text-xs text-purity-muted">
                 Cost uses dev payouts only
               </div>
             </div>
@@ -347,7 +347,7 @@ export default function PayoutsPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-[var(--purity-muted)]">
+        <div className="flex items-center gap-2 text-sm text-purity-muted">
           <Spinner />
           Loading…
         </div>
@@ -374,23 +374,23 @@ export default function PayoutsPage() {
             {!loading &&
               rows.map((r) => (
                 <div key={r._id} className={`${listBodyRowClass()} grid-cols-12`}>
-                  <div className="col-span-2 font-semibold text-[var(--purity-text)]">
+                  <div className="col-span-2 font-semibold text-purity-text">
                     {formatMoney(Number(r.amount) || 0, r.currency || "INR")}
                   </div>
-                  <div className="col-span-3 text-[var(--purity-muted)]">
+                  <div className="col-span-3 text-purity-muted">
                     {typeLabel(r)}
                     {r.type === "subscription" && r.status ? (
-                      <div className="text-[10px] text-[var(--purity-muted)]">{r.status}</div>
+                      <div className="text-[10px] text-purity-muted">{r.status}</div>
                     ) : null}
                   </div>
-                  <div className="col-span-3 text-xs text-[var(--purity-muted)]">{relatedLine(r)}</div>
-                  <div className="col-span-2 text-xs text-[var(--purity-muted)]">
+                  <div className="col-span-3 text-xs text-purity-muted">{relatedLine(r)}</div>
+                  <div className="col-span-2 text-xs text-purity-muted">
                     {formatDate(r.paymentDate || r.paidAt)}
                   </div>
                   <div className="col-span-2 flex justify-end gap-2">
                     <button
                       type="button"
-                      className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
+                      className="text-xs font-bold uppercase tracking-wide text-purity-accent-hover hover:underline"
                       onClick={() => openEdit(r)}
                     >
                       Edit
@@ -410,7 +410,7 @@ export default function PayoutsPage() {
         cards={
           <>
             {!loading && !error && rows.length === 0 ? (
-              <div className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] px-4 py-10 text-center text-sm text-[var(--purity-muted)]">
+              <div className="rounded-xl border border-purity-border bg-purity-card px-4 py-10 text-center text-sm text-purity-muted">
                 No data
               </div>
             ) : null}
@@ -418,30 +418,30 @@ export default function PayoutsPage() {
               rows.map((r) => (
                 <div
                   key={r._id}
-                  className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-4 shadow-sm"
+                  className="rounded-xl border border-purity-border bg-purity-card p-4 shadow-sm"
                 >
-                  <div className="text-lg font-semibold tabular-nums text-[var(--purity-text)]">
+                  <div className="text-lg font-semibold tabular-nums text-purity-text">
                     {formatMoney(Number(r.amount) || 0, r.currency || "INR")}
                   </div>
-                  <div className="mt-1 text-sm text-[var(--purity-muted)]">{typeLabel(r)}</div>
+                  <div className="mt-1 text-sm text-purity-muted">{typeLabel(r)}</div>
                   {r.type === "subscription" && r.status ? (
-                    <div className="text-xs text-[var(--purity-muted)]">{r.status}</div>
+                    <div className="text-xs text-purity-muted">{r.status}</div>
                   ) : null}
                   <dl className="mt-3 space-y-2 text-sm">
                     <div className="flex gap-2">
-                      <dt className="shrink-0 text-[var(--purity-muted)]">Related</dt>
-                      <dd className="min-w-0 flex-1 break-words text-right text-xs text-[var(--purity-text)]">
+                      <dt className="shrink-0 text-purity-muted">Related</dt>
+                      <dd className="min-w-0 flex-1 wrap-break-word text-right text-xs text-purity-text">
                         {relatedLine(r)}
                       </dd>
                     </div>
                     <div className="flex justify-between gap-2">
-                      <dt className="text-[var(--purity-muted)]">Date</dt>
-                      <dd className="text-xs text-[var(--purity-text)]">
+                      <dt className="text-purity-muted">Date</dt>
+                      <dd className="text-xs text-purity-text">
                         {formatDate(r.paymentDate || r.paidAt)}
                       </dd>
                     </div>
                   </dl>
-                  <div className="mt-4 flex flex-col gap-2 border-t border-[var(--purity-border)] pt-4">
+                  <div className="mt-4 flex flex-col gap-2 border-t border-purity-border pt-4">
                     <Button type="button" variant="secondary" className="w-full" onClick={() => openEdit(r)}>
                       Edit
                     </Button>

@@ -6,14 +6,16 @@ html {
 }
 
 :root {
-  --purity-page: #f7fafc;
-  --purity-card: #ffffff;
-  --purity-accent: #4fd1c5;
-  --purity-accent-hover: #38b2ac;
-  --purity-text: #2d3748;
-  --purity-muted: #a0aec0;
-  --purity-border: #e2e8f0;
-  --purity-sidebar-active: rgba(79, 209, 197, 0.12);
+  /* Template B (dark finance) */
+  --purity-page: #0b1220;
+  --purity-card: rgba(17, 24, 39, 0.88);
+  --purity-accent: #22d3ee;
+  --purity-accent-hover: #06b6d4;
+  --purity-text: #e5e7eb;
+  --purity-muted: rgba(229, 231, 235, 0.6);
+  --purity-border: rgba(148, 163, 184, 0.22);
+  --purity-sidebar-active: rgba(34, 211, 238, 0.14);
+  --purity-bg: rgba(2, 6, 23, 0.55);
   --background: var(--purity-page);
   --foreground: var(--purity-text);
 }
@@ -21,12 +23,24 @@ html {
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  /* Canonical Tailwind color tokens (use text-purity-muted, border-purity-border, etc.) */
+  --color-purity-page: var(--purity-page);
+  --color-purity-card: var(--purity-card);
+  --color-purity-accent: var(--purity-accent);
+  --color-purity-accent-hover: var(--purity-accent-hover);
+  --color-purity-text: var(--purity-text);
+  --color-purity-muted: var(--purity-muted);
+  --color-purity-border: var(--purity-border);
+  --color-purity-sidebar-active: var(--purity-sidebar-active);
+  --color-purity-bg: var(--purity-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--purity-page);
+  background: radial-gradient(1100px 700px at 20% 10%, rgba(34, 211, 238, 0.12), transparent 55%),
+    radial-gradient(900px 700px at 90% 20%, rgba(99, 102, 241, 0.10), transparent 50%),
+    var(--purity-page);
   color: var(--purity-text);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
