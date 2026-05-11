@@ -10,7 +10,6 @@ import {
   YAxis,
 } from "recharts";
 import type { FinanceAnalytics, MonthlyAnalyticsRow } from "@/types/api";
-import { Spinner } from "@/components/ui/Spinner";
 
 const cardClass =
   "rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-5 shadow-sm";
@@ -36,6 +35,53 @@ type Props = {
   error: string | null;
 };
 
+function SkeletonLine({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`rounded-md bg-[var(--purity-border)]/70 ${className}`}
+      aria-hidden="true"
+    />
+  );
+}
+
+function InsightsSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, idx) => (
+          <div key={idx} className={`${cardClass} animate-pulse`}>
+            <SkeletonLine className="h-3 w-24" />
+            <SkeletonLine className="mt-3 h-7 w-28" />
+            <SkeletonLine className="mt-3 h-3 w-44" />
+          </div>
+        ))}
+      </div>
+
+      <div className={`${cardClass} animate-pulse`}>
+        <SkeletonLine className="h-3 w-56" />
+        <div className="mt-4 h-[280px] w-full rounded-lg bg-[var(--purity-border)]/50" />
+        <SkeletonLine className="mt-3 h-3 w-80" />
+      </div>
+
+      <div className={`${cardClass} animate-pulse`}>
+        <SkeletonLine className="h-3 w-40" />
+        <div className="mt-4 space-y-3">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div key={idx} className="flex items-center gap-3">
+              <SkeletonLine className="h-4 w-56" />
+              <div className="ml-auto flex gap-3">
+                <SkeletonLine className="h-4 w-20" />
+                <SkeletonLine className="h-4 w-20" />
+                <SkeletonLine className="h-4 w-20" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardInsights({ finance, monthly, loading, error }: Props) {
   const chartData = Array.isArray(monthly) ? monthly : [];
   const breakdown = finance?.projectBreakdown ?? [];
@@ -46,12 +92,7 @@ export function DashboardInsights({ finance, monthly, loading, error }: Props) {
         Finance overview
       </h2>
 
-      {loading ? (
-        <div className="flex items-center gap-2 text-sm text-[var(--purity-muted)]">
-          <Spinner />
-          Loading analytics…
-        </div>
-      ) : null}
+      {loading ? <InsightsSkeleton /> : null}
 
       {error ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

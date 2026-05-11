@@ -10,8 +10,16 @@ import {
 } from "@/lib/fetchApi";
 import type { FinanceAnalytics, MonthlyAnalyticsRow } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Spinner } from "@/components/ui/Spinner";
 import { DashboardInsights } from "@/components/dashboard/DashboardInsights";
+
+function SkeletonLine({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`rounded-md bg-[var(--purity-border)]/70 ${className}`}
+      aria-hidden="true"
+    />
+  );
+}
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -111,9 +119,20 @@ export default function DashboardPage() {
       <PageHeader title="Dashboard" />
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-[var(--purity-muted)]">
-          <Spinner />
-          Loading…
+        <div
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+          aria-busy="true"
+          aria-live="polite"
+        >
+          {Array.from({ length: 5 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="animate-pulse rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-5 shadow-sm"
+            >
+              <SkeletonLine className="h-3 w-24" />
+              <SkeletonLine className="mt-3 h-7 w-20" />
+            </div>
+          ))}
         </div>
       ) : null}
       {error ? (

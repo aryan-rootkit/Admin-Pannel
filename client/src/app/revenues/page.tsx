@@ -301,10 +301,13 @@ export default function RevenuesPage() {
   }, [rows, projects]);
 
   const modalProjectOptions = useMemo(() => {
-    if (!editingId) return projects.filter((p) => projectReceivesNewPayments(p.status));
-    return projects.filter(
-      (p) => projectReceivesNewPayments(p.status) || p._id === projectId
-    );
+    const sorted = [...projects].sort((a, b) => {
+      const aa = projectReceivesNewPayments(a.status) ? 1 : 0;
+      const bb = projectReceivesNewPayments(b.status) ? 1 : 0;
+      if (aa !== bb) return bb - aa;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+    return sorted;
   }, [projects, editingId, projectId]);
 
   useEffect(() => {

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_PEOPLE, fetchJson } from "@/lib/fetchApi";
 import { apiDelete, apiPost, apiPut } from "@/lib/api";
-import type { PersonRow, PayoutRow, Project } from "@/types/api";
+import type { PersonRow, PayoutRow, Project, RevenueRow } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageToolbar } from "@/components/layout/PageToolbar";
 import { ResponsiveDataList } from "@/components/layout/ResponsiveDataList";
@@ -64,6 +64,7 @@ export default function PayoutsPage() {
   const [rows, setRows] = useState<PayoutRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [people, setPeople] = useState<PersonRow[]>([]);
+  const [revenues, setRevenues] = useState<RevenueRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -77,15 +78,20 @@ export default function PayoutsPage() {
   const [currency, setCurrency] = useState("INR");
   const [fieldErrors, setFieldErrors] = useState<PayoutFormErrors>({});
 
+  const [filterProjectId, setFilterProjectId] = useState("");
+  const [filterPeopleId, setFilterPeopleId] = useState("");
+
   const load = useCallback(async () => {
-    const [pay, p, t] = await Promise.all([
+    const [pay, p, t, r] = await Promise.all([
       fetchJson<PayoutRow[]>("/payouts"),
       fetchJson<Project[]>("/projects"),
       fetchJson<PersonRow[]>(API_PEOPLE),
+      fetchJson<RevenueRow[]>("/revenues"),
     ]);
     setRows(Array.isArray(pay) ? pay : []);
     setProjects(Array.isArray(p) ? p : []);
     setPeople(Array.isArray(t) ? t : []);
+    setRevenues(Array.isArray(r) ? r : []);
   }, []);
 
   useEffect(() => {
@@ -212,6 +218,57 @@ export default function PayoutsPage() {
 
   const showProjectPerson = !payoutKindIsSubscription(kind);
 
+  const filteredSummary = useMemo(() => {
+    const selectedProject = filterProjectId ? projects.find((p) => p._id === filterProjectId) : null;
+    const selectedPerson = filterPeopleId ? people.find((p) => p._id === filterPeopleId) : null;
+
+    const devPayouts = rows.filter((row) => {
+      const k = payoutRowToKind(row);
+      if (k !== "dev_payout") return false;
+      const pid = refId(row.projectId);
+      const peid = refId(row.peopleId) || refId(row.personId);
+      if (filterProjectId && pid !== filterProjectId) return false;
+      if (filterPeopleId && peid !== filterPeopleId) return false;
+      return true;
+    });
+
+    const totalPaid = devPayouts.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+    const revenueForProject = filterProjectId
+      ? revenues.reduce((s, row) => {
+          const pid = typeof row.projectId === "string" ? row.projectId : row.projectId?._id;
+          if (pid !== filterProjectId) return s;
+          const st = row.status || "Received";
+          if (st !== "Received") return s;
+          const amt = Number(row.amount ?? row.totalAmount ?? 0) || 0;
+          return s + Math.max(0, amt);
+        }, 0)
+      : 0;
+
+    const projectCost = filterProjectId
+      ? rows.reduce((s, row) => {
+          const k = payoutRowToKind(row);
+          if (k !== "dev_payout") return s;
+          const pid = refId(row.projectId);
+          if (pid !== filterProjectId) return s;
+          const amt = Number(row.amount) || 0;
+          return s + Math.max(0, amt);
+        }, 0)
+      : 0;
+
+    const netLeft = filterProjectId ? revenueForProject - projectCost : 0;
+
+    return {
+      selectedProject,
+      selectedPerson,
+      totalPaid,
+      revenueForProject,
+      projectCost,
+      netLeft,
+      devPayoutCount: devPayouts.length,
+    };
+  }, [filterProjectId, filterPeopleId, projects, people, rows, revenues]);
+
   return (
     <div>
       <PageToolbar
@@ -222,6 +279,72 @@ export default function PayoutsPage() {
           </Button>
         }
       />
+
+      <div className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-4 shadow-sm lg:grid-cols-12">
+        <div className="lg:col-span-4">
+          <FormField label="Filter by project">
+            <Select value={filterProjectId} onChange={(e) => setFilterProjectId(e.target.value)}>
+              <option value="">All projects</option>
+              {[...projects]
+                .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                .map((p) => (
+                  <option key={p._id} value={p._id}>
+                    {p.name}
+                  </option>
+                ))}
+            </Select>
+          </FormField>
+        </div>
+        <div className="lg:col-span-4">
+          <FormField label="Filter by developer">
+            <Select value={filterPeopleId} onChange={(e) => setFilterPeopleId(e.target.value)}>
+              <option value="">All developers</option>
+              {[...people]
+                .sort((a, b) => (a.name || a.email || "").localeCompare(b.name || b.email || ""))
+                .map((p) => (
+                  <option key={p._id} value={p._id}>
+                    {p.name || p.email || p._id}
+                  </option>
+                ))}
+            </Select>
+          </FormField>
+        </div>
+        <div className="lg:col-span-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <div className="rounded-lg border border-[var(--purity-border)] bg-[var(--purity-bg)] px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
+                Paid (dev payouts)
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums text-[var(--purity-text)]">
+                {formatMoney(filteredSummary.totalPaid, "INR")}
+              </div>
+              <div className="mt-0.5 text-xs text-[var(--purity-muted)]">
+                {filteredSummary.devPayoutCount} payout lines
+              </div>
+            </div>
+            <div className="rounded-lg border border-[var(--purity-border)] bg-[var(--purity-bg)] px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
+                Project revenue (received)
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums text-[var(--purity-text)]">
+                {filterProjectId ? formatMoney(filteredSummary.revenueForProject, "INR") : "—"}
+              </div>
+              <div className="mt-0.5 text-xs text-[var(--purity-muted)]">Select a project to compute</div>
+            </div>
+            <div className="rounded-lg border border-[var(--purity-border)] bg-[var(--purity-bg)] px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
+                Left with Rootkit (rev − cost)
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums text-[var(--purity-text)]">
+                {filterProjectId ? formatMoney(filteredSummary.netLeft, "INR") : "—"}
+              </div>
+              <div className="mt-0.5 text-xs text-[var(--purity-muted)]">
+                Cost uses dev payouts only
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-[var(--purity-muted)]">
