@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { mainNav } from "@/config/mainNav";
 import { TopBar } from "@/components/layout/TopBar";
 
@@ -124,7 +124,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    setMobileNavOpen(false);
+    startTransition(() => {
+      setMobileNavOpen(false);
+    });
   }, [pathname]);
 
   useEffect(() => {
@@ -144,7 +146,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <TopBar onMenuClick={() => setMobileNavOpen(true)} />
-          <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 py-5 sm:px-6 sm:py-6 lg:px-10 lg:py-8">
+          <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-smooth px-4 py-5 sm:px-6 sm:py-6 lg:px-10 lg:py-8">
             <div className="mx-auto min-h-0 w-full max-w-[1600px]">{children}</div>
           </main>
         </div>

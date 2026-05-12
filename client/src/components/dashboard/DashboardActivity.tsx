@@ -6,6 +6,8 @@ import { glassCard, sectionLabel, cardPadding } from "@/components/dashboard/das
 
 type Props = {
   items: ActivityItem[];
+  /** Tighter list for the operational column beside finance intel */
+  variant?: "default" | "column";
 };
 
 const kindBadge: Record<ActivityItem["kind"], string> = {
@@ -14,14 +16,23 @@ const kindBadge: Record<ActivityItem["kind"], string> = {
   project: "bg-sky-100 text-sky-900 ring-sky-200/80",
 };
 
-export function DashboardActivity({ items }: Props) {
+export function DashboardActivity({ items, variant = "default" }: Props) {
+  const column = variant === "column";
+  const listShell = column
+    ? "max-h-[min(380px,52vh)] sm:max-h-[min(420px,50vh)]"
+    : "max-h-[min(320px,50vh)]";
+
   return (
     <section aria-label="Activity">
-      <div className="mb-4">
+      <div className="mb-3 sm:mb-4">
         <h2 className={sectionLabel}>Activity</h2>
-        <p className="mt-1 text-sm text-purity-muted">Latest payments, payouts, and project events</p>
+        <p className={`mt-1 text-purity-muted ${column ? "text-xs leading-snug" : "text-sm"}`}>
+          {column
+            ? "Latest payments, payouts, and project moves — newest first."
+            : "Latest payments, payouts, and project events"}
+        </p>
       </div>
-      <div className={`${glassCard} max-h-[min(320px,50vh)] overflow-y-auto overscroll-y-contain p-2 sm:p-3`}>
+      <div className={`${glassCard} ${listShell} overflow-y-auto overscroll-y-contain p-2 ring-1 ring-slate-200/50 sm:p-3`}>
         {items.length === 0 ? (
           <p className={`${cardPadding} text-sm text-purity-muted`}>No recent activity.</p>
         ) : (
@@ -29,7 +40,7 @@ export function DashboardActivity({ items }: Props) {
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex gap-3 rounded-xl px-3 py-2.5 transition hover:bg-slate-50"
+                className="flex gap-3 rounded-xl px-2 py-2 transition hover:bg-slate-50 sm:px-3 sm:py-2.5"
               >
                 <span
                   className={`mt-0.5 inline-flex h-8 shrink-0 items-center justify-center rounded-lg px-2 text-[10px] font-bold uppercase tracking-wide ring-1 ${kindBadge[item.kind]}`}

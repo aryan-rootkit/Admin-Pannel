@@ -8,7 +8,7 @@ export const glassCard =
 
 /** Inline metric panel inside KPI cards */
 export const valueHero =
-  "rounded-xl bg-gradient-to-br from-slate-50 via-slate-100/80 to-slate-50 px-4 py-3 text-center shadow-inner ring-1 ring-slate-200/80";
+  "rounded-xl bg-gradient-to-br from-slate-50 via-white to-slate-100/90 px-3 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] ring-1 ring-slate-200/90";
 
 /** Eyebrow labels — uppercase, wide tracking */
 export const sectionLabel =

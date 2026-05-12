@@ -1,32 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  API_ANALYTICS_FINANCE,
-  API_ANALYTICS_MONTHLY,
-  API_PEOPLE,
-  fetchJson,
-  getApiBase,
-} from "@/lib/fetchApi";
-import type {
-  FinanceAnalytics,
-  MonthlyAnalyticsRow,
-  PayoutRow,
-  PersonRow,
-  Project,
-  RevenueRow,
-} from "@/types/api";
-import {
-  buildActivityFeed,
-  highPendingProjects,
-  monthlyMomTriple,
-  overduePendingRevenues,
-  projectStatusCounts,
-  smartSummaryLines,
-  stalledActiveProjects,
-  topPeopleByPayout,
-} from "@/lib/dashboardIntelligence";
-import { formatMoney } from "@/lib/format";
+import { useMemo } from "react";
+import useSWR from "swr";
+import { DASHBOARD_SWR_KEY, fetchDashboardBundle } from "@/lib/fetchDashboardBundle";
+import { buildDashboardModel } from "@/lib/dashboardModel";
 import { DashboardKpiStrip } from "@/components/dashboard/DashboardKpiStrip";
 import { DashboardSmartSummary } from "@/components/dashboard/DashboardSmartSummary";
 import { DashboardAttention } from "@/components/dashboard/DashboardAttention";
@@ -36,94 +13,20 @@ import { DashboardActivity } from "@/components/dashboard/DashboardActivity";
 import { DashboardTeamInsights } from "@/components/dashboard/DashboardTeamInsights";
 import { DashboardQuickActionChips } from "@/components/dashboard/DashboardQuickActions";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
+import { DashboardBurnRunway } from "@/components/dashboard/DashboardBurnRunway";
 import { stackSections } from "@/components/dashboard/dashboardStyles";
 
 export default function DashboardPage() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [people, setPeople] = useState<PersonRow[]>([]);
-  const [revenues, setRevenues] = useState<RevenueRow[]>([]);
-  const [payouts, setPayouts] = useState<PayoutRow[]>([]);
-  const [finance, setFinance] = useState<FinanceAnalytics | null>(null);
-  const [monthly, setMonthly] = useState<MonthlyAnalyticsRow[]>([]);
+  const { data, error, isLoading } = useSWR(DASHBOARD_SWR_KEY, fetchDashboardBundle, {
+    revalidateOnFocus: false,
+    dedupingInterval: 120_000,
+    errorRetryCount: 2,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        getApiBase();
-        const [proj, peop, rev, pay, fin, mon] = await Promise.all([
-          fetchJson<Project[]>("/projects"),
-          fetchJson<PersonRow[]>(API_PEOPLE),
-          fetchJson<RevenueRow[]>("/revenues"),
-          fetchJson<PayoutRow[]>("/payouts"),
-          fetchJson<FinanceAnalytics>(API_ANALYTICS_FINANCE),
-          fetchJson<MonthlyAnalyticsRow[]>(API_ANALYTICS_MONTHLY),
-        ]);
-        if (!cancelled) {
-          setProjects(Array.isArray(proj) ? proj : []);
-          setPeople(Array.isArray(peop) ? peop : []);
-          setRevenues(Array.isArray(rev) ? rev : []);
-          setPayouts(Array.isArray(pay) ? pay : []);
-          setFinance(fin);
-          setMonthly(Array.isArray(mon) ? mon : []);
-          setError(null);
-        }
-      } catch (e) {
-        if (!cancelled)
-          setError(e instanceof Error ? e.message : "Failed to load dashboard");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const model = useMemo(() => buildDashboardModel(data), [data]);
 
-  const mom = useMemo(() => monthlyMomTriple(monthly), [monthly]);
-  const overdue = useMemo(() => overduePendingRevenues(revenues), [revenues]);
-  const status = useMemo(() => projectStatusCounts(projects), [projects]);
-  const stalled = useMemo(() => stalledActiveProjects(projects), [projects]);
-  const activity = useMemo(
-    () => buildActivityFeed({ revenues, payouts, projects, limit: 14 }),
-    [revenues, payouts, projects]
-  );
-  const topPaid = useMemo(() => topPeopleByPayout(payouts, people, 4), [payouts, people]);
-
-  const summaryLines = useMemo(
-    () =>
-      smartSummaryLines({
-        mom,
-        overdue,
-        status,
-        finance,
-        stalledCount: stalled.length,
-      }),
-    [mom, overdue, status, finance, stalled.length]
-  );
-
-  const highPendingLabel = useMemo(() => {
-    const top = highPendingProjects(finance, 1)[0];
-    if (!top) return "No outsized pending buckets";
-    return `${top.projectName} · ${formatMoney(top.pending, "INR")}`;
-  }, [finance]);
-
-  const statusSlices = useMemo(
-    () => [
-      { name: "Active", value: status.active, fill: "#2563eb" },
-      { name: "Completed", value: status.completed, fill: "#16a34a" },
-      { name: "Cancelled", value: status.cancelled, fill: "#e11d48" },
-    ],
-    [status]
-  );
-
-  const activeWithProjects = useMemo(
-    () =>
-      people.filter((p) => Array.isArray(p.assignedProjects) && p.assignedProjects.length > 0).length,
-    [people]
-  );
+  const loadError = error instanceof Error ? error.message : error ? "Failed to load dashboard" : null;
+  const showSkeleton = isLoading && !data;
 
   return (
     <div className={`min-w-0 pb-8 ${stackSections}`}>
@@ -134,52 +37,61 @@ export default function DashboardPage() {
         <DashboardQuickActionChips />
       </header>
 
-      {loading ? <DashboardSkeleton /> : null}
+      {showSkeleton ? <DashboardSkeleton /> : null}
 
-      {error ? (
+      {loadError && !data ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          {error}
+          {loadError}
         </div>
       ) : null}
 
-      {!loading && !error && finance ? (
+      {!showSkeleton && data && model.finance ? (
         <>
-          <DashboardKpiStrip finance={finance} momRevenue={mom.revenue} momCost={mom.cost} momProfit={mom.profit} />
+          <DashboardKpiStrip
+            finance={model.finance}
+            momRevenue={model.mom.revenue}
+            momCost={model.mom.cost}
+            momProfit={model.mom.profit}
+          />
 
           <div className="grid gap-6 lg:gap-8 xl:grid-cols-12 xl:items-start">
-            <div className="min-w-0 space-y-6 lg:space-y-8 xl:col-span-8">
+            <div className="flex min-w-0 flex-col gap-6 lg:gap-8 xl:col-span-4">
+              <DashboardAttention
+                variant="sidebar"
+                overdueCount={model.overdue.count}
+                overdueAmount={model.overdue.amount}
+                highPendingLabel={model.highPendingLabel}
+                cancelledProjects={model.status.cancelled}
+                stalled={model.stalled}
+              />
+              <DashboardActivity items={model.activity} variant="column" />
+            </div>
+
+            <div className="min-w-0 space-y-6 lg:space-y-8 xl:col-span-5">
               <DashboardRevenueIntel
-                finance={finance}
-                monthly={monthly}
-                statusSlices={statusSlices}
+                finance={model.finance}
+                monthly={model.monthly}
+                statusSlices={model.statusSlices}
                 loading={false}
                 error={null}
               />
-              <DashboardProjectHealth finance={finance} />
-              <DashboardActivity items={activity} />
-              <DashboardTeamInsights
-                peopleCount={people.length}
-                activeWithProjects={activeWithProjects}
-                topPaid={topPaid}
-              />
+              <DashboardBurnRunway intel={model.burnIntel} />
+              <DashboardProjectHealth finance={model.finance} />
             </div>
 
-            <aside className="flex min-h-0 flex-col gap-6 xl:sticky xl:top-[5.5rem] xl:col-span-4 xl:max-h-[calc(100dvh-7rem)] xl:self-start xl:overflow-y-auto xl:overscroll-y-contain">
-              <DashboardAttention
-                variant="sidebar"
-                overdueCount={overdue.count}
-                overdueAmount={overdue.amount}
-                highPendingLabel={highPendingLabel}
-                cancelledProjects={status.cancelled}
-                stalled={stalled}
+            <aside className="flex min-w-0 flex-col gap-6 lg:gap-8 xl:sticky xl:top-22 xl:col-span-3 xl:self-start">
+              <DashboardSmartSummary lines={model.summaryLines} className="w-full" />
+              <DashboardTeamInsights
+                peopleCount={model.people.length}
+                activeWithProjects={model.activeWithProjects}
+                topPaid={model.topPaid}
               />
-              <DashboardSmartSummary lines={summaryLines} className="w-full" />
             </aside>
           </div>
         </>
       ) : null}
 
-      {!loading && !error && !finance ? (
+      {!showSkeleton && data && !model.finance ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Finance analytics unavailable.
         </div>
