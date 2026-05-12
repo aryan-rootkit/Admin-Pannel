@@ -188,18 +188,7 @@ export default function DashboardPage() {
           />
 
           <div className="grid gap-6 lg:gap-8 xl:grid-cols-12 xl:items-start">
-            <div className="order-1 flex min-h-0 min-w-0 flex-col gap-6 xl:col-span-3 xl:gap-8">
-              <DashboardAttention
-                variant="sidebar"
-                overdueCount={overdue.count}
-                overdueAmount={overdue.amount}
-                highPendingLabel={highPendingLabel}
-                cancelledProjects={status.cancelled}
-                stalled={stalled}
-              />
-            </div>
-
-            <div className="order-2 min-w-0 space-y-6 xl:col-span-6 xl:space-y-8">
+            <div className="order-1 min-w-0 space-y-6 xl:col-span-9 xl:space-y-8">
               <DashboardRevenueIntel
                 finance={finance}
                 monthly={monthly}
@@ -211,9 +200,17 @@ export default function DashboardPage() {
               <DashboardProjectHealth finance={finance} />
             </div>
 
-            <aside className="order-3 flex min-h-0 min-w-0 flex-col gap-6 xl:sticky xl:top-24 xl:col-span-3 xl:max-h-[calc(100dvh-8rem)] xl:self-start xl:overflow-y-auto xl:overscroll-y-contain">
-              <DashboardSmartSummary lines={summaryLines} className="w-full shrink-0" />
-              <DashboardActivity items={activity} compact />
+            <aside className="order-2 flex min-w-0 flex-col gap-6 xl:col-span-3">
+              <DashboardSmartSummary lines={summaryLines} className="w-full" />
+              <DashboardAttention
+                variant="sidebar"
+                overdueCount={overdue.count}
+                overdueAmount={overdue.amount}
+                highPendingLabel={highPendingLabel}
+                cancelledProjects={status.cancelled}
+                stalled={stalled}
+              />
+              <DashboardActivity items={activity} compact containScroll={false} />
               <DashboardTeamInsights topPaid={topPaid} />
             </aside>
           </div>

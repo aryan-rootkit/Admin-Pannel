@@ -91,7 +91,7 @@ function DashboardRevenueIntelInner({
       </div>
 
       <div className="grid min-h-0 min-w-0 gap-4 lg:grid-cols-5 lg:items-stretch">
-        <div className={`${glassCard} min-h-[280px] min-w-0 lg:col-span-3 ${cardPadding}`}>
+        <div className={`${glassCard} min-h-[300px] min-w-0 lg:col-span-3 ${cardPadding}`}>
           <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className={sectionLabel}>Trend</p>
@@ -101,7 +101,7 @@ function DashboardRevenueIntelInner({
           {!chartData.length ? (
             <p className="text-sm text-purity-muted">No monthly data yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={280}>
               <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#94a3b8" }} interval="preserveStartEnd" />
@@ -124,14 +124,14 @@ function DashboardRevenueIntelInner({
           )}
         </div>
 
-        <div className={`${glassCard} flex min-h-[260px] min-w-0 flex-col lg:col-span-2 ${cardPadding}`}>
+        <div className={`${glassCard} flex min-h-[280px] min-w-0 flex-col lg:col-span-2 ${cardPadding}`}>
           <p className={sectionLabel}>Portfolio</p>
           <p className="text-sm font-medium text-purity-text">Projects by status</p>
           <div className="mt-4 flex min-h-0 flex-1 items-center justify-center">
             {!donutData.length ? (
               <p className="text-sm text-purity-muted">No projects yet.</p>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
                   <Pie
                     data={donutData}
@@ -165,7 +165,7 @@ function DashboardRevenueIntelInner({
         {!last6.length ? (
           <p className="text-sm text-purity-muted">No data.</p>
         ) : (
-          <ResponsiveContainer width="100%" height={160}>
+          <ResponsiveContainer width="100%" height={180}>
             <BarChart data={last6} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 9, fill: "#94a3b8" }} />
@@ -184,9 +184,9 @@ function DashboardRevenueIntelInner({
         {!breakdown.length ? (
           <p className="mt-3 text-sm text-purity-muted">No projects yet.</p>
         ) : (
-          <div className="-mx-1 mt-3 max-h-[min(16rem,38vh)] min-w-0 overflow-auto overscroll-y-contain px-1">
+          <div className="-mx-1 mt-3 min-w-0 overflow-x-auto px-1 pb-1">
             <table className="w-full min-w-[34rem] text-left text-xs">
-              <thead className="sticky top-0 z-1 border-b border-purity-border bg-white text-[9px] font-bold uppercase tracking-wider text-purity-muted">
+              <thead className="border-b border-purity-border bg-white text-[9px] font-bold uppercase tracking-wider text-purity-muted">
                 <tr>
                   <th className="pb-1.5 pr-2">Project</th>
                   <th className="pb-1.5 pr-2 text-right">Contract</th>

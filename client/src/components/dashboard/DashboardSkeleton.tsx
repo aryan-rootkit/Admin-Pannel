@@ -5,8 +5,8 @@ import { glassCard, kpiCard } from "@/components/dashboard/dashboardStyles";
 const sk = "bg-slate-200/70 rk-skeleton-shimmer rounded-lg";
 
 /**
- * Mirrors loaded dashboard: header + 6 KPIs + 3-column grid (operational | finance | insights)
- * + burn intelligence strip + lower blocks. Heights align with live cards to limit layout shift.
+ * Mirrors loaded dashboard: header + 6 KPIs + main (9) + rail (3): revenue stack,
+ * then summary → attention → activity → team — single page scroll (no rail overflow).
  */
 export function DashboardSkeleton() {
   return (
@@ -32,28 +32,15 @@ export function DashboardSkeleton() {
       </div>
 
       <div className="grid gap-6 lg:gap-8 xl:grid-cols-12 xl:items-start">
-        <div className="order-1 flex min-w-0 flex-col gap-6 xl:col-span-3 xl:gap-8">
-          <div className="space-y-3">
-            <div className={`h-3 w-40 ${sk}`} />
-            {[1, 2, 3].map((i) => (
-              <div key={i} className={`${glassCard} min-h-[7rem] space-y-3 p-4`}>
-                <div className={`h-2.5 w-3/4 max-w-[12rem] ${sk}`} />
-                <div className={`h-3 w-full ${sk}`} />
-                <div className={`h-3 w-2/3 ${sk}`} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="order-2 min-w-0 space-y-6 xl:col-span-6 xl:space-y-8">
+        <div className="order-1 min-w-0 space-y-6 xl:col-span-9 xl:space-y-8">
           <div className={`${glassCard} space-y-4 p-5 md:p-6`}>
             <div className={`h-3 w-40 ${sk}`} />
             <div className="grid min-h-0 gap-4 lg:grid-cols-5 lg:items-stretch">
-              <div className={`min-h-[260px] rounded-xl lg:col-span-3 ${sk}`} />
-              <div className={`min-h-[220px] rounded-xl lg:col-span-2 ${sk}`} />
+              <div className={`min-h-[280px] rounded-xl lg:col-span-3 ${sk}`} />
+              <div className={`min-h-[240px] rounded-xl lg:col-span-2 ${sk}`} />
             </div>
-            <div className={`h-[130px] w-full rounded-xl ${sk}`} />
-            <div className={`h-28 w-full rounded-xl ${sk}`} />
+            <div className={`h-[180px] w-full rounded-xl ${sk}`} />
+            <div className={`h-32 w-full rounded-xl ${sk}`} />
           </div>
 
           <div className="space-y-3">
@@ -79,7 +66,7 @@ export function DashboardSkeleton() {
           </div>
         </div>
 
-        <aside className="order-3 flex min-h-0 flex-col gap-6 xl:col-span-3">
+        <aside className="order-2 flex min-w-0 flex-col gap-6 xl:col-span-3">
           <div className={`${glassCard} min-h-[14rem] p-5`}>
             <div className={`h-3 w-32 ${sk}`} />
             <div className="mt-4 space-y-3">
@@ -88,7 +75,16 @@ export function DashboardSkeleton() {
               ))}
             </div>
           </div>
-          <div className={`${glassCard} min-h-[12rem] p-4`}>
+          <div className="space-y-3">
+            <div className={`h-3 w-40 ${sk}`} />
+            {[1, 2].map((i) => (
+              <div key={i} className={`${glassCard} min-h-[6rem] space-y-2 p-4`}>
+                <div className={`h-2.5 w-full max-w-[10rem] ${sk}`} />
+                <div className={`h-2.5 w-2/3 ${sk}`} />
+              </div>
+            ))}
+          </div>
+          <div className={`${glassCard} p-4`}>
             <div className={`h-3 w-24 ${sk}`} />
             <div className="mt-4 space-y-3">
               {[1, 2, 3, 4].map((i) => (

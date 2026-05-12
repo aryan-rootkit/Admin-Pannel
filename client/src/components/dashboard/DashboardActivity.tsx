@@ -14,9 +14,18 @@ type Props = {
   items: ActivityItem[];
   /** Tighter layout for right-rail placement */
   compact?: boolean;
+  /**
+   * When false, the list grows with the page (no inner scroll / max-height).
+   * Use on the dashboard rail so one page scroll covers summary + activity + team.
+   */
+  containScroll?: boolean;
 };
 
-export function DashboardActivity({ items, compact }: Props) {
+export function DashboardActivity({ items, compact, containScroll = true }: Props) {
+  const scrollClasses =
+    containScroll &&
+    `${compact ? "max-h-[min(280px,42vh)]" : "max-h-[min(320px,50vh)]"} overflow-y-auto overscroll-y-contain`;
+
   return (
     <section aria-label="Activity">
       <div className={compact ? "mb-2" : "mb-4"}>
@@ -25,11 +34,7 @@ export function DashboardActivity({ items, compact }: Props) {
           <p className="mt-1 text-sm text-purity-muted">Latest payments, payouts, and project events</p>
         ) : null}
       </div>
-      <div
-        className={`${glassCard} overflow-y-auto overscroll-y-contain p-2 sm:p-3 ${
-          compact ? "max-h-[min(280px,42vh)]" : "max-h-[min(320px,50vh)]"
-        }`}
-      >
+      <div className={`${glassCard} p-2 sm:p-3${scrollClasses ? ` ${scrollClasses}` : ""}`}>
         {items.length === 0 ? (
           <p className={`${cardPadding} text-sm text-purity-muted`}>No recent activity.</p>
         ) : (
