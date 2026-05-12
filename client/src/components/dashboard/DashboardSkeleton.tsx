@@ -43,20 +43,6 @@ export function DashboardSkeleton() {
               </div>
             ))}
           </div>
-          <div className={`${glassCard} min-h-[16rem] p-4`}>
-            <div className={`h-3 w-28 ${sk}`} />
-            <div className="mt-4 space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex gap-3">
-                  <div className={`h-9 w-9 shrink-0 rounded-full ${sk}`} />
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className={`h-3 w-full max-w-[12rem] ${sk}`} />
-                    <div className={`h-2.5 w-20 ${sk}`} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="order-2 min-w-0 space-y-6 xl:col-span-6 xl:space-y-8">
@@ -66,30 +52,30 @@ export function DashboardSkeleton() {
               <div className={`min-h-[260px] rounded-xl lg:col-span-3 ${sk}`} />
               <div className={`min-h-[220px] rounded-xl lg:col-span-2 ${sk}`} />
             </div>
-            <div className={`h-[200px] w-full rounded-xl ${sk}`} />
-            <div className={`h-36 w-full rounded-xl ${sk}`} />
+            <div className={`h-[130px] w-full rounded-xl ${sk}`} />
+            <div className={`h-28 w-full rounded-xl ${sk}`} />
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
               <div className={`h-3 w-52 ${sk}`} />
-              <div className={`mt-2 h-3 max-w-md ${sk}`} />
+              <div className={`mt-2 h-2.5 max-w-md ${sk}`} />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className={`${glassCard} min-h-[8.5rem] p-5`}>
-                  <div className={`h-2.5 w-24 ${sk}`} />
-                  <div className={`mt-4 h-7 w-28 ${sk}`} />
-                  <div className={`mt-2 h-2.5 w-20 ${sk}`} />
-                  <div className={`mt-3 h-8 w-full ${sk}`} />
+                <div key={i} className={`${glassCard} min-h-[7.5rem] p-4`}>
+                  <div className={`h-2.5 w-20 ${sk}`} />
+                  <div className={`mt-3 h-6 w-24 ${sk}`} />
+                  <div className={`mt-2 h-2 w-16 ${sk}`} />
+                  <div className={`mt-2 h-6 w-full ${sk}`} />
                 </div>
               ))}
             </div>
           </div>
 
-          <div className={`${glassCard} h-44 p-5 md:p-6`}>
+          <div className={`${glassCard} h-36 p-4 md:p-5`}>
             <div className={`h-3 w-36 ${sk}`} />
-            <div className={`mt-6 h-24 w-full ${sk}`} />
+            <div className={`mt-4 h-16 w-full ${sk}`} />
           </div>
         </div>
 
@@ -102,11 +88,26 @@ export function DashboardSkeleton() {
               ))}
             </div>
           </div>
-          <div className={`${glassCard} min-h-[12rem] p-5`}>
+          <div className={`${glassCard} min-h-[12rem] p-4`}>
+            <div className={`h-3 w-24 ${sk}`} />
+            <div className="mt-4 space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex gap-3">
+                  <div className={`h-8 w-8 shrink-0 rounded-lg ${sk}`} />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className={`h-2.5 w-full max-w-[10rem] ${sk}`} />
+                    <div className={`h-2 w-16 ${sk}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className={`${glassCard} min-h-[14rem] p-5`}>
             <div className={`h-3 w-28 ${sk}`} />
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className={`h-24 rounded-xl ${sk}`} />
-              <div className={`h-24 rounded-xl ${sk}`} />
+            <div className="mt-4 space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className={`h-3 w-full ${sk}`} />
+              ))}
             </div>
           </div>
         </aside>

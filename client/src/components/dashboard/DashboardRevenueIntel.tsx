@@ -155,46 +155,46 @@ function DashboardRevenueIntelInner({
         </div>
       </div>
 
-      <div className={`${glassCard} min-h-0 min-w-0 ${cardPadding}`}>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className={`${glassCard} min-h-0 min-w-0 p-4 md:p-5`}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className={sectionLabel}>Last 6 months</p>
-            <p className="text-sm font-medium text-purity-text">Received revenue vs total payout volume</p>
+            <p className="text-xs font-medium text-purity-text">Received revenue vs total payout volume</p>
           </div>
         </div>
         {!last6.length ? (
           <p className="text-sm text-purity-muted">No data.</p>
         ) : (
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={last6} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={last6} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#94a3b8" }} />
-              <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} />
+              <XAxis dataKey="month" tick={{ fontSize: 9, fill: "#94a3b8" }} />
+              <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} width={36} />
               <Tooltip contentStyle={tooltipLight} formatter={(v) => formatMoney(Number(v), "INR")} />
-              <Bar dataKey="revenue" name="Received" fill={ACCENT} radius={[6, 6, 0, 0]} maxBarSize={36} />
-              <Bar dataKey="cost" name="Payouts" fill={COST} radius={[6, 6, 0, 0]} maxBarSize={36} />
+              <Bar dataKey="revenue" name="Received" fill={ACCENT} radius={[4, 4, 0, 0]} maxBarSize={26} />
+              <Bar dataKey="cost" name="Payouts" fill={COST} radius={[4, 4, 0, 0]} maxBarSize={26} />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      <div className={`${glassCard} min-h-0 min-w-0 overflow-hidden ${cardPadding}`}>
+      <div className={`${glassCard} min-h-0 min-w-0 overflow-hidden p-4 md:p-5`}>
         <p className={sectionLabel}>Project breakdown</p>
-        <p className="mt-1 text-sm text-purity-muted">Received, pending, cancelled balance, cost, profit</p>
+        <p className="mt-0.5 text-xs text-purity-muted">Received, pending, cancelled balance, cost, profit</p>
         {!breakdown.length ? (
-          <p className="mt-4 text-sm text-purity-muted">No projects yet.</p>
+          <p className="mt-3 text-sm text-purity-muted">No projects yet.</p>
         ) : (
-          <div className="-mx-1 mt-4 max-h-[min(24rem,55vh)] min-w-0 overflow-auto overscroll-y-contain px-1">
-            <table className="w-full min-w-[34rem] text-left text-sm">
-              <thead className="sticky top-0 z-[1] border-b border-purity-border bg-white text-[10px] font-bold uppercase tracking-wider text-purity-muted">
+          <div className="-mx-1 mt-3 max-h-[min(16rem,38vh)] min-w-0 overflow-auto overscroll-y-contain px-1">
+            <table className="w-full min-w-[34rem] text-left text-xs">
+              <thead className="sticky top-0 z-1 border-b border-purity-border bg-white text-[9px] font-bold uppercase tracking-wider text-purity-muted">
                 <tr>
-                  <th className="pb-2 pr-3">Project</th>
-                  <th className="pb-2 pr-3 text-right">Contract</th>
-                  <th className="pb-2 pr-3 text-right">Received</th>
-                  <th className="pb-2 pr-3 text-right">Pending</th>
-                  <th className="pb-2 pr-3 text-right">Cancelled</th>
-                  <th className="pb-2 pr-3 text-right">Cost</th>
-                  <th className="pb-2 text-right">Profit</th>
+                  <th className="pb-1.5 pr-2">Project</th>
+                  <th className="pb-1.5 pr-2 text-right">Contract</th>
+                  <th className="pb-1.5 pr-2 text-right">Received</th>
+                  <th className="pb-1.5 pr-2 text-right">Pending</th>
+                  <th className="pb-1.5 pr-2 text-right">Cancelled</th>
+                  <th className="pb-1.5 pr-2 text-right">Cost</th>
+                  <th className="pb-1.5 text-right">Profit</th>
                 </tr>
               </thead>
               <tbody>
@@ -202,15 +202,15 @@ function DashboardRevenueIntelInner({
                   .sort((a, b) => (b.projectProfit ?? 0) - (a.projectProfit ?? 0))
                   .map((row) => (
                     <tr key={row.projectId} className="border-t border-purity-border">
-                      <td className="py-2.5 pr-3 font-medium">{row.projectName || "—"}</td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums">{formatMoney(row.totalValue, "INR")}</td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums">{formatMoney(row.totalReceived, "INR")}</td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums">{formatMoney(row.pending, "INR")}</td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums text-amber-700">
+                      <td className="py-2 pr-2 font-medium">{row.projectName || "—"}</td>
+                      <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(row.totalValue, "INR")}</td>
+                      <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(row.totalReceived, "INR")}</td>
+                      <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(row.pending, "INR")}</td>
+                      <td className="py-2 pr-2 text-right tabular-nums text-amber-700">
                         {formatMoney(row.cancelledBalance ?? 0, "INR")}
                       </td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums">{formatMoney(row.projectCost, "INR")}</td>
-                      <td className={`py-2.5 text-right tabular-nums font-semibold ${signedClass(row.projectProfit)}`}>
+                      <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(row.projectCost, "INR")}</td>
+                      <td className={`py-2 text-right tabular-nums font-semibold ${signedClass(row.projectProfit)}`}>
                         {formatMoney(row.projectProfit, "INR")}
                       </td>
                     </tr>

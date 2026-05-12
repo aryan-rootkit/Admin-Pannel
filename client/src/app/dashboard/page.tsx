@@ -128,7 +128,7 @@ export default function DashboardPage() {
     () => buildActivityFeed({ revenues, payouts, projects, limit: 14 }),
     [revenues, payouts, projects]
   );
-  const topPaid = useMemo(() => topPeopleByPayout(payouts, people, 4), [payouts, people]);
+  const topPaid = useMemo(() => topPeopleByPayout(payouts, people, 8), [payouts, people]);
 
   const summaryLines = useMemo(
     () =>
@@ -156,12 +156,6 @@ export default function DashboardPage() {
       { name: "Cancelled", value: status.cancelled, fill: "#e11d48" },
     ],
     [status]
-  );
-
-  const activeWithProjects = useMemo(
-    () =>
-      people.filter((p) => Array.isArray(p.assignedProjects) && p.assignedProjects.length > 0).length,
-    [people]
   );
 
   const showContent = !error && finance;
@@ -203,7 +197,6 @@ export default function DashboardPage() {
                 cancelledProjects={status.cancelled}
                 stalled={stalled}
               />
-              <DashboardActivity items={activity} />
             </div>
 
             <div className="order-2 min-w-0 space-y-6 xl:col-span-6 xl:space-y-8">
@@ -220,11 +213,8 @@ export default function DashboardPage() {
 
             <aside className="order-3 flex min-h-0 min-w-0 flex-col gap-6 xl:sticky xl:top-24 xl:col-span-3 xl:max-h-[calc(100dvh-8rem)] xl:self-start xl:overflow-y-auto xl:overscroll-y-contain">
               <DashboardSmartSummary lines={summaryLines} className="w-full shrink-0" />
-              <DashboardTeamInsights
-                peopleCount={people.length}
-                activeWithProjects={activeWithProjects}
-                topPaid={topPaid}
-              />
+              <DashboardActivity items={activity} compact />
+              <DashboardTeamInsights topPaid={topPaid} />
             </aside>
           </div>
         </>

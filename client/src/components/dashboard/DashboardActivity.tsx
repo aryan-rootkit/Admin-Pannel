@@ -4,24 +4,32 @@ import type { ActivityItem } from "@/lib/dashboardIntelligence";
 import { formatDate } from "@/lib/format";
 import { glassCard, sectionLabel, cardPadding } from "@/components/dashboard/dashboardStyles";
 
-type Props = {
-  items: ActivityItem[];
-};
-
 const kindBadge: Record<ActivityItem["kind"], string> = {
   revenue: "bg-emerald-100 text-emerald-800 ring-emerald-200/80",
   payout: "bg-orange-100 text-orange-900 ring-orange-200/80",
   project: "bg-sky-100 text-sky-900 ring-sky-200/80",
 };
 
-export function DashboardActivity({ items }: Props) {
+type Props = {
+  items: ActivityItem[];
+  /** Tighter layout for right-rail placement */
+  compact?: boolean;
+};
+
+export function DashboardActivity({ items, compact }: Props) {
   return (
     <section aria-label="Activity">
-      <div className="mb-4">
+      <div className={compact ? "mb-2" : "mb-4"}>
         <h2 className={sectionLabel}>Activity</h2>
-        <p className="mt-1 text-sm text-purity-muted">Latest payments, payouts, and project events</p>
+        {!compact ? (
+          <p className="mt-1 text-sm text-purity-muted">Latest payments, payouts, and project events</p>
+        ) : null}
       </div>
-      <div className={`${glassCard} max-h-[min(320px,50vh)] overflow-y-auto overscroll-y-contain p-2 sm:p-3`}>
+      <div
+        className={`${glassCard} overflow-y-auto overscroll-y-contain p-2 sm:p-3 ${
+          compact ? "max-h-[min(280px,42vh)]" : "max-h-[min(320px,50vh)]"
+        }`}
+      >
         {items.length === 0 ? (
           <p className={`${cardPadding} text-sm text-purity-muted`}>No recent activity.</p>
         ) : (

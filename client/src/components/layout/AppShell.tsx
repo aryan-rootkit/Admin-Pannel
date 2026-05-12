@@ -86,7 +86,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 function Brand() {
   return (
-    <div className="flex items-center gap-3 px-5 py-7 lg:px-6">
+    <div className="flex shrink-0 items-center gap-3 px-5 py-7 lg:px-6">
       <div className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-900" aria-hidden>
         <svg width="36" height="36" viewBox="0 0 48 48" fill="none" className="overflow-visible">
           <path
@@ -117,7 +117,9 @@ const drawerAside =
   "flex h-full w-[min(20rem,calc(100vw-2rem))] max-w-[100vw] flex-col rounded-r-3xl border border-slate-200/90 bg-white shadow-[var(--rk-shadow-float)]";
 
 const desktopAsideClass =
-  "hidden w-64 shrink-0 flex-col rounded-r-3xl border border-slate-200/90 bg-white shadow-[var(--rk-shadow-card)] md:my-4 md:ml-3 md:flex md:h-[calc(100dvh-2rem)] md:self-start";
+  "fixed inset-y-0 left-0 z-40 hidden h-dvh min-h-0 w-64 flex-col border-r border-slate-200/90 bg-white shadow-[var(--rk-shadow-card)] md:flex";
+
+const desktopMainOffsetClass = "md:pl-64";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -139,10 +141,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-dvh w-full min-w-0 flex-1 flex-col md:flex-row">
         <aside className={desktopAsideClass}>
           <Brand />
-          <NavLinks />
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain pb-6">
+            <NavLinks />
+          </div>
         </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${desktopMainOffsetClass}`}>
           <TopBar onMenuClick={() => setMobileNavOpen(true)} />
           <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-10 lg:py-8">
             <div className="mx-auto w-full max-w-[1600px]">{children}</div>
