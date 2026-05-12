@@ -35,7 +35,7 @@ import { DashboardProjectHealth } from "@/components/dashboard/DashboardProjectH
 import { DashboardActivity } from "@/components/dashboard/DashboardActivity";
 import { DashboardTeamInsights } from "@/components/dashboard/DashboardTeamInsights";
 import { DashboardQuickActions } from "@/components/dashboard/DashboardQuickActions";
-import { glassCard } from "@/components/dashboard/dashboardStyles";
+import { glassCard, stackSections } from "@/components/dashboard/dashboardStyles";
 
 function DashboardSkeleton() {
   return (
@@ -132,7 +132,7 @@ export default function DashboardPage() {
 
   const statusSlices = useMemo(
     () => [
-      { name: "Active", value: status.active, fill: "#22d3ee" },
+      { name: "Active", value: status.active, fill: "#2dd4bf" },
       { name: "Completed", value: status.completed, fill: "#34d399" },
       { name: "Cancelled", value: status.cancelled, fill: "#fb7185" },
     ],
@@ -157,24 +157,24 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="min-w-0 pb-10">
-      <header className="mb-8 flex flex-col gap-1 border-b border-purity-border/80 pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <div className={`min-w-0 pb-10 ${stackSections}`}>
+      <header className="flex flex-col gap-2 border-b border-white/[0.08] pb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-purity-text md:text-3xl">
+          <h1 className="text-3xl font-bold tracking-tight text-purity-text md:text-[2rem] md:leading-tight">
             Dashboard
           </h1>
-          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-purity-muted">
-            What changed, what needs attention, and where to act next — Rootkit finance &
-            delivery in one view.
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-purity-muted">
+            What changed, what needs attention, and where to act next — finance and delivery in
+            one operational view.
           </p>
-          <p className="mt-2 text-xs font-medium text-purity-muted/90">{today}</p>
+          <p className="mt-3 text-xs font-medium tabular-nums text-purity-muted">{today}</p>
         </div>
       </header>
 
       {loading ? <DashboardSkeleton /> : null}
 
       {error ? (
-        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+        <div className="rounded-2xl border border-rose-500/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
           {error}
         </div>
       ) : null}
@@ -183,8 +183,8 @@ export default function DashboardPage() {
         <>
           <DashboardKpiStrip finance={finance} momRevenue={mom.revenue} momCost={mom.cost} momProfit={mom.profit} />
 
-          <div className="mt-10 grid gap-8 xl:grid-cols-12 xl:items-start">
-            <div className="min-w-0 space-y-10 xl:col-span-8">
+          <div className="grid gap-6 lg:gap-8 xl:grid-cols-12 xl:items-stretch">
+            <div className="min-w-0 xl:col-span-8">
               <DashboardAttention
                 overdueCount={overdue.count}
                 overdueAmount={overdue.amount}
@@ -192,32 +192,34 @@ export default function DashboardPage() {
                 cancelledProjects={status.cancelled}
                 stalled={stalled}
               />
-              <DashboardRevenueIntel
-                finance={finance}
-                monthly={monthly}
-                statusSlices={statusSlices}
-                loading={false}
-                error={null}
-              />
-              <DashboardProjectHealth finance={finance} />
-              <DashboardActivity items={activity} />
-              <DashboardTeamInsights
-                peopleCount={people.length}
-                activeWithProjects={activeWithProjects}
-                topPaid={topPaid}
-              />
-              <DashboardQuickActions />
             </div>
+            <div className="flex min-h-0 xl:col-span-4">
+              <DashboardSmartSummary lines={summaryLines} className="w-full xl:min-h-full" />
+            </div>
+          </div>
 
-            <div className="xl:col-span-4 xl:sticky xl:top-24">
-              <DashboardSmartSummary lines={summaryLines} />
-            </div>
+          <div className={stackSections}>
+            <DashboardRevenueIntel
+              finance={finance}
+              monthly={monthly}
+              statusSlices={statusSlices}
+              loading={false}
+              error={null}
+            />
+            <DashboardProjectHealth finance={finance} />
+            <DashboardActivity items={activity} />
+            <DashboardTeamInsights
+              peopleCount={people.length}
+              activeWithProjects={activeWithProjects}
+              topPaid={topPaid}
+            />
+            <DashboardQuickActions />
           </div>
         </>
       ) : null}
 
       {!loading && !error && !finance ? (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+        <div className="rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
           Finance analytics unavailable.
         </div>
       ) : null}

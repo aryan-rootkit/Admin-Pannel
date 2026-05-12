@@ -57,8 +57,35 @@ const getPeople = async (_req, res) => {
 
 const getPersonById = async (req, res) => {
   try {
-    const person = await People.findById(req.params.id).lean();
+    const extraByPerson = await buildPersonIdToProjectsMap(Project);
+
+    const person = await People.findById(req.params.id)
+      .populate({
+        path: "assignedProjects",
+        select: "name budget clientId status",
+        populate: { path: "clientId", select: "name email contact" },
+      })
+      .lean();
+
     if (!person) return res.status(404).json({ message: "Person not found" });
+
+    const pid = String(person._id);
+    const fromDb = (person.assignedProjects || [])
+      .filter(Boolean)
+      .map(normalizeAssignedProjectEntry)
+      .filter(Boolean);
+    const fromProjects = extraByPerson.get(pid) || [];
+    const seen = new Set(fromDb.map((x) => String(x._id)));
+    const merged = [...fromDb];
+    for (const pr of fromProjects) {
+      const id = String(pr._id);
+      if (!seen.has(id)) {
+        merged.push({ _id: pr._id, name: pr.name });
+        seen.add(id);
+      }
+    }
+    person.assignedProjects = merged;
+
     return res.json(person);
   } catch (err) {
     return res.status(500).json({ message: err.message || "Server error" });

@@ -8,26 +8,17 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export function Button({ variant = "primary", className = "", ...props }: Props) {
   const base =
-    "inline-flex min-h-11 min-w-[2.75rem] touch-manipulation items-center justify-center rounded-md px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:min-w-0 sm:py-2";
+    "inline-flex min-h-11 min-w-[2.75rem] touch-manipulation items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:min-w-0 sm:py-2";
   const styles =
     variant === "primary"
-      ? "text-white shadow-sm hover:opacity-95"
+      ? "bg-purity-accent text-[#0b111b] shadow-md shadow-purity-accent/10 hover:brightness-105 active:brightness-95"
       : variant === "ghost"
-        ? "text-[var(--purity-muted)] hover:bg-[var(--purity-page)] hover:text-[var(--purity-text)]"
+        ? "text-purity-muted hover:bg-white/[0.06] hover:text-purity-text"
         : variant === "danger"
-          ? "border border-red-200 bg-red-50 text-red-800 hover:bg-red-100"
-          : "border border-[var(--purity-border)] bg-[var(--purity-card)] text-[var(--purity-text)] hover:bg-[var(--purity-page)]";
+          ? "border border-rose-500/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/18 hover:border-rose-400/45"
+          : "border border-white/[0.1] bg-purity-bg text-purity-text shadow-sm hover:border-white/[0.16] hover:bg-white/[0.05]";
 
   return (
-    <button
-      className={`${base} ${styles} ${className}`}
-      style={
-        variant === "primary"
-          ? { background: "var(--purity-accent)" }
-          : undefined
-      }
-      {...props}
-    />
+    <button className={`${base} ${styles} ${className}`} {...props} />
   );
 }
-

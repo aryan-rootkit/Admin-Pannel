@@ -1,20 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { API_PEOPLE, fetchJson } from "@/lib/fetchApi";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { API_PEOPLE, fetchJson, getApiBase } from "@/lib/fetchApi";
 import { apiDelete, apiPost, apiPut, apiGet } from "@/lib/api";
-import type { PersonRow, Project } from "@/types/api";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { PageToolbar } from "@/components/layout/PageToolbar";
-import { ResponsiveDataList } from "@/components/layout/ResponsiveDataList";
-import {
-  EmptyState,
-  ListPanel,
-  listBodyRowClass,
-  listHeadRowClass,
-} from "@/components/layout/ListPanel";
+import type { PayoutRow, PersonRow, Project } from "@/types/api";
+import { PeopleCard } from "@/components/peoples/PeopleCard";
 import { Spinner } from "@/components/ui/Spinner";
-import { resolveAssignedProjectNames } from "@/lib/relations";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/ui/FormField";
@@ -29,6 +20,7 @@ import {
   validateRole,
 } from "@/lib/formValidation";
 import { useToast } from "@/components/providers/ToastProvider";
+import { totalPayoutsForPerson } from "@/lib/personFinance";
 
 type PeopleFormErrors = {
   name?: string;
@@ -37,10 +29,20 @@ type PeopleFormErrors = {
   role?: string;
 };
 
+function formatListAmount(n: number) {
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+function assignedProjectCount(p: PersonRow) {
+  const a = p.assignedProjects;
+  return Array.isArray(a) ? a.length : 0;
+}
+
 export default function PeoplesPage() {
   const toast = useToast();
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [payouts, setPayouts] = useState<PayoutRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -54,18 +56,21 @@ export default function PeoplesPage() {
   const [fieldErrors, setFieldErrors] = useState<PeopleFormErrors>({});
 
   const load = useCallback(async () => {
-    const [t, p] = await Promise.all([
+    const [t, p, po] = await Promise.all([
       fetchJson<PersonRow[]>(API_PEOPLE),
       fetchJson<Project[]>("/projects"),
+      fetchJson<PayoutRow[]>("/payouts"),
     ]);
     setPeople(Array.isArray(t) ? t : []);
     setProjects(Array.isArray(p) ? p : []);
+    setPayouts(Array.isArray(po) ? po : []);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        getApiBase();
         await load();
         if (!cancelled) setError(null);
       } catch (e) {
@@ -79,6 +84,14 @@ export default function PeoplesPage() {
       cancelled = true;
     };
   }, [load]);
+
+  const payoutTotals = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const person of people) {
+      m.set(person._id, totalPayoutsForPerson(payouts, person._id));
+    }
+    return m;
+  }, [people, payouts]);
 
   function openCreate() {
     setEditingId(null);
@@ -171,12 +184,13 @@ export default function PeoplesPage() {
     }
   }
 
-  async function onDelete(id: string) {
+  async function handleDeletePerson(id: string) {
     if (!window.confirm("Delete this person?")) return;
     try {
       await apiDelete(`${API_PEOPLE}/${id}`);
       toast.deleted();
       await load();
+      closeModal();
     } catch {
       toast.error();
     }
@@ -193,121 +207,51 @@ export default function PeoplesPage() {
   }
 
   return (
-    <div>
-      <PageToolbar
-        title={<PageHeader title="Peoples" className="mb-0" />}
-        actions={
-          <Button type="button" className="w-full sm:w-auto" onClick={openCreate}>
-            Add new
-          </Button>
-        }
-      />
+    <div className="min-w-0">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-[1.75rem]">Peoples</h1>
+          <p className="mt-1 text-sm text-slate-500">Team directory · payouts and assignments</p>
+        </div>
+        <Button type="button" className="rounded-full px-6 font-semibold shadow-sm" onClick={openCreate}>
+          Add new
+        </Button>
+      </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-[var(--purity-muted)]">
+        <div className="flex items-center gap-2 text-sm text-slate-500">
           <Spinner />
           Loading…
         </div>
       ) : null}
       {error ? (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       ) : null}
 
-      <ResponsiveDataList
-        table={
-          <ListPanel>
-            <div className={`${listHeadRowClass()} grid-cols-12`}>
-              <div className="col-span-2">Name</div>
-              <div className="col-span-2">Email</div>
-              <div className="col-span-2">Contact</div>
-              <div className="col-span-2">Role</div>
-              <div className="col-span-2">Assigned projects</div>
-              <div className="col-span-2 text-right">Actions</div>
-            </div>
-            {!loading && !error && people.length === 0 ? (
-              <EmptyState message="No data" />
-            ) : null}
-            {!loading &&
-              people.map((p) => (
-                <div key={p._id} className={`${listBodyRowClass()} grid-cols-12`}>
-                  <div className="col-span-2 font-semibold text-[var(--purity-text)]">{p.name || "—"}</div>
-                  <div className="col-span-2 break-words text-[var(--purity-muted)]">{p.email || "—"}</div>
-                  <div className="col-span-2 text-[var(--purity-muted)]">{p.contact || "—"}</div>
-                  <div className="col-span-2 text-xs text-[var(--purity-muted)]">{p.role || "—"}</div>
-                  <div className="col-span-2 text-xs text-[var(--purity-muted)]">
-                    {resolveAssignedProjectNames(p.assignedProjects)}
-                  </div>
-                  <div className="col-span-2 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
-                      onClick={() => openEdit(p)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
-                      onClick={() => onDelete(p._id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-          </ListPanel>
-        }
-        cards={
-          <>
-            {!loading && !error && people.length === 0 ? (
-              <div className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] px-4 py-10 text-center text-sm text-[var(--purity-muted)]">
-                No data
-              </div>
-            ) : null}
-            {!loading &&
-              people.map((p) => (
-                <div
-                  key={p._id}
-                  className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-4 shadow-sm"
-                >
-                  <div className="text-base font-semibold text-[var(--purity-text)]">{p.name || "—"}</div>
-                  <dl className="mt-3 space-y-2 text-sm">
-                    <div className="flex gap-2">
-                      <dt className="shrink-0 text-[var(--purity-muted)]">Email</dt>
-                      <dd className="min-w-0 flex-1 break-words text-right text-[var(--purity-text)]">
-                        {p.email || "—"}
-                      </dd>
-                    </div>
-                    <div className="flex gap-2">
-                      <dt className="shrink-0 text-[var(--purity-muted)]">Contact</dt>
-                      <dd className="min-w-0 flex-1 text-right text-[var(--purity-text)]">{p.contact || "—"}</dd>
-                    </div>
-                    <div className="flex gap-2">
-                      <dt className="shrink-0 text-[var(--purity-muted)]">Role</dt>
-                      <dd className="min-w-0 flex-1 text-right text-xs text-[var(--purity-text)]">{p.role || "—"}</dd>
-                    </div>
-                    <div className="flex gap-2">
-                      <dt className="shrink-0 text-[var(--purity-muted)]">Projects</dt>
-                      <dd className="min-w-0 flex-1 break-words text-right text-xs text-[var(--purity-text)]">
-                        {resolveAssignedProjectNames(p.assignedProjects)}
-                      </dd>
-                    </div>
-                  </dl>
-                  <div className="mt-4 flex flex-col gap-2 border-t border-[var(--purity-border)] pt-4">
-                    <Button type="button" variant="secondary" className="w-full" onClick={() => openEdit(p)}>
-                      Edit
-                    </Button>
-                    <Button type="button" variant="danger" className="w-full" onClick={() => onDelete(p._id)}>
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
-          </>
-        }
-      />
+      {!loading && !error && people.length === 0 ? (
+        <div className="rounded-[20px] border border-slate-200/90 bg-white px-6 py-16 text-center text-sm text-slate-500 shadow-sm">
+          No people yet — add your first team member.
+        </div>
+      ) : null}
+
+      {!loading && !error && people.length > 0 ? (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {people.map((p) => (
+            <PeopleCard
+              key={p._id}
+              id={p._id}
+              name={p.name || "—"}
+              title={p.role || p.subRole || "—"}
+              avatarUrl={p.avatar}
+              revenueDisplay={formatListAmount(payoutTotals.get(p._id) ?? 0)}
+              projectCount={assignedProjectCount(p)}
+              onEdit={() => openEdit(p)}
+            />
+          ))}
+        </div>
+      ) : null}
 
       <Modal
         open={modalOpen}
@@ -318,6 +262,15 @@ export default function PeoplesPage() {
             <Button type="button" variant="secondary" onClick={closeModal}>
               Cancel
             </Button>
+            {editingId ? (
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => editingId && handleDeletePerson(editingId)}
+              >
+                Delete
+              </Button>
+            ) : null}
             <Button type="button" onClick={onSave} disabled={saving}>
               {saving ? "Saving…" : "Save"}
             </Button>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { formatMoney } from "@/lib/format";
-import { glassCard, sectionLabel } from "@/components/dashboard/dashboardStyles";
+import { glassCard, sectionLabel, cardPadding } from "@/components/dashboard/dashboardStyles";
 import type { Project } from "@/types/api";
 
 type AttentionItem = {
@@ -84,9 +84,9 @@ export function DashboardAttention({
 
   if (items.length === 0) {
     return (
-      <section aria-label="Attention required" className="mt-8">
+      <section aria-label="Attention required">
         <h2 className={`${sectionLabel} mb-3`}>Attention required</h2>
-        <div className={`${glassCard} p-6 text-sm text-purity-muted`}>
+        <div className={`${glassCard} ${cardPadding} text-sm text-purity-muted`}>
           Nothing urgent surfaced — data looks healthy.
         </div>
       </section>
@@ -94,7 +94,7 @@ export function DashboardAttention({
   }
 
   return (
-    <section aria-label="Attention required" className="mt-8">
+    <section aria-label="Attention required">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className={`${sectionLabel}`}>Attention required</h2>
@@ -103,15 +103,13 @@ export function DashboardAttention({
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {items.map((item) => {
           const inner = (
             <article
-              className={`${glassCard} h-full p-4 ring-1 ${toneRing(item.tone)} transition hover:border-purity-accent/30`}
+              className={`${glassCard} h-full ${cardPadding} ring-1 ${toneRing(item.tone)} transition hover:border-purity-accent/25`}
             >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-purity-muted">
-                {item.title}
-              </p>
+              <p className={sectionLabel}>{item.title}</p>
               <p className="mt-2 text-lg font-semibold text-purity-text">{item.value}</p>
               <p className="mt-1 text-xs leading-snug text-purity-muted">{item.hint}</p>
             </article>

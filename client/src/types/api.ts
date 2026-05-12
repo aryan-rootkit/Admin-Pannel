@@ -35,6 +35,14 @@ export type PersonRow = {
   subRole?: string;
   email?: string;
   contact?: string;
+  /** Optional profile image URL */
+  avatar?: string;
+  /** Skill tags for profile UI */
+  skills?: string[];
+  /** Long-form bio (stored when provided; schema allows extra keys) */
+  bio?: string;
+  /** City / region label */
+  location?: string;
   assignedProjects?: Array<AssignedProjectRef | string>;
 };
 

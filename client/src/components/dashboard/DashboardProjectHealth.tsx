@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { FinanceAnalytics } from "@/types/api";
 import { formatMoney } from "@/lib/format";
-import { glassCard, sectionLabel } from "@/components/dashboard/dashboardStyles";
+import { glassCard, sectionLabel, cardPadding } from "@/components/dashboard/dashboardStyles";
 
 type Props = {
   finance: FinanceAnalytics | null;
@@ -17,8 +17,8 @@ export function DashboardProjectHealth({ finance }: Props) {
     .slice(0, 6);
 
   return (
-    <section aria-label="Project health" className="mt-10">
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+    <section aria-label="Project health">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className={sectionLabel}>Project health</h2>
           <p className="mt-1 text-sm text-purity-muted">
@@ -32,14 +32,14 @@ export function DashboardProjectHealth({ finance }: Props) {
           View all projects
         </Link>
       </div>
-      <div className={`${glassCard} divide-y divide-white/10`}>
+      <div className={`${glassCard} divide-y divide-white/[0.06]`}>
         {!top.length ? (
-          <p className="p-5 text-sm text-purity-muted">No project finance data yet.</p>
+          <p className={`${cardPadding} text-sm text-purity-muted`}>No project finance data yet.</p>
         ) : (
           top.map((row) => (
             <div
               key={row.projectId}
-              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5"
+              className={`flex flex-wrap items-center justify-between gap-3 ${cardPadding}`}
             >
               <div className="min-w-0">
                 <p className="truncate font-medium text-purity-text">{row.projectName || "—"}</p>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { glassCard, sectionLabel } from "@/components/dashboard/dashboardStyles";
+import { glassCard, sectionLabel, cardPadding } from "@/components/dashboard/dashboardStyles";
 
 const actions = [
   { href: "/projects/create", label: "Add project", desc: "New engagement" },
@@ -12,14 +12,14 @@ const actions = [
 
 export function DashboardQuickActions() {
   return (
-    <section aria-label="Quick actions" className="mt-10 pb-4">
-      <h2 className={`${sectionLabel} mb-3`}>Quick actions</h2>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <section aria-label="Quick actions" className="pb-2">
+      <h2 className={`${sectionLabel} mb-4`}>Quick actions</h2>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {actions.map((a) => (
           <Link
             key={a.href}
             href={a.href}
-            className={`${glassCard} group block p-4 transition hover:border-purity-accent/40 hover:shadow-lg hover:shadow-purity-accent/5`}
+            className={`${glassCard} group block ${cardPadding} transition hover:border-purity-accent/35 hover:shadow-[var(--rk-shadow-card)]`}
           >
             <p className="text-sm font-semibold text-purity-text group-hover:text-purity-accent">
               {a.label}

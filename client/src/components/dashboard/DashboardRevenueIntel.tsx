@@ -17,7 +17,11 @@ import {
 } from "recharts";
 import type { FinanceAnalytics, MonthlyAnalyticsRow } from "@/types/api";
 import { formatMoney } from "@/lib/format";
-import { glassCard, sectionLabel } from "@/components/dashboard/dashboardStyles";
+import { glassCard, sectionLabel, cardPadding } from "@/components/dashboard/dashboardStyles";
+
+const ACCENT = "#2dd4bf";
+const COST = "#fb923c";
+const NET = "#a78bfa";
 
 function signedClass(n: number): string {
   if (n > 0) return "text-emerald-400";
@@ -46,11 +50,11 @@ export function DashboardRevenueIntel({
 
   if (loading) {
     return (
-      <section aria-label="Revenue intelligence" className="space-y-6">
+      <section aria-label="Revenue intelligence" className="space-y-5">
         <h2 className={sectionLabel}>Revenue intelligence</h2>
         <div className="grid gap-4 lg:grid-cols-2">
           {[1, 2].map((i) => (
-            <div key={i} className={`${glassCard} h-[320px] animate-pulse p-5`} />
+            <div key={i} className={`${glassCard} h-[320px] animate-pulse ${cardPadding}`} />
           ))}
         </div>
       </section>
@@ -72,7 +76,7 @@ export function DashboardRevenueIntel({
   const donutData = statusSlices.filter((s) => s.value > 0);
 
   return (
-    <section aria-label="Revenue intelligence" className="space-y-6">
+    <section aria-label="Revenue intelligence" className="space-y-5">
       <div>
         <h2 className={sectionLabel}>Revenue intelligence</h2>
         <p className="mt-1 text-sm text-purity-muted">
@@ -81,7 +85,7 @@ export function DashboardRevenueIntel({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-5 lg:items-stretch">
-        <div className={`${glassCard} min-h-[300px] p-5 lg:col-span-3`}>
+        <div className={`${glassCard} min-h-[300px] ${cardPadding} lg:col-span-3`}>
           <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className={sectionLabel}>Trend</p>
@@ -113,15 +117,15 @@ export function DashboardRevenueIntel({
                   }}
                   formatter={(value, name) => [formatMoney(Number(value), "INR"), String(name ?? "")]}
                 />
-                <Line type="monotone" dataKey="revenue" name="Received" stroke="#22d3ee" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="cost" name="Payouts" stroke="#fb923c" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="profit" name="Net (month)" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="revenue" name="Received" stroke={ACCENT} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="cost" name="Payouts" stroke={COST} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="profit" name="Net (month)" stroke={NET} strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        <div className={`${glassCard} flex min-h-[300px] flex-col p-5 lg:col-span-2`}>
+        <div className={`${glassCard} flex min-h-[300px] flex-col ${cardPadding} lg:col-span-2`}>
           <p className={sectionLabel}>Portfolio</p>
           <p className="text-sm font-medium text-purity-text">Projects by status</p>
           <div className="mt-4 flex min-h-0 flex-1 items-center justify-center">
@@ -158,7 +162,7 @@ export function DashboardRevenueIntel({
         </div>
       </div>
 
-      <div className={`${glassCard} p-5`}>
+      <div className={`${glassCard} ${cardPadding}`}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className={sectionLabel}>Last 6 months</p>
@@ -181,14 +185,14 @@ export function DashboardRevenueIntel({
                 }}
                 formatter={(v) => formatMoney(Number(v), "INR")}
               />
-              <Bar dataKey="revenue" name="Received" fill="#22d3ee" radius={[6, 6, 0, 0]} maxBarSize={36} />
-              <Bar dataKey="cost" name="Payouts" fill="#fb923c" radius={[6, 6, 0, 0]} maxBarSize={36} />
+              <Bar dataKey="revenue" name="Received" fill={ACCENT} radius={[6, 6, 0, 0]} maxBarSize={36} />
+              <Bar dataKey="cost" name="Payouts" fill={COST} radius={[6, 6, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      <div className={`${glassCard} overflow-hidden p-5`}>
+      <div className={`${glassCard} overflow-hidden ${cardPadding}`}>
         <p className={sectionLabel}>Project breakdown</p>
         <p className="mt-1 text-sm text-purity-muted">Received, pending, cancelled balance, cost, profit</p>
         {!breakdown.length ? (
