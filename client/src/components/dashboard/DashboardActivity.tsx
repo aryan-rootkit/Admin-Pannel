@@ -9,9 +9,9 @@ type Props = {
 };
 
 const kindBadge: Record<ActivityItem["kind"], string> = {
-  revenue: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30",
-  payout: "bg-orange-500/15 text-orange-200 ring-orange-500/30",
-  project: "bg-sky-500/15 text-sky-200 ring-sky-500/30",
+  revenue: "bg-emerald-100 text-emerald-800 ring-emerald-200/80",
+  payout: "bg-orange-100 text-orange-900 ring-orange-200/80",
+  project: "bg-sky-100 text-sky-900 ring-sky-200/80",
 };
 
 export function DashboardActivity({ items }: Props) {
@@ -29,7 +29,7 @@ export function DashboardActivity({ items }: Props) {
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/5"
+                className="flex gap-3 rounded-xl px-3 py-2.5 transition hover:bg-slate-50"
               >
                 <span
                   className={`mt-0.5 inline-flex h-8 shrink-0 items-center justify-center rounded-lg px-2 text-[10px] font-bold uppercase tracking-wide ring-1 ${kindBadge[item.kind]}`}

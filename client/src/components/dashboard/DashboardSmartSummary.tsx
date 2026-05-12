@@ -10,7 +10,7 @@ type Props = {
 export function DashboardSmartSummary({ lines, className = "" }: Props) {
   return (
     <aside
-      className={`${glassCard} flex min-h-0 flex-col border-purity-accent/20 bg-gradient-to-b from-purity-card/98 to-[#070b14]/95 ${cardPadding} ring-1 ring-purity-accent/15 ${className}`}
+      className={`${glassCard} flex min-h-0 flex-col border-blue-200/80 bg-gradient-to-b from-white to-slate-50/95 ${cardPadding} ring-1 ring-blue-100 ${className}`}
       aria-label="Smart summary"
     >
       <div className="flex shrink-0 items-start justify-between gap-2">
@@ -22,7 +22,7 @@ export function DashboardSmartSummary({ lines, className = "" }: Props) {
           Live
         </span>
       </div>
-      <ul className="mt-6 flex min-h-0 flex-1 flex-col divide-y divide-white/[0.08] rounded-xl bg-[#070b14]/55 p-3 ring-1 ring-white/[0.06]">
+      <ul className="mt-6 flex min-h-0 flex-1 flex-col divide-y divide-slate-200/90 rounded-xl bg-slate-50/90 p-3 ring-1 ring-slate-200/80">
         {lines.length === 0 ? (
           <li className="py-3 text-sm text-purity-muted">No insights yet — add revenue and projects.</li>
         ) : (

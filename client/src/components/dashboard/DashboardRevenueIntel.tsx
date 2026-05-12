@@ -19,13 +19,21 @@ import type { FinanceAnalytics, MonthlyAnalyticsRow } from "@/types/api";
 import { formatMoney } from "@/lib/format";
 import { glassCard, sectionLabel, cardPadding } from "@/components/dashboard/dashboardStyles";
 
-const ACCENT = "#2dd4bf";
-const COST = "#fb923c";
-const NET = "#a78bfa";
+const ACCENT = "#2563eb";
+const COST = "#ea580c";
+const NET = "#7c3aed";
+
+const tooltipLight = {
+  background: "#ffffff",
+  border: "1px solid rgba(148,163,184,0.35)",
+  borderRadius: "12px",
+  color: "#0f172a",
+  boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
+};
 
 function signedClass(n: number): string {
-  if (n > 0) return "text-emerald-400";
-  if (n < 0) return "text-rose-400";
+  if (n > 0) return "text-emerald-600";
+  if (n < 0) return "text-rose-600";
   return "text-purity-text";
 }
 
@@ -64,7 +72,7 @@ export function DashboardRevenueIntel({
   if (error) {
     return (
       <section aria-label="Revenue intelligence">
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {error}
         </div>
       </section>
@@ -109,14 +117,7 @@ export function DashboardRevenueIntel({
                     return `₹${Math.round(n)}`;
                   }}
                 />
-                <Tooltip
-                  contentStyle={{
-                    background: "rgba(15,23,42,0.95)",
-                    border: "1px solid rgba(148,163,184,0.2)",
-                    borderRadius: "12px",
-                  }}
-                  formatter={(value, name) => [formatMoney(Number(value), "INR"), String(name ?? "")]}
-                />
+                <Tooltip contentStyle={tooltipLight} formatter={(value, name) => [formatMoney(Number(value), "INR"), String(name ?? "")]} />
                 <Line type="monotone" dataKey="revenue" name="Received" stroke={ACCENT} strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="cost" name="Payouts" stroke={COST} strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="profit" name="Net (month)" stroke={NET} strokeWidth={2} dot={false} />
@@ -144,17 +145,11 @@ export function DashboardRevenueIntel({
                     dataKey="value"
                   >
                     {donutData.map((entry, i) => (
-                      <Cell key={i} fill={entry.fill} stroke="rgba(15,23,42,0.8)" strokeWidth={1} />
+                      <Cell key={i} fill={entry.fill} stroke="#e2e8f0" strokeWidth={1} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: "rgba(15,23,42,0.95)",
-                      border: "1px solid rgba(148,163,184,0.2)",
-                      borderRadius: "12px",
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: "12px" }} />
+                  <Tooltip contentStyle={tooltipLight} />
+                  <Legend wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -177,14 +172,7 @@ export function DashboardRevenueIntel({
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#94a3b8" }} />
               <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} />
-              <Tooltip
-                contentStyle={{
-                  background: "rgba(15,23,42,0.95)",
-                  border: "1px solid rgba(148,163,184,0.2)",
-                  borderRadius: "12px",
-                }}
-                formatter={(v) => formatMoney(Number(v), "INR")}
-              />
+              <Tooltip contentStyle={tooltipLight} formatter={(v) => formatMoney(Number(v), "INR")} />
               <Bar dataKey="revenue" name="Received" fill={ACCENT} radius={[6, 6, 0, 0]} maxBarSize={36} />
               <Bar dataKey="cost" name="Payouts" fill={COST} radius={[6, 6, 0, 0]} maxBarSize={36} />
             </BarChart>
@@ -220,7 +208,7 @@ export function DashboardRevenueIntel({
                       <td className="py-2.5 pr-3 text-right tabular-nums">{formatMoney(row.totalValue, "INR")}</td>
                       <td className="py-2.5 pr-3 text-right tabular-nums">{formatMoney(row.totalReceived, "INR")}</td>
                       <td className="py-2.5 pr-3 text-right tabular-nums">{formatMoney(row.pending, "INR")}</td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums text-amber-200/90">
+                      <td className="py-2.5 pr-3 text-right tabular-nums text-amber-700">
                         {formatMoney(row.cancelledBalance ?? 0, "INR")}
                       </td>
                       <td className="py-2.5 pr-3 text-right tabular-nums">{formatMoney(row.projectCost, "INR")}</td>

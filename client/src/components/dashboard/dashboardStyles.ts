@@ -1,15 +1,14 @@
 /**
- * Rootkit UI — dashboard surfaces (aligned with Figma dark finance system)
- * Spacing rhythm: 6 / 8 / 12 / 16 / 24 (Tailwind 1.5–6 scale)
+ * Dashboard surfaces — light theme cards (aligned with global ROOTKIT FINANCE UI)
  */
 
-/** Primary elevated surface: thin hairline + soft lift (no heavy borders) */
+/** Primary elevated surface */
 export const glassCard =
-  "rounded-2xl border border-white/[0.08] bg-purity-card/90 shadow-[var(--rk-shadow-card)] backdrop-blur-xl";
+  "rounded-2xl border border-slate-200/90 bg-white shadow-[var(--rk-shadow-card)]";
 
-/** Inline metric pill (dark navy gradient) */
+/** Inline metric panel inside KPI cards */
 export const valueHero =
-  "rounded-xl bg-gradient-to-br from-[#0c1222] via-[#070b14] to-[#0c1222] px-4 py-3 text-center shadow-inner ring-1 ring-white/[0.08]";
+  "rounded-xl bg-gradient-to-br from-slate-50 via-slate-100/80 to-slate-50 px-4 py-3 text-center shadow-inner ring-1 ring-slate-200/80";
 
 /** Eyebrow labels — uppercase, wide tracking */
 export const sectionLabel =

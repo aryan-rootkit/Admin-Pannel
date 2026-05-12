@@ -29,7 +29,7 @@ export function Modal({ open, title, onClose, children, footer }: Props) {
           <h2 className="text-base font-bold text-[var(--purity-text)]">{title}</h2>
           <button
             type="button"
-            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-lg leading-none text-[var(--purity-muted)] hover:bg-[var(--purity-page)] hover:text-[var(--purity-text)] sm:min-h-10 sm:min-w-10"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-lg leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900 sm:min-h-10 sm:min-w-10"
             onClick={onClose}
             aria-label="Close"
           >

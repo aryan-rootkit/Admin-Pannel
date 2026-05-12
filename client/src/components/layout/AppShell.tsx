@@ -55,20 +55,11 @@ function NavIcon({ href }: { href: string }) {
   }
 }
 
-function NavLinks({
-  onNavigate,
-  variant,
-}: {
-  onNavigate?: () => void;
-  variant: "dark" | "peoples-light";
-}) {
+function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const light = variant === "peoples-light";
   return (
     <nav className="flex flex-col gap-1 px-3 pb-8">
-      <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-purity-muted">
-        Main
-      </p>
+      <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-purity-muted">Main</p>
       {mainNav.map((item) => {
         const active =
           pathname === item.href ||
@@ -80,15 +71,11 @@ function NavLinks({
             onClick={onNavigate}
             className={`relative flex min-h-11 items-center gap-3 rounded-xl py-2.5 pl-3 pr-3 text-sm font-medium leading-snug transition-colors md:min-h-0 ${
               active
-                ? light
-                  ? "bg-[#e8f0fe] font-semibold text-[#1a56db] shadow-none"
-                  : "bg-purity-sidebar-active text-purity-accent shadow-[inset_3px_0_0_0_var(--purity-accent)]"
-                : light
-                  ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  : "text-purity-muted hover:bg-white/[0.04] hover:text-purity-text"
+                ? "bg-[#e8f0fe] font-semibold text-[#1a56db] shadow-none"
+                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             }`}
           >
-            {light ? <NavIcon href={item.href} /> : null}
+            <NavIcon href={item.href} />
             {item.label}
           </Link>
         );
@@ -97,53 +84,48 @@ function NavLinks({
   );
 }
 
-function Brand({ variant }: { variant: "dark" | "peoples-light" }) {
-  if (variant === "peoples-light") {
-    return (
-      <div className="flex items-center gap-3 px-5 py-7 lg:px-6">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-900" aria-hidden>
-          <svg width="36" height="36" viewBox="0 0 48 48" fill="none" className="overflow-visible">
-            <path d="M8 38 L18 12 L24 22 L30 8 L40 38" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M14 38 L22 18 L28 28 L34 38" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.35" />
-          </svg>
-        </div>
-        <div className="min-w-0">
-          <div className="text-[13px] font-bold uppercase tracking-[0.06em] text-slate-900">ROOTKIT FINANCE</div>
-        </div>
-      </div>
-    );
-  }
+function Brand() {
   return (
     <div className="flex items-center gap-3 px-5 py-7 lg:px-6">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purity-accent text-sm font-bold text-[#0b111b] shadow-lg shadow-purity-accent/15">
-        R
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-900" aria-hidden>
+        <svg width="36" height="36" viewBox="0 0 48 48" fill="none" className="overflow-visible">
+          <path
+            d="M8 38 L18 12 L24 22 L30 8 L40 38"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M14 38 L22 18 L28 28 L34 38"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.35"
+          />
+        </svg>
       </div>
       <div className="min-w-0">
-        <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-purity-text">
-          Rootkit UI
-        </div>
-        <div className="mt-0.5 text-[10px] font-medium text-purity-muted">Finance</div>
+        <div className="text-[13px] font-bold uppercase tracking-[0.06em] text-slate-900">ROOTKIT FINANCE</div>
       </div>
     </div>
   );
 }
 
 const drawerAside =
-  "flex h-full w-[min(20rem,calc(100vw-2rem))] max-w-[100vw] flex-col border-r border-purity-border bg-purity-card/95 shadow-[var(--rk-shadow-float)] backdrop-blur-xl";
+  "flex h-full w-[min(20rem,calc(100vw-2rem))] max-w-[100vw] flex-col rounded-r-3xl border border-slate-200/90 bg-white shadow-[var(--rk-shadow-float)]";
+
+const desktopAsideClass =
+  "hidden w-64 shrink-0 flex-col rounded-r-3xl border border-slate-200/90 bg-white shadow-[var(--rk-shadow-card)] md:my-4 md:ml-3 md:flex md:h-[calc(100dvh-2rem)] md:self-start";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const pathname = usePathname();
-  const peoplesLight = pathname.startsWith("/peoples");
 
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    document.body.classList.toggle("peoples-route", peoplesLight);
-    return () => document.body.classList.remove("peoples-route");
-  }, [peoplesLight]);
 
   useEffect(() => {
     document.body.style.overflow = mobileNavOpen ? "hidden" : "";
@@ -152,22 +134,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [mobileNavOpen]);
 
-  const shellVariant = peoplesLight ? "peoples-light" : "dark";
-
-  const desktopAsideClass = peoplesLight
-    ? "hidden w-64 shrink-0 flex-col rounded-r-3xl border border-slate-200/90 bg-white shadow-[var(--rk-shadow-card)] md:my-4 md:ml-3 md:flex md:h-[calc(100dvh-2rem)] md:self-start"
-    : "hidden w-64 shrink-0 flex-col border-r border-purity-border bg-purity-card/95 backdrop-blur-xl md:flex";
-
-  const drawerAsideClass = peoplesLight
-    ? `${drawerAside} rounded-r-3xl border-slate-200/90 bg-white`
-    : drawerAside;
-
   return (
     <>
       <div className="flex min-h-dvh w-full min-w-0 flex-1 flex-col md:flex-row">
         <aside className={desktopAsideClass}>
-          <Brand variant={shellVariant} />
-          <NavLinks variant={shellVariant} />
+          <Brand />
+          <NavLinks />
         </aside>
 
         <div className="flex min-h-dvh min-w-0 flex-1 flex-col">
@@ -191,12 +163,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onClick={() => setMobileNavOpen(false)}
         />
         <aside
-          className={`absolute left-0 top-0 ${drawerAsideClass} transition-transform duration-200 ease-out ${
+          className={`absolute left-0 top-0 ${drawerAside} transition-transform duration-200 ease-out ${
             mobileNavOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <Brand variant={shellVariant} />
-          <NavLinks variant={shellVariant} onNavigate={() => setMobileNavOpen(false)} />
+          <Brand />
+          <NavLinks onNavigate={() => setMobileNavOpen(false)} />
         </aside>
       </div>
     </>

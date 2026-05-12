@@ -15,7 +15,7 @@ function Trend({ meta, invert }: { meta: MomMeta; invert?: boolean }) {
   return (
     <p
       className={`mt-2 flex items-center gap-1 text-[11px] font-medium tabular-nums ${
-        good ? "text-emerald-400/90" : "text-rose-400/90"
+        good ? "text-emerald-600" : "text-rose-600"
       }`}
     >
       <span aria-hidden>{arrow}</span>
@@ -41,10 +41,10 @@ export function DashboardKpiStrip({ finance, momRevenue, momCost, momProfit }: P
         <article
           className={`${glassCard} relative col-span-2 overflow-hidden ${cardPadding} lg:col-span-4`}
         >
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-36 bg-gradient-to-l from-purity-accent/[0.12] to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-36 bg-gradient-to-l from-blue-500/[0.08] to-transparent" />
           <p className={sectionLabel}>Revenue</p>
           <div className={`${valueHero} mt-3`}>
-            <p className="text-2xl font-bold tabular-nums tracking-tight text-white sm:text-3xl">
+            <p className="text-2xl font-bold tabular-nums tracking-tight text-slate-900 sm:text-3xl">
               {formatMoney(finance.totalRevenue, "INR")}
             </p>
           </div>
@@ -57,7 +57,7 @@ export function DashboardKpiStrip({ finance, momRevenue, momCost, momProfit }: P
         <article className={`${glassCard} col-span-1 ${cardPadding} lg:col-span-2`}>
           <p className={sectionLabel}>Payouts</p>
           <div className={`${valueHero} mt-3`}>
-            <p className="text-xl font-bold tabular-nums text-white sm:text-2xl">
+            <p className="text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">
               {formatMoney(finance.totalProjectCost, "INR")}
             </p>
           </div>
@@ -68,7 +68,7 @@ export function DashboardKpiStrip({ finance, momRevenue, momCost, momProfit }: P
         <article className={`${glassCard} col-span-1 ${cardPadding} lg:col-span-2`}>
           <p className={sectionLabel}>Profit / loss</p>
           <div className={`${valueHero} mt-3`}>
-            <p className="text-xl font-bold tabular-nums text-white sm:text-2xl">
+            <p className="text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">
               {formatMoney(finance.netProfit, "INR")}
             </p>
           </div>
@@ -79,7 +79,7 @@ export function DashboardKpiStrip({ finance, momRevenue, momCost, momProfit }: P
         <article className={`${glassCard} col-span-2 ${cardPadding} lg:col-span-2`}>
           <p className={sectionLabel}>Subscriptions &amp; other</p>
           <div className={`${valueHero} mt-3`}>
-            <p className="text-xl font-bold tabular-nums text-white sm:text-2xl">
+            <p className="text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">
               {formatMoney(finance.totalExpenses, "INR")}
             </p>
           </div>
@@ -91,7 +91,7 @@ export function DashboardKpiStrip({ finance, momRevenue, momCost, momProfit }: P
         <article className={`${glassCard} col-span-2 ${cardPadding} lg:col-span-2`}>
           <p className={sectionLabel}>Pending revenue</p>
           <div className={`${valueHero} mt-3`}>
-            <p className="text-xl font-bold tabular-nums text-white sm:text-2xl">
+            <p className="text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">
               {formatMoney(finance.pendingRevenue, "INR")}
             </p>
           </div>

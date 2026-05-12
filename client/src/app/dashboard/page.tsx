@@ -132,9 +132,9 @@ export default function DashboardPage() {
 
   const statusSlices = useMemo(
     () => [
-      { name: "Active", value: status.active, fill: "#2dd4bf" },
-      { name: "Completed", value: status.completed, fill: "#34d399" },
-      { name: "Cancelled", value: status.cancelled, fill: "#fb7185" },
+      { name: "Active", value: status.active, fill: "#2563eb" },
+      { name: "Completed", value: status.completed, fill: "#16a34a" },
+      { name: "Cancelled", value: status.cancelled, fill: "#e11d48" },
     ],
     [status]
   );
@@ -158,7 +158,7 @@ export default function DashboardPage() {
 
   return (
     <div className={`min-w-0 pb-10 ${stackSections}`}>
-      <header className="flex flex-col gap-2 border-b border-white/[0.08] pb-8">
+      <header className="flex flex-col gap-2 border-b border-slate-200/90 pb-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-purity-text md:text-[2rem] md:leading-tight">
             Dashboard
@@ -174,7 +174,7 @@ export default function DashboardPage() {
       {loading ? <DashboardSkeleton /> : null}
 
       {error ? (
-        <div className="rounded-2xl border border-rose-500/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
           {error}
         </div>
       ) : null}
@@ -219,7 +219,7 @@ export default function DashboardPage() {
       ) : null}
 
       {!loading && !error && !finance ? (
-        <div className="rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Finance analytics unavailable.
         </div>
       ) : null}

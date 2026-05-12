@@ -6,20 +6,20 @@ html {
 }
 
 :root {
-  /* Rootkit UI / Figma dark system — base #0B111B, teal accent, hairline borders */
-  --purity-page: #0b111b;
-  --purity-card: rgba(15, 23, 42, 0.78);
-  --purity-accent: #2dd4bf;
-  --purity-accent-hover: #14b8a6;
-  --purity-text: #f1f5f9;
-  --purity-muted: rgba(241, 245, 249, 0.55);
-  --purity-border: rgba(255, 255, 255, 0.08);
-  --purity-sidebar-active: rgba(45, 212, 191, 0.12);
-  --purity-bg: rgba(7, 11, 20, 0.72);
+  /* Global light SaaS shell (ROOTKIT FINANCE reference) — used on all routes */
+  --purity-page: #eceef2;
+  --purity-card: #ffffff;
+  --purity-accent: #2563eb;
+  --purity-accent-hover: #1d4ed8;
+  --purity-text: #0f172a;
+  --purity-muted: #64748b;
+  --purity-border: rgba(15, 23, 42, 0.08);
+  --purity-sidebar-active: rgba(37, 99, 235, 0.12);
+  --purity-bg: #f8fafc;
   --rk-shadow-card:
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 18px 48px -16px rgba(0, 0, 0, 0.55);
-  --rk-shadow-float: 0 24px 64px -20px rgba(0, 0, 0, 0.65);
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 12px 32px rgba(15, 23, 42, 0.06);
+  --rk-shadow-float: 0 20px 48px rgba(15, 23, 42, 0.08);
   --background: var(--purity-page);
   --foreground: var(--purity-text);
 }
@@ -27,7 +27,6 @@ html {
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Canonical Tailwind color tokens (use text-purity-muted, border-purity-border, etc.) */
   --color-purity-page: var(--purity-page);
   --color-purity-card: var(--purity-card);
   --color-purity-accent: var(--purity-accent);
@@ -42,32 +41,10 @@ html {
 }
 
 body {
-  background:
-    radial-gradient(1200px 720px at 18% -10%, rgba(45, 212, 191, 0.09), transparent 52%),
-    radial-gradient(900px 600px at 92% 12%, rgba(56, 189, 248, 0.06), transparent 48%),
-    linear-gradient(180deg, #070b14 0%, var(--purity-page) 38%, #060a12 100%);
+  background: var(--purity-page);
   color: var(--purity-text);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-}
-
-/* Peoples routes — light SaaS shell (Figma reference: ROOTKIT FINANCE) */
-body.peoples-route {
-  background: #eceef2 !important;
-  color: var(--purity-text);
-  --purity-page: #eceef2;
-  --purity-card: #ffffff;
-  --purity-text: #0f172a;
-  --purity-muted: #64748b;
-  --purity-border: rgba(15, 23, 42, 0.08);
-  --purity-accent: #2563eb;
-  --purity-accent-hover: #1d4ed8;
-  --purity-sidebar-active: rgba(37, 99, 235, 0.12);
-  --purity-bg: #f8fafc;
-  --rk-shadow-card:
-    0 1px 2px rgba(15, 23, 42, 0.05),
-    0 12px 32px rgba(15, 23, 42, 0.06);
-  --rk-shadow-float: 0 20px 48px rgba(15, 23, 42, 0.08);
 }
 
 /* iOS home indicator + modal footers */

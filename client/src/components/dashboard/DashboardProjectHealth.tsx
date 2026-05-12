@@ -32,7 +32,7 @@ export function DashboardProjectHealth({ finance }: Props) {
           View all projects
         </Link>
       </div>
-      <div className={`${glassCard} divide-y divide-white/[0.06]`}>
+      <div className={`${glassCard} divide-y divide-slate-100`}>
         {!top.length ? (
           <p className={`${cardPadding} text-sm text-purity-muted`}>No project finance data yet.</p>
         ) : (
@@ -48,7 +48,7 @@ export function DashboardProjectHealth({ finance }: Props) {
                 </p>
               </div>
               <div className="text-right">
-                <p className={`text-sm font-semibold tabular-nums ${row.projectProfit >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                <p className={`text-sm font-semibold tabular-nums ${row.projectProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                   {formatMoney(row.projectProfit, "INR")}
                 </p>
                 <p className="text-[10px] uppercase tracking-wide text-purity-muted">Project profit</p>
