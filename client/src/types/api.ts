@@ -22,6 +22,8 @@ export type Project = {
   assignedTeam?: Array<PopulatedRef | string>;
   peopleIds?: string[];
   teamIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type AssignedProjectRef = { _id: string; name: string };
@@ -56,6 +58,8 @@ export type RevenueRow = {
   /** Same as paymentType in API responses */
   type?: RevenuePaymentType;
   status?: RevenueStatus;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type ProfitAnalytics = {

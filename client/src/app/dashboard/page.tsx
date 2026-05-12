@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   API_ANALYTICS_FINANCE,
   API_ANALYTICS_MONTHLY,
@@ -8,32 +8,63 @@ import {
   fetchJson,
   getApiBase,
 } from "@/lib/fetchApi";
-import type { FinanceAnalytics, MonthlyAnalyticsRow } from "@/types/api";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { DashboardInsights } from "@/components/dashboard/DashboardInsights";
+import type {
+  FinanceAnalytics,
+  MonthlyAnalyticsRow,
+  PayoutRow,
+  PersonRow,
+  Project,
+  RevenueRow,
+} from "@/types/api";
+import {
+  buildActivityFeed,
+  highPendingProjects,
+  monthlyMomTriple,
+  overduePendingRevenues,
+  projectStatusCounts,
+  smartSummaryLines,
+  stalledActiveProjects,
+  topPeopleByPayout,
+} from "@/lib/dashboardIntelligence";
+import { formatMoney } from "@/lib/format";
+import { DashboardKpiStrip } from "@/components/dashboard/DashboardKpiStrip";
+import { DashboardSmartSummary } from "@/components/dashboard/DashboardSmartSummary";
+import { DashboardAttention } from "@/components/dashboard/DashboardAttention";
+import { DashboardRevenueIntel } from "@/components/dashboard/DashboardRevenueIntel";
+import { DashboardProjectHealth } from "@/components/dashboard/DashboardProjectHealth";
+import { DashboardActivity } from "@/components/dashboard/DashboardActivity";
+import { DashboardTeamInsights } from "@/components/dashboard/DashboardTeamInsights";
+import { DashboardQuickActions } from "@/components/dashboard/DashboardQuickActions";
+import { glassCard } from "@/components/dashboard/dashboardStyles";
 
-function SkeletonLine({ className = "" }: { className?: string }) {
+function DashboardSkeleton() {
   return (
-    <div
-      className={`rounded-md bg-[var(--purity-border)]/70 ${className}`}
-      aria-hidden="true"
-    />
+    <div className="space-y-8" aria-busy="true" aria-live="polite">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-12">
+        <div className={`${glassCard} col-span-2 h-44 animate-pulse lg:col-span-4`} />
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className={`${glassCard} col-span-1 h-44 animate-pulse lg:col-span-2`} />
+        ))}
+      </div>
+      <div className="grid gap-8 xl:grid-cols-12">
+        <div className="space-y-8 xl:col-span-8">
+          <div className={`${glassCard} h-40 animate-pulse`} />
+          <div className={`${glassCard} h-72 animate-pulse`} />
+          <div className={`${glassCard} h-56 animate-pulse`} />
+        </div>
+        <div className={`${glassCard} h-96 animate-pulse xl:col-span-4`} />
+      </div>
+    </div>
   );
 }
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [counts, setCounts] = useState({
-    clients: 0,
-    projects: 0,
-    peoples: 0,
-    revenues: 0,
-    payouts: 0,
-  });
-
-  const [insightLoading, setInsightLoading] = useState(true);
-  const [insightError, setInsightError] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [people, setPeople] = useState<PersonRow[]>([]);
+  const [revenues, setRevenues] = useState<RevenueRow[]>([]);
+  const [payouts, setPayouts] = useState<PayoutRow[]>([]);
   const [finance, setFinance] = useState<FinanceAnalytics | null>(null);
   const [monthly, setMonthly] = useState<MonthlyAnalyticsRow[]>([]);
 
@@ -42,28 +73,21 @@ export default function DashboardPage() {
     (async () => {
       try {
         getApiBase();
-        const [clients, projects, people, revenues, payouts] = await Promise.all([
-          fetchJson<unknown[]>("/clients"),
-          fetchJson<unknown[]>("/projects"),
-          fetchJson<unknown[]>(API_PEOPLE),
-          fetchJson<unknown[]>("/revenues"),
-          fetchJson<unknown[]>("/payouts"),
+        const [proj, peop, rev, pay, fin, mon] = await Promise.all([
+          fetchJson<Project[]>("/projects"),
+          fetchJson<PersonRow[]>(API_PEOPLE),
+          fetchJson<RevenueRow[]>("/revenues"),
+          fetchJson<PayoutRow[]>("/payouts"),
+          fetchJson<FinanceAnalytics>(API_ANALYTICS_FINANCE),
+          fetchJson<MonthlyAnalyticsRow[]>(API_ANALYTICS_MONTHLY),
         ]);
-        console.log("[dashboard] API rows:", {
-          clients: clients.length,
-          projects: projects.length,
-          people: people.length,
-          revenues: revenues.length,
-          payouts: payouts.length,
-        });
         if (!cancelled) {
-          setCounts({
-            clients: clients.length,
-            projects: projects.length,
-            peoples: people.length,
-            revenues: revenues.length,
-            payouts: payouts.length,
-          });
+          setProjects(Array.isArray(proj) ? proj : []);
+          setPeople(Array.isArray(peop) ? peop : []);
+          setRevenues(Array.isArray(rev) ? rev : []);
+          setPayouts(Array.isArray(pay) ? pay : []);
+          setFinance(fin);
+          setMonthly(Array.isArray(mon) ? mon : []);
           setError(null);
         }
       } catch (e) {
@@ -78,91 +102,125 @@ export default function DashboardPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        getApiBase();
-        const [f, m] = await Promise.all([
-          fetchJson<FinanceAnalytics>(API_ANALYTICS_FINANCE),
-          fetchJson<MonthlyAnalyticsRow[]>(API_ANALYTICS_MONTHLY),
-        ]);
-        if (!cancelled) {
-          setFinance(f);
-          setMonthly(Array.isArray(m) ? m : []);
-          setInsightError(null);
-        }
-      } catch (e) {
-        if (!cancelled)
-          setInsightError(
-            e instanceof Error ? e.message : "Failed to load analytics"
-          );
-      } finally {
-        if (!cancelled) setInsightLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const mom = useMemo(() => monthlyMomTriple(monthly), [monthly]);
+  const overdue = useMemo(() => overduePendingRevenues(revenues), [revenues]);
+  const status = useMemo(() => projectStatusCounts(projects), [projects]);
+  const stalled = useMemo(() => stalledActiveProjects(projects), [projects]);
+  const activity = useMemo(
+    () => buildActivityFeed({ revenues, payouts, projects, limit: 14 }),
+    [revenues, payouts, projects]
+  );
+  const topPaid = useMemo(() => topPeopleByPayout(payouts, people, 4), [payouts, people]);
 
-  const tiles = [
-    { label: "Clients", value: counts.clients },
-    { label: "Projects", value: counts.projects },
-    { label: "Peoples", value: counts.peoples },
-    { label: "Revenues", value: counts.revenues },
-    { label: "Payouts", value: counts.payouts },
-  ];
+  const summaryLines = useMemo(
+    () =>
+      smartSummaryLines({
+        mom,
+        overdue,
+        status,
+        finance,
+        stalledCount: stalled.length,
+      }),
+    [mom, overdue, status, finance, stalled.length]
+  );
+
+  const highPendingLabel = useMemo(() => {
+    const top = highPendingProjects(finance, 1)[0];
+    if (!top) return "No outsized pending buckets";
+    return `${top.projectName} · ${formatMoney(top.pending, "INR")}`;
+  }, [finance]);
+
+  const statusSlices = useMemo(
+    () => [
+      { name: "Active", value: status.active, fill: "#22d3ee" },
+      { name: "Completed", value: status.completed, fill: "#34d399" },
+      { name: "Cancelled", value: status.cancelled, fill: "#fb7185" },
+    ],
+    [status]
+  );
+
+  const activeWithProjects = useMemo(
+    () =>
+      people.filter((p) => Array.isArray(p.assignedProjects) && p.assignedProjects.length > 0).length,
+    [people]
+  );
+
+  const today = useMemo(
+    () =>
+      new Date().toLocaleDateString(undefined, {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+    []
+  );
 
   return (
-    <div className="min-w-0">
-      <PageHeader title="Dashboard" />
-
-      {loading ? (
-        <div
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-          aria-busy="true"
-          aria-live="polite"
-        >
-          {Array.from({ length: 5 }).map((_, idx) => (
-            <div
-              key={idx}
-              className="animate-pulse rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-5 shadow-sm"
-            >
-              <SkeletonLine className="h-3 w-24" />
-              <SkeletonLine className="mt-3 h-7 w-20" />
-            </div>
-          ))}
+    <div className="min-w-0 pb-10">
+      <header className="mb-8 flex flex-col gap-1 border-b border-purity-border/80 pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-purity-text md:text-3xl">
+            Dashboard
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-purity-muted">
+            What changed, what needs attention, and where to act next — Rootkit finance &
+            delivery in one view.
+          </p>
+          <p className="mt-2 text-xs font-medium text-purity-muted/90">{today}</p>
         </div>
-      ) : null}
+      </header>
+
+      {loading ? <DashboardSkeleton /> : null}
+
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
           {error}
         </div>
       ) : null}
 
-      {!loading && !error ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {tiles.map((t) => (
-            <div
-              key={t.label}
-              className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-5 shadow-sm"
-            >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--purity-muted)]">
-                {t.label}
-              </p>
-              <p className="mt-2 text-2xl font-bold text-[var(--purity-text)]">{t.value}</p>
+      {!loading && !error && finance ? (
+        <>
+          <DashboardKpiStrip finance={finance} momRevenue={mom.revenue} momCost={mom.cost} momProfit={mom.profit} />
+
+          <div className="mt-10 grid gap-8 xl:grid-cols-12 xl:items-start">
+            <div className="min-w-0 space-y-10 xl:col-span-8">
+              <DashboardAttention
+                overdueCount={overdue.count}
+                overdueAmount={overdue.amount}
+                highPendingLabel={highPendingLabel}
+                cancelledProjects={status.cancelled}
+                stalled={stalled}
+              />
+              <DashboardRevenueIntel
+                finance={finance}
+                monthly={monthly}
+                statusSlices={statusSlices}
+                loading={false}
+                error={null}
+              />
+              <DashboardProjectHealth finance={finance} />
+              <DashboardActivity items={activity} />
+              <DashboardTeamInsights
+                peopleCount={people.length}
+                activeWithProjects={activeWithProjects}
+                topPaid={topPaid}
+              />
+              <DashboardQuickActions />
             </div>
-          ))}
-        </div>
+
+            <div className="xl:col-span-4 xl:sticky xl:top-24">
+              <DashboardSmartSummary lines={summaryLines} />
+            </div>
+          </div>
+        </>
       ) : null}
 
-      <DashboardInsights
-        finance={finance}
-        monthly={monthly}
-        loading={insightLoading}
-        error={insightError}
-      />
+      {!loading && !error && !finance ? (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+          Finance analytics unavailable.
+        </div>
+      ) : null}
     </div>
   );
 }

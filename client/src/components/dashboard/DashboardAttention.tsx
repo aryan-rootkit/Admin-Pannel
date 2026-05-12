@@ -1,0 +1,130 @@
+"use client";
+
+import Link from "next/link";
+import { formatMoney } from "@/lib/format";
+import { glassCard, sectionLabel } from "@/components/dashboard/dashboardStyles";
+import type { Project } from "@/types/api";
+
+type AttentionItem = {
+  key: string;
+  title: string;
+  value: string;
+  hint: string;
+  tone: "critical" | "warning" | "info";
+  href?: string;
+};
+
+type Props = {
+  overdueCount: number;
+  overdueAmount: number;
+  highPendingLabel: string;
+  cancelledProjects: number;
+  stalled: Project[];
+};
+
+function toneRing(tone: AttentionItem["tone"]) {
+  if (tone === "critical") return "ring-rose-500/35 bg-rose-500/5";
+  if (tone === "warning") return "ring-amber-400/35 bg-amber-400/5";
+  return "ring-sky-400/25 bg-sky-400/5";
+}
+
+export function DashboardAttention({
+  overdueCount,
+  overdueAmount,
+  highPendingLabel,
+  cancelledProjects,
+  stalled,
+}: Props) {
+  const items: AttentionItem[] = [];
+
+  if (overdueCount > 0) {
+    items.push({
+      key: "overdue",
+      title: "Overdue pending payments",
+      value: `${overdueCount} line${overdueCount === 1 ? "" : "s"}`,
+      hint: `${formatMoney(overdueAmount, "INR")} exposure · schedule follow-ups`,
+      tone: "critical",
+      href: "/revenues",
+    });
+  }
+
+  items.push({
+    key: "pending",
+    title: "Highest pending revenue",
+    value: highPendingLabel || "—",
+    hint: "Focus collections on the largest gaps first",
+    tone: overdueCount > 0 ? "warning" : "info",
+    href: "/revenues",
+  });
+
+  if (cancelledProjects > 0) {
+    items.push({
+      key: "cancelled",
+      title: "Cancelled / lost projects",
+      value: String(cancelledProjects),
+      hint: "Review pipeline and contract terms",
+      tone: "warning",
+      href: "/projects",
+    });
+  }
+
+  if (stalled.length > 0) {
+    items.push({
+      key: "stalled",
+      title: "Stalled (no update 14+ days)",
+      value: String(stalled.length),
+      hint: stalled
+        .slice(0, 2)
+        .map((p) => p.name)
+        .join(" · "),
+      tone: "warning",
+      href: "/projects",
+    });
+  }
+
+  if (items.length === 0) {
+    return (
+      <section aria-label="Attention required" className="mt-8">
+        <h2 className={`${sectionLabel} mb-3`}>Attention required</h2>
+        <div className={`${glassCard} p-6 text-sm text-purity-muted`}>
+          Nothing urgent surfaced — data looks healthy.
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="Attention required" className="mt-8">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className={`${sectionLabel}`}>Attention required</h2>
+          <p className="mt-1 text-sm text-purity-muted">
+            What needs action before it becomes risk
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {items.map((item) => {
+          const inner = (
+            <article
+              className={`${glassCard} h-full p-4 ring-1 ${toneRing(item.tone)} transition hover:border-purity-accent/30`}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wider text-purity-muted">
+                {item.title}
+              </p>
+              <p className="mt-2 text-lg font-semibold text-purity-text">{item.value}</p>
+              <p className="mt-1 text-xs leading-snug text-purity-muted">{item.hint}</p>
+            </article>
+          );
+          return item.href ? (
+            <Link key={item.key} href={item.href} className="block min-w-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-purity-accent">
+              {inner}
+            </Link>
+          ) : (
+            <div key={item.key}>{inner}</div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
