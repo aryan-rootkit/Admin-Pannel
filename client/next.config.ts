@@ -1,13 +1,13 @@
 import type { NextConfig } from "next";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-/** Directory containing this config (`client/`), so Turbopack doesn’t pick the monorepo root lockfile. */
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
+/**
+ * Pure ESM default export — avoid `import.meta` / `__dirname` here; Next’s config
+ * compiler on Vercel can otherwise emit `exports` in an ESM context and fail the build.
+ * `process.cwd()` is the app root at build time (set Vercel “Root Directory” to `client`).
+ */
 const nextConfig: NextConfig = {
   turbopack: {
-    root: __dirname,
+    root: process.cwd(),
   },
 };
 
