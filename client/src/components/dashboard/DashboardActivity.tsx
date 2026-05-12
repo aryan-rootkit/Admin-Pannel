@@ -21,7 +21,7 @@ export function DashboardActivity({ items }: Props) {
         <h2 className={sectionLabel}>Activity</h2>
         <p className="mt-1 text-sm text-purity-muted">Latest payments, payouts, and project events</p>
       </div>
-      <div className={`${glassCard} max-h-[min(320px,50vh)] overflow-y-auto p-2 sm:p-3`}>
+      <div className={`${glassCard} max-h-[min(320px,50vh)] overflow-y-auto overscroll-y-contain p-2 sm:p-3`}>
         {items.length === 0 ? (
           <p className={`${cardPadding} text-sm text-purity-muted`}>No recent activity.</p>
         ) : (

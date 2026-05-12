@@ -5,7 +5,7 @@ import { API_PEOPLE, fetchJson, getApiBase } from "@/lib/fetchApi";
 import { apiDelete, apiPost, apiPut, apiGet } from "@/lib/api";
 import type { PayoutRow, PersonRow, Project } from "@/types/api";
 import { PeopleCard } from "@/components/peoples/PeopleCard";
-import { Spinner } from "@/components/ui/Spinner";
+import { PeoplesGridSkeleton } from "@/components/peoples/PeoplesGridSkeleton";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/ui/FormField";
@@ -218,12 +218,7 @@ export default function PeoplesPage() {
         </Button>
       </div>
 
-      {loading ? (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <Spinner />
-          Loading…
-        </div>
-      ) : null}
+      {loading ? <PeoplesGridSkeleton cards={10} /> : null}
       {error ? (
         <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}

@@ -84,16 +84,13 @@ export function DashboardRevenueIntel({
   const donutData = statusSlices.filter((s) => s.value > 0);
 
   return (
-    <section aria-label="Revenue intelligence" className="space-y-5">
+    <section aria-label="Revenue intelligence" className="space-y-4">
       <div>
         <h2 className={sectionLabel}>Revenue intelligence</h2>
-        <p className="mt-1 text-sm text-purity-muted">
-          Received vs pending, costs, and portfolio shape — compact analytics
-        </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5 lg:items-stretch">
-        <div className={`${glassCard} min-h-[300px] ${cardPadding} lg:col-span-3`}>
+      <div className="grid min-h-0 min-w-0 gap-4 lg:grid-cols-5 lg:items-stretch">
+        <div className={`${glassCard} min-h-[280px] min-w-0 lg:col-span-3 ${cardPadding}`}>
           <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className={sectionLabel}>Trend</p>
@@ -126,7 +123,7 @@ export function DashboardRevenueIntel({
           )}
         </div>
 
-        <div className={`${glassCard} flex min-h-[300px] flex-col ${cardPadding} lg:col-span-2`}>
+        <div className={`${glassCard} flex min-h-[260px] min-w-0 flex-col lg:col-span-2 ${cardPadding}`}>
           <p className={sectionLabel}>Portfolio</p>
           <p className="text-sm font-medium text-purity-text">Projects by status</p>
           <div className="mt-4 flex min-h-0 flex-1 items-center justify-center">
@@ -157,7 +154,7 @@ export function DashboardRevenueIntel({
         </div>
       </div>
 
-      <div className={`${glassCard} ${cardPadding}`}>
+      <div className={`${glassCard} min-h-0 min-w-0 ${cardPadding}`}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className={sectionLabel}>Last 6 months</p>
@@ -180,15 +177,15 @@ export function DashboardRevenueIntel({
         )}
       </div>
 
-      <div className={`${glassCard} overflow-hidden ${cardPadding}`}>
+      <div className={`${glassCard} min-h-0 min-w-0 overflow-hidden ${cardPadding}`}>
         <p className={sectionLabel}>Project breakdown</p>
         <p className="mt-1 text-sm text-purity-muted">Received, pending, cancelled balance, cost, profit</p>
         {!breakdown.length ? (
           <p className="mt-4 text-sm text-purity-muted">No projects yet.</p>
         ) : (
-          <div className="-mx-1 mt-4 max-h-[min(24rem,55vh)] min-w-0 overflow-auto px-1">
+          <div className="-mx-1 mt-4 max-h-[min(24rem,55vh)] min-w-0 overflow-auto overscroll-y-contain px-1">
             <table className="w-full min-w-[34rem] text-left text-sm">
-              <thead className="sticky top-0 z-[1] border-b border-purity-border bg-purity-card text-[10px] font-bold uppercase tracking-wider text-purity-muted">
+              <thead className="sticky top-0 z-[1] border-b border-purity-border bg-white text-[10px] font-bold uppercase tracking-wider text-purity-muted">
                 <tr>
                   <th className="pb-2 pr-3">Project</th>
                   <th className="pb-2 pr-3 text-right">Contract</th>

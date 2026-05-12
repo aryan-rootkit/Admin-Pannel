@@ -6,7 +6,7 @@ import { ApiError, apiDelete, apiPost, apiPut } from "@/lib/api";
 import type { Project, RevenuePaymentType, RevenueRow, RevenueStatus } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageToolbar } from "@/components/layout/PageToolbar";
-import { Spinner } from "@/components/ui/Spinner";
+import { glassCard } from "@/components/dashboard/dashboardStyles";
 import { formatDate, formatMoney } from "@/lib/format";
 import { resolveProjectName } from "@/lib/relations";
 import { Button } from "@/components/ui/Button";
@@ -22,6 +22,16 @@ import {
   type FinancialLifecycle,
 } from "@/lib/projectFinance";
 import { useToast } from "@/components/providers/ToastProvider";
+
+function RevenuePageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className={`${glassCard} h-52 animate-pulse`} />
+      ))}
+    </div>
+  );
+}
 
 function refId(v: string | { _id: string } | undefined | null): string {
   if (v == null) return "";
@@ -466,12 +476,7 @@ export default function RevenuesPage() {
         </p>
       ) : null}
 
-      {loading ? (
-        <div className="flex items-center gap-2 text-sm text-[var(--purity-muted)]">
-          <Spinner />
-          Loading…
-        </div>
-      ) : null}
+      {loading ? <RevenuePageSkeleton /> : null}
       {error ? (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}

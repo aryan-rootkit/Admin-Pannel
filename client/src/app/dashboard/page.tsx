@@ -34,29 +34,9 @@ import { DashboardRevenueIntel } from "@/components/dashboard/DashboardRevenueIn
 import { DashboardProjectHealth } from "@/components/dashboard/DashboardProjectHealth";
 import { DashboardActivity } from "@/components/dashboard/DashboardActivity";
 import { DashboardTeamInsights } from "@/components/dashboard/DashboardTeamInsights";
-import { DashboardQuickActions } from "@/components/dashboard/DashboardQuickActions";
-import { glassCard, stackSections } from "@/components/dashboard/dashboardStyles";
-
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-8" aria-busy="true" aria-live="polite">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-12">
-        <div className={`${glassCard} col-span-2 h-44 animate-pulse lg:col-span-4`} />
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className={`${glassCard} col-span-1 h-44 animate-pulse lg:col-span-2`} />
-        ))}
-      </div>
-      <div className="grid gap-8 xl:grid-cols-12">
-        <div className="space-y-8 xl:col-span-8">
-          <div className={`${glassCard} h-40 animate-pulse`} />
-          <div className={`${glassCard} h-72 animate-pulse`} />
-          <div className={`${glassCard} h-56 animate-pulse`} />
-        </div>
-        <div className={`${glassCard} h-96 animate-pulse xl:col-span-4`} />
-      </div>
-    </div>
-  );
-}
+import { DashboardQuickActionChips } from "@/components/dashboard/DashboardQuickActions";
+import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
+import { stackSections } from "@/components/dashboard/dashboardStyles";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -145,30 +125,13 @@ export default function DashboardPage() {
     [people]
   );
 
-  const today = useMemo(
-    () =>
-      new Date().toLocaleDateString(undefined, {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-    []
-  );
-
   return (
-    <div className={`min-w-0 pb-10 ${stackSections}`}>
-      <header className="flex flex-col gap-2 border-b border-slate-200/90 pb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-purity-text md:text-[2rem] md:leading-tight">
-            Dashboard
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-purity-muted">
-            What changed, what needs attention, and where to act next — finance and delivery in
-            one operational view.
-          </p>
-          <p className="mt-3 text-xs font-medium tabular-nums text-purity-muted">{today}</p>
-        </div>
+    <div className={`min-w-0 pb-8 ${stackSections}`}>
+      <header className="flex flex-col gap-4 border-b border-slate-200/90 pb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <h1 className="text-2xl font-bold tracking-tight text-purity-text md:text-[1.75rem] md:leading-tight">
+          Dashboard
+        </h1>
+        <DashboardQuickActionChips />
       </header>
 
       {loading ? <DashboardSkeleton /> : null}
@@ -183,37 +146,35 @@ export default function DashboardPage() {
         <>
           <DashboardKpiStrip finance={finance} momRevenue={mom.revenue} momCost={mom.cost} momProfit={mom.profit} />
 
-          <div className="grid gap-6 lg:gap-8 xl:grid-cols-12 xl:items-stretch">
-            <div className="min-w-0 xl:col-span-8">
+          <div className="grid gap-6 lg:gap-8 xl:grid-cols-12 xl:items-start">
+            <div className="min-w-0 space-y-6 lg:space-y-8 xl:col-span-8">
+              <DashboardRevenueIntel
+                finance={finance}
+                monthly={monthly}
+                statusSlices={statusSlices}
+                loading={false}
+                error={null}
+              />
+              <DashboardProjectHealth finance={finance} />
+              <DashboardActivity items={activity} />
+              <DashboardTeamInsights
+                peopleCount={people.length}
+                activeWithProjects={activeWithProjects}
+                topPaid={topPaid}
+              />
+            </div>
+
+            <aside className="flex min-h-0 flex-col gap-6 xl:sticky xl:top-[5.5rem] xl:col-span-4 xl:max-h-[calc(100dvh-7rem)] xl:self-start xl:overflow-y-auto xl:overscroll-y-contain">
               <DashboardAttention
+                variant="sidebar"
                 overdueCount={overdue.count}
                 overdueAmount={overdue.amount}
                 highPendingLabel={highPendingLabel}
                 cancelledProjects={status.cancelled}
                 stalled={stalled}
               />
-            </div>
-            <div className="flex min-h-0 xl:col-span-4">
-              <DashboardSmartSummary lines={summaryLines} className="w-full xl:min-h-full" />
-            </div>
-          </div>
-
-          <div className={stackSections}>
-            <DashboardRevenueIntel
-              finance={finance}
-              monthly={monthly}
-              statusSlices={statusSlices}
-              loading={false}
-              error={null}
-            />
-            <DashboardProjectHealth finance={finance} />
-            <DashboardActivity items={activity} />
-            <DashboardTeamInsights
-              peopleCount={people.length}
-              activeWithProjects={activeWithProjects}
-              topPaid={topPaid}
-            />
-            <DashboardQuickActions />
+              <DashboardSmartSummary lines={summaryLines} className="w-full" />
+            </aside>
           </div>
         </>
       ) : null}

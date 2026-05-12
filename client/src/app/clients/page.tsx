@@ -14,7 +14,7 @@ import {
   listBodyRowClass,
   listHeadRowClass,
 } from "@/components/layout/ListPanel";
-import { Spinner } from "@/components/ui/Spinner";
+import { ListPageSkeleton } from "@/components/layout/ListPageSkeleton";
 import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
@@ -133,12 +133,7 @@ export default function ClientsPage() {
         }
       />
 
-      {loading ? (
-        <div className="flex items-center gap-2 text-sm text-[var(--purity-muted)]">
-          <Spinner />
-          Loading…
-        </div>
-      ) : null}
+      {loading ? <ListPageSkeleton rows={8} /> : null}
       {error ? (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}

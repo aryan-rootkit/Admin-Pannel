@@ -13,7 +13,7 @@ import {
   listBodyRowClass,
   listHeadRowClass,
 } from "@/components/layout/ListPanel";
-import { Spinner } from "@/components/ui/Spinner";
+import { ListPageSkeleton } from "@/components/layout/ListPageSkeleton";
 import { formatDate, formatMoney } from "@/lib/format";
 import {
   resolveClientLabel,
@@ -346,12 +346,7 @@ export default function PayoutsPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center gap-2 text-sm text-purity-muted">
-          <Spinner />
-          Loading…
-        </div>
-      ) : null}
+      {loading ? <ListPageSkeleton rows={10} /> : null}
       {error ? (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}

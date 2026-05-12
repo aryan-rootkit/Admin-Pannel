@@ -11,7 +11,7 @@ import {
   filterProjectsTab,
   type PersonProjectMoneyRow,
 } from "@/lib/personFinance";
-import { Spinner } from "@/components/ui/Spinner";
+import { PersonDetailSkeleton } from "@/components/peoples/PersonDetailSkeleton";
 
 function fmt(n: number) {
   return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -24,25 +24,8 @@ function defaultBio(p: PersonRow): string {
   return `${n} is a ${role}, partnering with stakeholders to deliver dependable outcomes across assigned projects — balancing velocity with clarity and ownership.`;
 }
 
-function SectionTitle({
-  title,
-  actionAria,
-}: {
-  title: string;
-  actionAria?: string;
-}) {
-  return (
-    <div className="mb-4 flex items-center justify-between gap-3">
-      <h2 className="text-xl font-bold tracking-tight text-slate-900">{title}</h2>
-      <button
-        type="button"
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-900/15 bg-white text-lg font-light leading-none text-slate-900 shadow-sm transition hover:bg-slate-50"
-        aria-label={actionAria || `Add ${title}`}
-      >
-        +
-      </button>
-    </div>
-  );
+function SectionHeading({ title }: { title: string }) {
+  return <h2 className="mb-4 text-xl font-bold tracking-tight text-slate-900">{title}</h2>;
 }
 
 function MoneyBadge({
@@ -174,12 +157,7 @@ export default function PersonDetailPage() {
         Back to Peoples
       </Link>
 
-      {loading ? (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <Spinner />
-          Loading profile…
-        </div>
-      ) : null}
+      {loading ? <PersonDetailSkeleton /> : null}
 
       {error ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</div>
@@ -208,11 +186,11 @@ export default function PersonDetailPage() {
             </div>
 
             <div className="rounded-[20px] border border-slate-200/90 bg-white p-6 shadow-[var(--rk-shadow-card)]">
-              <SectionTitle title="My Skills" actionAria="Add skill" />
+              <SectionHeading title="My Skills" />
               <div className="flex flex-wrap gap-2">
-                {skills.map((s) => (
+                {skills.map((s, i) => (
                   <span
-                    key={s}
+                    key={`${s}-${i}`}
                     className="rounded-full border border-slate-900/15 px-4 py-2 text-sm font-medium text-slate-900"
                   >
                     {s}
@@ -238,7 +216,7 @@ export default function PersonDetailPage() {
             <div className="grid gap-6 lg:grid-cols-8">
               <div className="lg:col-span-5">
                 <div className="rounded-[20px] border border-slate-200/90 bg-white p-6 shadow-[var(--rk-shadow-card)]">
-                  <SectionTitle title="Projects" actionAria="Assign project" />
+                  <SectionHeading title="Projects" />
                   <div className="mb-6 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -273,7 +251,7 @@ export default function PersonDetailPage() {
 
               <div className="lg:col-span-3">
                 <div className="rounded-[20px] border border-slate-200/90 bg-white p-6 shadow-[var(--rk-shadow-card)]">
-                  <SectionTitle title="Contact" actionAria="Add contact field" />
+                  <SectionHeading title="Contact" />
                   <div className="space-y-3">
                     <div className="rounded-full border border-slate-900/15 px-4 py-3 text-sm text-slate-900">
                       {person.email || "—"}

@@ -20,6 +20,8 @@ type Props = {
   highPendingLabel: string;
   cancelledProjects: number;
   stalled: Project[];
+  /** Right-rail: single column, tighter cards */
+  variant?: "default" | "sidebar";
 };
 
 function toneRing(tone: AttentionItem["tone"]) {
@@ -34,7 +36,9 @@ export function DashboardAttention({
   highPendingLabel,
   cancelledProjects,
   stalled,
+  variant = "default",
 }: Props) {
+  const sidebar = variant === "sidebar";
   const items: AttentionItem[] = [];
 
   if (overdueCount > 0) {
@@ -86,36 +90,37 @@ export function DashboardAttention({
     return (
       <section aria-label="Attention required">
         <h2 className={`${sectionLabel} mb-3`}>Attention required</h2>
-        <div className={`${glassCard} ${cardPadding} text-sm text-purity-muted`}>
+        <div className={`${glassCard} ${sidebar ? "p-4" : cardPadding} text-sm text-purity-muted`}>
           Nothing urgent surfaced — data looks healthy.
         </div>
       </section>
     );
   }
 
+  const gridClass = sidebar ? "grid grid-cols-1 gap-3" : "grid grid-cols-1 gap-4 sm:grid-cols-2";
+  const cardPad = sidebar ? "p-4" : cardPadding;
+
   return (
     <section aria-label="Attention required">
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 className={`${sectionLabel}`}>Attention required</h2>
-          <p className="mt-1 text-sm text-purity-muted">
-            What needs action before it becomes risk
-          </p>
-        </div>
+      <div className={`mb-3 ${sidebar ? "mb-2" : ""}`}>
+        <h2 className={sectionLabel}>Attention required</h2>
+        {!sidebar ? (
+          <p className="mt-1 text-sm text-purity-muted">What needs action before it becomes risk</p>
+        ) : null}
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className={gridClass}>
         {items.map((item) => {
           const inner = (
             <article
-              className={`${glassCard} h-full ${cardPadding} ring-1 ${toneRing(item.tone)} transition hover:border-purity-accent/25`}
+              className={`${glassCard} h-full ${cardPad} ring-1 ${toneRing(item.tone)} transition hover:border-blue-200/80`}
             >
               <p className={sectionLabel}>{item.title}</p>
-              <p className="mt-2 text-lg font-semibold text-purity-text">{item.value}</p>
+              <p className={`mt-2 font-semibold text-purity-text ${sidebar ? "text-base" : "text-lg"}`}>{item.value}</p>
               <p className="mt-1 text-xs leading-snug text-purity-muted">{item.hint}</p>
             </article>
           );
           return item.href ? (
-            <Link key={item.key} href={item.href} className="block min-w-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-purity-accent">
+            <Link key={item.key} href={item.href} className="block min-w-0 rounded-[20px] outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50">
               {inner}
             </Link>
           ) : (

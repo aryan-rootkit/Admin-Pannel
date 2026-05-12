@@ -1,33 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { glassCard, sectionLabel, cardPadding } from "@/components/dashboard/dashboardStyles";
 
 const actions = [
-  { href: "/projects/create", label: "Add project", desc: "New engagement" },
-  { href: "/revenues", label: "Record revenue", desc: "Cash & installments" },
-  { href: "/payouts", label: "Add payout", desc: "Pay team & vendors" },
-  { href: "/clients/create", label: "Add client", desc: "Expand pipeline" },
+  { href: "/projects/create", label: "Add project" },
+  { href: "/revenues", label: "Add revenue" },
+  { href: "/clients/create", label: "Add client" },
+  { href: "/payouts", label: "Add payout" },
 ] as const;
 
-export function DashboardQuickActions() {
+const chipClass =
+  "inline-flex items-center justify-center rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 text-[11px] font-semibold tracking-tight text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-slate-50 hover:text-slate-900 sm:px-3 sm:text-xs";
+
+/**
+ * Compact secondary actions for the dashboard header (does not dominate layout).
+ */
+export function DashboardQuickActionChips() {
   return (
-    <section aria-label="Quick actions" className="pb-2">
-      <h2 className={`${sectionLabel} mb-4`}>Quick actions</h2>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {actions.map((a) => (
-          <Link
-            key={a.href}
-            href={a.href}
-            className={`${glassCard} group block ${cardPadding} transition hover:border-purity-accent/35 hover:shadow-[var(--rk-shadow-card)]`}
-          >
-            <p className="text-sm font-semibold text-purity-text group-hover:text-purity-accent">
-              {a.label}
-            </p>
-            <p className="mt-1 text-[11px] text-purity-muted">{a.desc}</p>
-          </Link>
-        ))}
-      </div>
-    </section>
+    <nav className="flex flex-wrap items-center gap-2" aria-label="Quick actions">
+      {actions.map((a) => (
+        <Link key={a.href} href={a.href} className={chipClass}>
+          {a.label}
+        </Link>
+      ))}
+    </nav>
   );
 }

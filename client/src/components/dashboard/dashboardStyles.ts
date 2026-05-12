@@ -4,7 +4,7 @@
 
 /** Primary elevated surface */
 export const glassCard =
-  "rounded-2xl border border-slate-200/90 bg-white shadow-[var(--rk-shadow-card)]";
+  "rounded-[20px] border border-slate-200/90 bg-white shadow-[var(--rk-shadow-card)]";
 
 /** Inline metric panel inside KPI cards */
 export const valueHero =
@@ -18,7 +18,7 @@ export const sectionLabel =
 export const sectionTitle = "text-base font-semibold tracking-tight text-purity-text";
 
 /** Vertical rhythm between major dashboard blocks */
-export const stackSections = "space-y-10 lg:space-y-12";
+export const stackSections = "space-y-6 lg:space-y-8";
 
 /** Grid gutter alignment with main 12-col system */
 export const gridMain = "grid gap-6 lg:gap-8";

@@ -22,7 +22,7 @@ export function DashboardSmartSummary({ lines, className = "" }: Props) {
           Live
         </span>
       </div>
-      <ul className="mt-6 flex min-h-0 flex-1 flex-col divide-y divide-slate-200/90 rounded-xl bg-slate-50/90 p-3 ring-1 ring-slate-200/80">
+      <ul className="mt-6 flex max-h-[min(280px,42vh)] min-h-0 flex-1 flex-col divide-y divide-slate-200/90 overflow-y-auto overscroll-y-contain rounded-xl bg-slate-50/90 p-3 ring-1 ring-slate-200/80">
         {lines.length === 0 ? (
           <li className="py-3 text-sm text-purity-muted">No insights yet — add revenue and projects.</li>
         ) : (
