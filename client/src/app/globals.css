@@ -47,25 +47,29 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-@keyframes rk-skeleton-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
+@keyframes rk-shimmer {
   100% {
-    background-position: -200% 0;
+    transform: translateX(100%);
   }
 }
 
-.skeleton-cell {
-  border-radius: 0.75rem;
+.rk-skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.rk-skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
   background: linear-gradient(
-    110deg,
-    rgb(226 232 240 / 0.55) 0%,
-    rgb(248 250 252 / 0.95) 45%,
-    rgb(226 232 240 / 0.55) 90%
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 45%,
+    transparent 90%
   );
-  background-size: 200% 100%;
-  animation: rk-skeleton-shimmer 1.25s ease-in-out infinite;
+  animation: rk-shimmer 1.75s ease-in-out infinite;
 }
 
 /* iOS home indicator + modal footers */

@@ -269,6 +269,10 @@ export function smartSummaryLines(params: {
   status: ReturnType<typeof projectStatusCounts>;
   finance: FinanceAnalytics | null;
   stalledCount: number;
+  burn?: {
+    runwayMonthsFromPending: number | null;
+    monthlyBurn: number;
+  } | null;
 }): string[] {
   const lines: string[] = [];
   const revPct = params.mom.revenue.pct;
@@ -292,6 +296,11 @@ export function smartSummaryLines(params: {
   if (params.finance) {
     lines.push(
       `Net profit (after subscriptions & expenses): ${formatMoneyBrief(params.finance.netProfit)}`
+    );
+  }
+  if (params.burn && params.burn.runwayMonthsFromPending != null && Number.isFinite(params.burn.runwayMonthsFromPending)) {
+    lines.push(
+      `Runway signal: ~${params.burn.runwayMonthsFromPending.toFixed(1)} months of pending revenue at ${formatMoneyBrief(params.burn.monthlyBurn)} monthly burn (heuristic)`
     );
   }
   return lines.slice(0, 6);

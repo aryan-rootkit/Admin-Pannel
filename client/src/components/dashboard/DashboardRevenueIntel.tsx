@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   Bar,
   BarChart,
@@ -45,7 +46,7 @@ type Props = {
   error: string | null;
 };
 
-export function DashboardRevenueIntel({
+function DashboardRevenueIntelInner({
   finance,
   monthly,
   statusSlices,
@@ -222,3 +223,5 @@ export function DashboardRevenueIntel({
     </section>
   );
 }
+
+export const DashboardRevenueIntel = memo(DashboardRevenueIntelInner);

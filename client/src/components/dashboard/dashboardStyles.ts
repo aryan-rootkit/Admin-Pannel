@@ -6,9 +6,13 @@
 export const glassCard =
   "rounded-[20px] border border-slate-200/90 bg-white shadow-[var(--rk-shadow-card)]";
 
-/** Inline metric panel inside KPI cards */
+/** KPI strip cards — slightly stronger lift */
+export const kpiCard =
+  `${glassCard} flex h-full flex-col p-4 ring-1 ring-slate-200/40 shadow-[0_2px_10px_rgba(15,23,42,0.045)] md:p-5`;
+
+/** Compact value well inside KPIs */
 export const valueHero =
-  "rounded-xl bg-gradient-to-br from-slate-50 via-white to-slate-100/90 px-3 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] ring-1 ring-slate-200/90";
+  "rounded-[14px] bg-gradient-to-b from-white to-slate-50 px-3 py-2.5 text-center shadow-inner ring-1 ring-slate-200/70";
 
 /** Eyebrow labels — uppercase, wide tracking */
 export const sectionLabel =
