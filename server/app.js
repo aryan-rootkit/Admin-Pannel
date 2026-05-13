@@ -13,6 +13,7 @@ const holidaysRoutes = require("./modules/holidays/routes");
 const settingsRoutes = require("./modules/settings/routes");
 const usersRoutes = require("./modules/users/routes");
 const analyticsRoutes = require("./modules/analytics/routes");
+const personalFinanceRoutes = require("./modules/personalFinance/routes");
 const { appendDebugSessionLine } = require("./debugSessionLog");
 
 const createApp = () => {
@@ -22,7 +23,7 @@ const createApp = () => {
   app.use(morgan("dev"));
   // Permissive CORS for deploy (Railway, etc.); tighten with origin whitelist later via env.
   app.use(cors());
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "2mb" }));
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
@@ -44,6 +45,7 @@ const createApp = () => {
   app.use("/api/settings", settingsRoutes);
   app.use("/api/users", usersRoutes);
   app.use("/api/analytics", analyticsRoutes);
+  app.use("/api/personal-finance", personalFinanceRoutes);
 
   return app;
 };

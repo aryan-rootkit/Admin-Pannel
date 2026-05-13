@@ -50,6 +50,17 @@ function NavIcon({ href }: { href: string }) {
           <path d="M2 10h20" />
         </svg>
       );
+    case "/personal-finance":
+      return (
+        <svg className={navIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+          <path
+            d="M3 10a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7Z"
+            strokeLinejoin="round"
+          />
+          <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" strokeLinecap="round" />
+          <path d="M3 12h18" strokeLinecap="round" opacity="0.35" />
+        </svg>
+      );
     default:
       return null;
   }

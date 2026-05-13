@@ -13,6 +13,9 @@ export const API_ANALYTICS_MONTHLY = "/analytics/monthly" as const;
 /** `GET` → `…/api/analytics/finance` */
 export const API_ANALYTICS_FINANCE = "/analytics/finance" as const;
 
+/** Personal finance module base path (`/api` prefix via {@link getApiBase}). */
+export const API_PERSONAL_FINANCE = "/personal-finance" as const;
+
 /** Browser-safe GET helper — uses NEXT_PUBLIC_API_BASE_URL */
 export function getApiBase(): string {
   const API = process.env.NEXT_PUBLIC_API_BASE_URL;
