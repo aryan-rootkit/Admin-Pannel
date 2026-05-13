@@ -18,6 +18,12 @@ export function PersonDetailSkeleton() {
               ))}
             </div>
           </div>
+          <div className={`${glassCard} space-y-3 p-6`}>
+            <div className="h-6 w-24 animate-pulse rounded bg-slate-200/80" />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-12 animate-pulse rounded-full bg-slate-100" />
+            ))}
+          </div>
         </div>
         <div className="space-y-6 lg:col-span-8">
           <div className={`${glassCard} space-y-4 p-6 md:p-8`}>
@@ -28,23 +34,15 @@ export function PersonDetailSkeleton() {
               <div className="h-4 max-w-[85%] animate-pulse rounded bg-slate-100" />
             </div>
           </div>
-          <div className="grid gap-6 lg:grid-cols-8">
-            <div className={`${glassCard} space-y-4 p-6 lg:col-span-5`}>
-              <div className="h-6 w-32 animate-pulse rounded bg-slate-200/80" />
-              <div className="flex gap-2">
-                <div className="h-9 w-16 animate-pulse rounded-full bg-slate-100" />
-                <div className="h-9 w-20 animate-pulse rounded-full bg-slate-100" />
-              </div>
-              {[1, 2].map((i) => (
-                <div key={i} className="h-24 animate-pulse rounded-xl border border-slate-100 bg-slate-50/80" />
-              ))}
+          <div className={`${glassCard} space-y-4 p-6`}>
+            <div className="h-6 w-32 animate-pulse rounded bg-slate-200/80" />
+            <div className="flex gap-2">
+              <div className="h-9 w-16 animate-pulse rounded-full bg-slate-100" />
+              <div className="h-9 w-20 animate-pulse rounded-full bg-slate-100" />
             </div>
-            <div className={`${glassCard} space-y-3 p-6 lg:col-span-3`}>
-              <div className="h-6 w-24 animate-pulse rounded bg-slate-200/80" />
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-12 animate-pulse rounded-full bg-slate-100" />
-              ))}
-            </div>
+            {[1, 2].map((i) => (
+              <div key={i} className="h-24 animate-pulse rounded-xl border border-slate-100 bg-slate-50/80" />
+            ))}
           </div>
         </div>
       </div>

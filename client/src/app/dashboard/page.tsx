@@ -43,6 +43,7 @@ import { DashboardTeamInsights } from "@/components/dashboard/DashboardTeamInsig
 import { DashboardQuickActionChips } from "@/components/dashboard/DashboardQuickActions";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { stackSections } from "@/components/dashboard/dashboardStyles";
+import { PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -163,9 +164,7 @@ export default function DashboardPage() {
   return (
     <div className={`min-w-0 pb-8 ${stackSections}`}>
       <header className="flex flex-col gap-4 border-b border-slate-200/90 pb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <h1 className="text-2xl font-bold tracking-tight text-purity-text md:text-[1.75rem] md:leading-tight">
-          Dashboard
-        </h1>
+        <h1 className={PAGE_TITLE_CLASS}>Dashboard</h1>
         <DashboardQuickActionChips />
       </header>
 

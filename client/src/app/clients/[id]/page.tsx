@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ApiError, apiGet, apiPut } from "@/lib/api";
 import type { Client } from "@/types/api";
 import { Button } from "@/components/ui/Button";
+import { PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
 import { Input } from "@/components/ui/Input";
 
 export default function EditClientPage() {
@@ -51,7 +52,7 @@ export default function EditClientPage() {
 
   return (
     <div className="mx-auto w-full max-w-xl min-w-0 space-y-4">
-      <h1 className="text-xl font-semibold">Edit client</h1>
+      <h1 className={PAGE_TITLE_CLASS}>Edit client</h1>
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1">
           <div className="text-sm font-medium">Name</div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { fetchJson, getApiBase } from "@/lib/fetchApi";
 import { ApiError, apiDelete, apiPost, apiPut } from "@/lib/api";
 import type { Project, RevenuePaymentType, RevenueRow, RevenueStatus } from "@/types/api";
@@ -93,6 +94,22 @@ type ProjectRevenueGroup = {
 };
 
 export default function RevenuesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-w-0 space-y-6" aria-busy="true">
+          <RevenuePageSkeleton />
+        </div>
+      }
+    >
+      <RevenuesPageContent />
+    </Suspense>
+  );
+}
+
+function RevenuesPageContent() {
+  const searchParams = useSearchParams();
+  const highlightProjectId = searchParams.get("project");
   const toast = useToast();
   const [rows, setRows] = useState<RevenueRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -338,6 +355,17 @@ export default function RevenuesPage() {
     };
   }, [load]);
 
+  useEffect(() => {
+    if (!highlightProjectId || loading) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`revenue-project-${highlightProjectId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [highlightProjectId, loading, groupedByProject]);
+
   function openCreate() {
     setEditingId(null);
     const first = projects.find((p) => projectReceivesNewPayments(p.status));
@@ -458,14 +486,6 @@ export default function RevenuesPage() {
         }
       />
 
-      <p className="mb-4 max-w-2xl text-sm leading-relaxed text-[var(--purity-muted)]">
-        Per project, <strong className="text-[var(--purity-text)]">contract value</strong> and{" "}
-        <strong className="text-[var(--purity-text)]">pending</strong> are computed from the
-        project record and the sum of payments with status{" "}
-        <strong className="text-[var(--purity-text)]">Received</strong>. Each line is one payment
-        (advance, installment, or final).
-      </p>
-
       {!projects.length && !loading ? (
         <p className="mb-4 text-sm text-amber-800">Create a project first.</p>
       ) : null}
@@ -494,7 +514,8 @@ export default function RevenuesPage() {
           groupedByProject.map((g) => (
             <div
               key={g.projectId}
-              className="min-w-0 overflow-hidden rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] shadow-sm"
+              id={`revenue-project-${g.projectId}`}
+              className="min-w-0 scroll-mt-24 overflow-hidden rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] shadow-sm"
             >
               <div className="border-b border-[var(--purity-border)] bg-[var(--purity-sidebar-active)] px-4 py-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -648,10 +669,6 @@ export default function RevenuesPage() {
               ))}
             </Select>
           </FormField>
-          <p className="text-xs text-[var(--purity-muted)]">
-            Project-level pending is computed automatically (contract value minus all received
-            payments). It cannot be edited here.
-          </p>
           <FormField label="Payment type">
             <Select
               value={paymentType}
@@ -689,9 +706,6 @@ export default function RevenuesPage() {
               value={advanceAmount}
               onChange={(e) => setAdvanceAmount(e.target.value)}
             />
-            <p className="mt-1 text-xs text-[var(--purity-muted)]">
-              Stored on this row only; project pending comes from contract minus received.
-            </p>
           </FormField>
           <FormField label="Payment date">
             <Input

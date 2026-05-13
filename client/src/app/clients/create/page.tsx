@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
 import { Input } from "@/components/ui/Input";
 
 export default function CreateClientPage() {
@@ -42,7 +43,7 @@ export default function CreateClientPage() {
 
   return (
     <div className="mx-auto w-full max-w-xl min-w-0 space-y-4">
-      <h1 className="text-xl font-semibold">Create client</h1>
+      <h1 className={PAGE_TITLE_CLASS}>Create client</h1>
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1">
           <div className="text-sm font-medium">Name</div>

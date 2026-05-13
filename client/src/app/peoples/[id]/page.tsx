@@ -12,6 +12,7 @@ import {
   type PersonProjectMoneyRow,
 } from "@/lib/personFinance";
 import { PersonDetailSkeleton } from "@/components/peoples/PersonDetailSkeleton";
+import { PAGE_SECTION_TITLE_CLASS, PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
 
 function fmt(n: number) {
   return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -25,7 +26,7 @@ function defaultBio(p: PersonRow): string {
 }
 
 function SectionHeading({ title }: { title: string }) {
-  return <h2 className="mb-4 text-xl font-bold tracking-tight text-slate-900">{title}</h2>;
+  return <h2 className={`mb-4 ${PAGE_SECTION_TITLE_CLASS}`}>{title}</h2>;
 }
 
 function MoneyBadge({
@@ -63,8 +64,14 @@ function ProjectRow({ row }: { row: PersonProjectMoneyRow }) {
         <MoneyBadge label="Advance" value={row.advance} tone="sky" />
         <MoneyBadge label="Pending" value={row.pending} tone="rose" />
         <Link
+          href={`/revenues?project=${encodeURIComponent(row.projectId)}`}
+          className="ml-1 shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-[var(--purity-accent)] shadow-sm transition hover:bg-slate-50"
+        >
+          Edit payments
+        </Link>
+        <Link
           href="/projects"
-          className="ml-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
           aria-label={`Open projects · ${row.projectName}`}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -166,7 +173,7 @@ export default function PersonDetailPage() {
       {!loading && !error && person ? (
         <>
           <header className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-[2rem]">{person.name}</h1>
+            <h1 className={PAGE_TITLE_CLASS}>{person.name}</h1>
             <p className="mt-1 text-base text-slate-500">{person.role || person.subRole || "Team member"}</p>
           </header>
 
@@ -198,11 +205,26 @@ export default function PersonDetailPage() {
                 ))}
               </div>
             </div>
+
+            <div className="rounded-[20px] border border-slate-200/90 bg-white p-6 shadow-[var(--rk-shadow-card)]">
+              <SectionHeading title="Contact" />
+              <div className="space-y-3">
+                <div className="rounded-full border border-slate-900/15 px-4 py-3 text-sm text-slate-900">
+                  {person.email || "—"}
+                </div>
+                <div className="rounded-full border border-slate-900/15 px-4 py-3 text-sm text-slate-900">
+                  {person.contact || "—"}
+                </div>
+                <div className="rounded-full border border-slate-900/15 px-4 py-3 text-sm text-slate-900">
+                  {person.location?.trim() || "Location not set"}
+                </div>
+              </div>
+            </div>
           </aside>
 
           <div className="space-y-6 lg:col-span-8">
             <div className="rounded-[20px] border border-slate-200/90 bg-white p-6 md:p-8 shadow-[var(--rk-shadow-card)]">
-              <h2 className="mb-4 text-xl font-bold tracking-tight text-slate-900">About</h2>
+              <h2 className={`mb-4 ${PAGE_SECTION_TITLE_CLASS}`}>About</h2>
               <div className="space-y-4 text-sm leading-relaxed text-slate-600">
                 {defaultBio(person)
                   .split(/\n+/)
@@ -213,58 +235,37 @@ export default function PersonDetailPage() {
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-8">
-              <div className="lg:col-span-5">
-                <div className="rounded-[20px] border border-slate-200/90 bg-white p-6 shadow-[var(--rk-shadow-card)]">
-                  <SectionHeading title="Projects" />
-                  <div className="mb-6 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setTab("all")}
-                      className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                        tab === "all"
-                          ? "bg-slate-900 text-white shadow-sm"
-                          : "border border-slate-900/15 bg-white text-slate-800 hover:bg-slate-50"
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTab("coding")}
-                      className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                        tab === "coding"
-                          ? "bg-slate-900 text-white shadow-sm"
-                          : "border border-slate-900/15 bg-white text-slate-800 hover:bg-slate-50"
-                      }`}
-                    >
-                      Coding
-                    </button>
-                  </div>
-                  {!filteredRows.length ? (
-                    <p className="text-sm text-slate-500">No projects in this view.</p>
-                  ) : (
-                    <div>{filteredRows.map((row) => <ProjectRow key={row.projectId} row={row} />)}</div>
-                  )}
-                </div>
+            <div className="rounded-[20px] border border-slate-200/90 bg-white p-6 shadow-[var(--rk-shadow-card)]">
+              <SectionHeading title="Projects" />
+              <div className="mb-6 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTab("all")}
+                  className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
+                    tab === "all"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "border border-slate-900/15 bg-white text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab("coding")}
+                  className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
+                    tab === "coding"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "border border-slate-900/15 bg-white text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  Coding
+                </button>
               </div>
-
-              <div className="lg:col-span-3">
-                <div className="rounded-[20px] border border-slate-200/90 bg-white p-6 shadow-[var(--rk-shadow-card)]">
-                  <SectionHeading title="Contact" />
-                  <div className="space-y-3">
-                    <div className="rounded-full border border-slate-900/15 px-4 py-3 text-sm text-slate-900">
-                      {person.email || "—"}
-                    </div>
-                    <div className="rounded-full border border-slate-900/15 px-4 py-3 text-sm text-slate-900">
-                      {person.contact || "—"}
-                    </div>
-                    <div className="rounded-full border border-slate-900/15 px-4 py-3 text-sm text-slate-900">
-                      {person.location?.trim() || "Location not set"}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {!filteredRows.length ? (
+                <p className="text-sm text-slate-500">No projects in this view.</p>
+              ) : (
+                <div>{filteredRows.map((row) => <ProjectRow key={row.projectId} row={row} />)}</div>
+              )}
             </div>
           </div>
         </div>

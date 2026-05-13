@@ -21,6 +21,7 @@ import {
 } from "@/lib/formValidation";
 import { useToast } from "@/components/providers/ToastProvider";
 import { totalPayoutsForPerson } from "@/lib/personFinance";
+import { PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
 
 type PeopleFormErrors = {
   name?: string;
@@ -210,8 +211,7 @@ export default function PeoplesPage() {
     <div className="min-w-0">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-[1.75rem]">Peoples</h1>
-          <p className="mt-1 text-sm text-slate-500">Team directory · payouts and assignments</p>
+          <h1 className={PAGE_TITLE_CLASS}>Peoples</h1>
         </div>
         <Button type="button" className="rounded-full px-6 font-semibold shadow-sm" onClick={openCreate}>
           Add new

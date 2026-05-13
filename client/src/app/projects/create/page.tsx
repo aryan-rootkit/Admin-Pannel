@@ -12,6 +12,7 @@ import { MultiSelect } from "@/components/ui/MultiSelect";
 import { FormattedNumberInput } from "@/components/ui/FormattedNumberInput";
 import { FormField } from "@/components/ui/FormField";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/formOptions";
+import { PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
 import {
   validateClientId,
   validateContractValuePositive,
@@ -97,7 +98,7 @@ export default function CreateProjectPage() {
 
   return (
     <div className="mx-auto w-full max-w-xl min-w-0 space-y-4">
-      <h1 className="text-xl font-semibold">Create project</h1>
+      <h1 className={PAGE_TITLE_CLASS}>Create project</h1>
 
       {clients.length === 0 && !loadError ? (
         <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
