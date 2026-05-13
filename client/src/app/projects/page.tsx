@@ -1,22 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { API_PEOPLE, fetchJson } from "@/lib/fetchApi";
-import { apiDelete, apiPost, apiPut } from "@/lib/api";
+import { API_PEOPLE, fetchJson, getApiBase } from "@/lib/fetchApi";
+import { apiPost, apiPut } from "@/lib/api";
 import type { Client, PersonRow, Project } from "@/types/api";
 import { Button } from "@/components/ui/Button";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { PageToolbar } from "@/components/layout/PageToolbar";
-import { ResponsiveDataList } from "@/components/layout/ResponsiveDataList";
-import {
-  EmptyState,
-  ListPanel,
-  listBodyRowClass,
-  listHeadRowClass,
-} from "@/components/layout/ListPanel";
-import { ListPageSkeleton } from "@/components/layout/ListPageSkeleton";
-import { formatMoney } from "@/lib/format";
-import { resolveAssignedTeamNames, resolveClientName } from "@/lib/relations";
+import { PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
 import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
@@ -30,6 +19,9 @@ import {
   validateProjectName,
 } from "@/lib/formValidation";
 import { useToast } from "@/components/providers/ToastProvider";
+import { resolveAssignedTeamNames, resolveClientName } from "@/lib/relations";
+import { ProjectCard } from "@/components/projects/ProjectCard";
+import { ProjectsGridSkeleton } from "@/components/projects/ProjectsGridSkeleton";
 
 function refId(v: string | { _id: string } | undefined | null): string {
   if (v == null) return "";
@@ -45,6 +37,10 @@ function teamMemberIds(p: Project): string[] {
       return "";
     })
     .filter(Boolean);
+}
+
+function formatListAmount(n: number) {
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
 type ProjectFormErrors = {
@@ -85,11 +81,11 @@ export default function ProjectsPage() {
     let cancelled = false;
     (async () => {
       try {
+        getApiBase();
         await load();
         if (!cancelled) setError(null);
       } catch (e) {
-        if (!cancelled)
-          setError(e instanceof Error ? e.message : "Failed to load projects");
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load projects");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -168,17 +164,6 @@ export default function ProjectsPage() {
     }
   }
 
-  async function onDelete(id: string) {
-    if (!window.confirm("Delete this project?")) return;
-    try {
-      await apiDelete(`/projects/${id}`);
-      toast.deleted();
-      await load();
-    } catch {
-      toast.error();
-    }
-  }
-
   const peopleOptions = people.map((m) => ({
     value: m._id,
     label: m.name || m.email || m._id,
@@ -190,138 +175,58 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div>
-      <PageToolbar
-        title={<PageHeader title="Projects" className="mb-0" />}
-        actions={
-          <Button type="button" className="w-full sm:w-auto" onClick={openCreate} disabled={!clients.length}>
-            Add new
-          </Button>
-        }
-      />
+    <div className="min-w-0">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className={PAGE_TITLE_CLASS}>Projects</h1>
+        </div>
+        <Button
+          type="button"
+          className="rounded-full px-6 font-semibold shadow-sm"
+          onClick={openCreate}
+          disabled={!clients.length}
+        >
+          Add new
+        </Button>
+      </div>
 
       {!clients.length && !loading ? (
-        <p className="mb-4 text-sm text-amber-800">
-          Add a client first to create projects.
-        </p>
+        <p className="mb-4 text-sm text-amber-800">Add a client first to create projects.</p>
       ) : null}
 
-      {loading ? <ListPageSkeleton rows={8} /> : null}
+      {loading ? <ProjectsGridSkeleton cards={10} /> : null}
       {error ? (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      {!loading && !error && projects.length === 0 ? (
+        <div className="rounded-[20px] border border-slate-200/90 bg-white px-6 py-16 text-center text-sm text-slate-500 shadow-sm">
+          No projects yet — create one to assign team and contract splits on the detail page.
         </div>
       ) : null}
 
-      <ResponsiveDataList
-        table={
-          <ListPanel>
-            <div className={`${listHeadRowClass()} grid-cols-12`}>
-              <div className="col-span-2">Project</div>
-              <div className="col-span-2">Client</div>
-              <div className="col-span-3">Team</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-1 text-right">Contract</div>
-              <div className="col-span-2 text-right">Actions</div>
-            </div>
-            {!loading && !error && projects.length === 0 ? (
-              <EmptyState message="No data" />
-            ) : null}
-            {!loading &&
-              projects.map((p) => (
-                <div key={p._id} className={`${listBodyRowClass()} grid-cols-12`}>
-                  <div className="col-span-2 font-semibold text-[var(--purity-text)]">{p.name}</div>
-                  <div className="col-span-2 text-[var(--purity-muted)]">{resolveClientName(p.clientId)}</div>
-                  <div className="col-span-3 text-xs text-[var(--purity-muted)]">
-                    {resolveAssignedTeamNames(p.assignedTeam)}
-                  </div>
-                  <div className="col-span-2">
-                    <span className="inline-block rounded-full bg-[var(--purity-sidebar-active)] px-2 py-0.5 text-xs font-semibold text-[var(--purity-accent-hover)]">
-                      {p.status || "—"}
-                    </span>
-                  </div>
-                  <div className="col-span-1 text-right text-sm font-semibold text-[var(--purity-text)]">
-                    {p.totalValue != null || p.budget != null
-                      ? formatMoney(Number(p.totalValue ?? p.budget ?? 0))
-                      : "—"}
-                  </div>
-                  <div className="col-span-2 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      className="text-xs font-bold uppercase tracking-wide text-[var(--purity-accent-hover)] hover:underline"
-                      onClick={() => openEdit(p)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-xs font-bold uppercase tracking-wide text-red-600 hover:underline"
-                      onClick={() => onDelete(p._id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-          </ListPanel>
-        }
-        cards={
-          <>
-            {!loading && !error && projects.length === 0 ? (
-              <div className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] px-4 py-10 text-center text-sm text-[var(--purity-muted)]">
-                No data
-              </div>
-            ) : null}
-            {!loading &&
-              projects.map((p) => (
-                <div
-                  key={p._id}
-                  className="rounded-xl border border-[var(--purity-border)] bg-[var(--purity-card)] p-4 shadow-sm"
-                >
-                  <div className="text-base font-semibold text-[var(--purity-text)]">{p.name}</div>
-                  <dl className="mt-3 space-y-2 text-sm">
-                    <div className="flex gap-2">
-                      <dt className="shrink-0 text-[var(--purity-muted)]">Client</dt>
-                      <dd className="min-w-0 flex-1 text-right text-[var(--purity-text)]">
-                        {resolveClientName(p.clientId)}
-                      </dd>
-                    </div>
-                    <div className="flex gap-2">
-                      <dt className="shrink-0 text-[var(--purity-muted)]">Team</dt>
-                      <dd className="min-w-0 flex-1 break-words text-right text-xs text-[var(--purity-text)]">
-                        {resolveAssignedTeamNames(p.assignedTeam)}
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <dt className="text-[var(--purity-muted)]">Status</dt>
-                      <dd>
-                        <span className="inline-block rounded-full bg-[var(--purity-sidebar-active)] px-2 py-0.5 text-xs font-semibold text-[var(--purity-accent-hover)]">
-                          {p.status || "—"}
-                        </span>
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt className="text-[var(--purity-muted)]">Contract</dt>
-                      <dd className="font-semibold tabular-nums text-[var(--purity-text)]">
-                        {p.totalValue != null || p.budget != null
-                          ? formatMoney(Number(p.totalValue ?? p.budget ?? 0))
-                          : "—"}
-                      </dd>
-                    </div>
-                  </dl>
-                  <div className="mt-4 flex flex-col gap-2 border-t border-[var(--purity-border)] pt-4">
-                    <Button type="button" variant="secondary" className="w-full" onClick={() => openEdit(p)}>
-                      Edit
-                    </Button>
-                    <Button type="button" variant="danger" className="w-full" onClick={() => onDelete(p._id)}>
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
-          </>
-        }
-      />
+      {!loading && !error && projects.length > 0 ? (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {projects.map((p) => {
+            const contractNum = Number(p.totalValue ?? p.budget ?? 0);
+            const contractDisplay =
+              p.totalValue != null || p.budget != null ? `₹ ${formatListAmount(contractNum)}` : "—";
+            const teamLine = resolveAssignedTeamNames(p.assignedTeam);
+            return (
+              <ProjectCard
+                key={p._id}
+                id={p._id}
+                name={p.name || "—"}
+                clientLabel={resolveClientName(p.clientId)}
+                statusLabel={p.status || "—"}
+                contractDisplay={contractDisplay}
+                teamPreview={teamLine}
+                onEdit={() => openEdit(p)}
+              />
+            );
+          })}
+        </div>
+      ) : null}
 
       <Modal
         open={modalOpen}
@@ -377,6 +282,9 @@ export default function ProjectsPage() {
               placeholder="Search people…"
             />
           </FormField>
+          <p className="text-xs leading-relaxed text-slate-500">
+            Contract percentages and payout math are configured on the project detail page (More details).
+          </p>
         </div>
       </Modal>
     </div>

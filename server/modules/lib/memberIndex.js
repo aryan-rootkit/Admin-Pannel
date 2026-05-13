@@ -27,13 +27,26 @@ async function buildPersonIdToProjectsMap(Project) {
 }
 
 function memberIdsFromProjectLean(proj) {
+  const fromShares = (proj.teamMemberShares || [])
+    .map((s) => {
+      if (!s || typeof s !== "object") return "";
+      const pid = s.peopleId;
+      if (pid && typeof pid === "object" && pid._id) return String(pid._id);
+      return pid ? String(pid) : "";
+    })
+    .filter(Boolean);
   return [
     ...new Set(
       [
+        ...fromShares,
         ...(proj.assignedTeam || []),
         ...(proj.peopleIds || []),
         ...(proj.teamIds || []),
-      ].map((id) => String(id))
+      ].map((id) => {
+        if (typeof id === "string") return id;
+        if (id && typeof id === "object" && id._id) return String(id._id);
+        return id ? String(id) : "";
+      })
     ),
   ];
 }

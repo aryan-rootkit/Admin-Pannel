@@ -46,6 +46,34 @@ function payoutsForPersonProject(
   return s;
 }
 
+function contractValue(project: Project | null | undefined): number {
+  if (!project) return 0;
+  return Math.max(0, Number(project.totalValue ?? project.budget ?? 0) || 0);
+}
+
+/** When the project has teamMemberShares, pending for a member = allocated − payouts on that project. */
+function pendingForPersonOnProject(
+  personId: string,
+  projectId: string,
+  projectDoc: Project | undefined,
+  payouts: PayoutRow[],
+  revenues: RevenueRow[]
+): number {
+  const shares = projectDoc?.teamMemberShares;
+  const contract = contractValue(projectDoc);
+  if (Array.isArray(shares) && shares.length > 0 && contract > 0) {
+    const entry = shares.find((s) => refId(s.peopleId) === personId);
+    if (entry) {
+      const pct = Math.min(100, Math.max(0, Number(entry.sharePercent) || 0));
+      const allocated = (contract * pct) / 100;
+      const paid = payoutsForPersonProject(payouts, personId, projectId);
+      return Math.max(0, allocated - paid);
+    }
+    return 0;
+  }
+  return revenueAdvancePendingForProject(revenues, projectId).pending;
+}
+
 function revenueAdvancePendingForProject(
   revenues: RevenueRow[],
   projectId: string
@@ -83,7 +111,8 @@ export function buildPersonProjectMoneyRows(
   personId: string,
   assignedProjects: PersonRow["assignedProjects"],
   payouts: PayoutRow[],
-  revenues: RevenueRow[]
+  revenues: RevenueRow[],
+  projects?: Project[]
 ): PersonProjectMoneyRow[] {
   const rows: PersonProjectMoneyRow[] = [];
   const list = Array.isArray(assignedProjects) ? assignedProjects : [];
@@ -92,15 +121,17 @@ export function buildPersonProjectMoneyRows(
     if (!proj?._id) continue;
     const projectId = String(proj._id);
     const payout = payoutsForPersonProject(payouts, personId, projectId);
-    const { advance, pending } = revenueAdvancePendingForProject(revenues, projectId);
+    const projectDoc = projects?.find((pr) => String(pr._id) === projectId);
+    const { advance } = revenueAdvancePendingForProject(revenues, projectId);
+    const pending = pendingForPersonOnProject(personId, projectId, projectDoc, payouts, revenues);
     rows.push({
       projectId,
-      projectName: proj.name || "—",
-      clientLabel: resolveClientName(proj.clientId),
+      projectName: projectDoc?.name || proj.name || "—",
+      clientLabel: resolveClientName(projectDoc?.clientId ?? proj.clientId),
       payout,
       advance,
       pending,
-      status: proj.status,
+      status: projectDoc?.status ?? proj.status,
     });
   }
   return rows;

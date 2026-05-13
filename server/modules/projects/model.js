@@ -10,6 +10,13 @@ const ProjectSchema = new mongoose.Schema(
     totalValue: { type: Number, min: 0 },
     budget: { type: Number, min: 0 },
     assignedTeam: [{ type: Types.ObjectId, ref: "People", index: true }],
+    /** Per-member % of contract (totalValue) allocated as labour share; remainder = consultancy. */
+    teamMemberShares: [
+      {
+        peopleId: { type: Types.ObjectId, ref: "People", required: true },
+        sharePercent: { type: Number, min: 0, max: 100, default: 0 },
+      },
+    ],
     /** @deprecated prefer `assignedTeam` */
     peopleIds: [{ type: Types.ObjectId, ref: "People", index: true }],
     /** @deprecated prefer `assignedTeam` */

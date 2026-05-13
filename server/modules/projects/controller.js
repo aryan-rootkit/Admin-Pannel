@@ -28,11 +28,58 @@ async function hydrateAssignedTeamForProjects(projectsLean) {
   }
 }
 
+/**
+ * @param {unknown} raw
+ * @returns {{ peopleId: string, sharePercent: number }[]}
+ */
+function normalizeTeamMemberSharesPayload(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const pid = row.peopleId || row.personId;
+    if (!pid) continue;
+    const id = String(pid);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    let pct = Number(row.sharePercent);
+    if (!Number.isFinite(pct)) pct = 0;
+    pct = Math.max(0, Math.min(100, pct));
+    if (pct <= 0) continue;
+    out.push({ peopleId: id, sharePercent: pct });
+  }
+  const sum = out.reduce((s, r) => s + r.sharePercent, 0);
+  if (sum > 100.01) {
+    const err = new Error("Team share percentages must sum to at most 100% of contract value");
+    err.code = "SHARE_SUM";
+    throw err;
+  }
+  return out;
+}
+
+const getProjectById = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id)
+      .populate("clientId", "name email contact phone")
+      .populate("assignedTeam", "name email contact")
+      .populate("teamMemberShares.peopleId", "name email contact")
+      .lean();
+    if (!project) return res.status(404).json({ message: "Project not found" });
+    await hydrateAssignedTeamForProjects([project]);
+    if (Array.isArray(project.assignedTeam)) project.assignedTeam = project.assignedTeam.filter(Boolean);
+    return res.json(project);
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Server error" });
+  }
+};
+
 const getProjects = async (_req, res) => {
   try {
     const projects = await Project.find()
       .populate("clientId", "name email contact phone")
       .populate("assignedTeam", "name email contact")
+      .populate("teamMemberShares.peopleId", "name email contact")
       .sort({ createdAt: -1 })
       .lean();
     await hydrateAssignedTeamForProjects(projects);
@@ -49,20 +96,29 @@ const getProjects = async (_req, res) => {
 
 const createProject = async (req, res) => {
   try {
-    const { name, clientId, budget, totalValue, status, assignedTeam, peopleIds, teamIds } =
+    const { name, clientId, budget, totalValue, status, assignedTeam, peopleIds, teamIds, teamMemberShares } =
       req.body || {};
     if (!name) return res.status(400).json({ message: "name is required" });
     if (!clientId) return res.status(400).json({ message: "clientId is required" });
 
+    let normalizedShares = [];
+    try {
+      normalizedShares = normalizeTeamMemberSharesPayload(teamMemberShares);
+    } catch (e) {
+      if (e.code === "SHARE_SUM") return res.status(400).json({ message: e.message });
+      throw e;
+    }
+
     const mergedTeam = [
       ...new Set(
         [
+          ...normalizedShares.map((s) => s.peopleId),
           ...(assignedTeam || []),
           ...(peopleIds || []),
           ...(teamIds || []),
         ].map((id) => String(id))
       ),
-    ];
+    ].filter(Boolean);
 
     const project = await Project.create({
       name,
@@ -71,6 +127,7 @@ const createProject = async (req, res) => {
       totalValue: totalValue != null ? Number(totalValue) : undefined,
       status,
       assignedTeam: mergedTeam.length ? mergedTeam : undefined,
+      teamMemberShares: normalizedShares.length ? normalizedShares : undefined,
     });
 
     if (mergedTeam.length) {
@@ -83,6 +140,7 @@ const createProject = async (req, res) => {
     const populated = await Project.findById(project._id)
       .populate("clientId", "name email contact phone")
       .populate("assignedTeam", "name email contact")
+      .populate("teamMemberShares.peopleId", "name email contact")
       .lean();
     await hydrateAssignedTeamForProjects([populated]);
     return res.status(201).json(populated);
@@ -108,21 +166,35 @@ async function syncProjectMembers(projectId, memberIds) {
 
 const updateProject = async (req, res) => {
   try {
-    const { name, clientId, budget, totalValue, status, assignedTeam, peopleIds, teamIds } =
+    const { name, clientId, budget, totalValue, status, assignedTeam, peopleIds, teamIds, teamMemberShares } =
       req.body || {};
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
-    const mergedTeam = [
+    let mergedTeam = [
       ...new Set(
         [
-          ...(assignedTeam || project.assignedTeam || []),
+          ...(assignedTeam !== undefined ? assignedTeam : project.assignedTeam || []),
           ...(peopleIds || []),
           ...(teamIds || []),
         ].map((id) => String(id))
       ),
-    ];
-    if (assignedTeam !== undefined || peopleIds !== undefined || teamIds !== undefined) {
+    ].filter(Boolean);
+
+    if (teamMemberShares !== undefined) {
+      let normalizedShares = [];
+      try {
+        normalizedShares = normalizeTeamMemberSharesPayload(teamMemberShares);
+      } catch (e) {
+        if (e.code === "SHARE_SUM") return res.status(400).json({ message: e.message });
+        throw e;
+      }
+      project.teamMemberShares = normalizedShares;
+      const shareIds = normalizedShares.map((s) => s.peopleId);
+      mergedTeam = [...new Set([...shareIds.map(String), ...mergedTeam])];
+    }
+
+    if (assignedTeam !== undefined || peopleIds !== undefined || teamIds !== undefined || teamMemberShares !== undefined) {
       await syncProjectMembers(project._id, mergedTeam);
     }
 
@@ -131,7 +203,7 @@ const updateProject = async (req, res) => {
     if (budget !== undefined) project.budget = budget;
     if (totalValue !== undefined) project.totalValue = totalValue;
     if (status !== undefined) project.status = status;
-    if (assignedTeam !== undefined || peopleIds !== undefined || teamIds !== undefined) {
+    if (assignedTeam !== undefined || peopleIds !== undefined || teamIds !== undefined || teamMemberShares !== undefined) {
       project.assignedTeam = mergedTeam.length ? mergedTeam : [];
     }
     await project.save();
@@ -139,6 +211,7 @@ const updateProject = async (req, res) => {
     const populated = await Project.findById(project._id)
       .populate("clientId", "name email contact phone")
       .populate("assignedTeam", "name email contact")
+      .populate("teamMemberShares.peopleId", "name email contact")
       .lean();
     await hydrateAssignedTeamForProjects([populated]);
     return res.json(populated);
@@ -162,4 +235,4 @@ const deleteProject = async (req, res) => {
   }
 };
 
-module.exports = { getProjects, createProject, updateProject, deleteProject };
+module.exports = { getProjects, getProjectById, createProject, updateProject, deleteProject };

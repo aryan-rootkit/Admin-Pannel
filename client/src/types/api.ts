@@ -12,6 +12,11 @@ export type Client = {
 
 export type PopulatedRef = { _id: string; name: string; email?: string; contact?: string };
 
+export type TeamMemberShare = {
+  peopleId: string | PopulatedRef;
+  sharePercent: number;
+};
+
 export type Project = {
   _id: string;
   name: string;
@@ -20,6 +25,8 @@ export type Project = {
   budget?: number;
   totalValue?: number;
   assignedTeam?: Array<PopulatedRef | string>;
+  /** % of contract (totalValue) allocated to each member; remainder = consultancy. */
+  teamMemberShares?: TeamMemberShare[];
   peopleIds?: string[];
   teamIds?: string[];
   createdAt?: string;

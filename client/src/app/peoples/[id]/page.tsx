@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_PEOPLE, fetchJson, getApiBase } from "@/lib/fetchApi";
 import { apiGet, ApiError } from "@/lib/api";
-import type { PersonRow, PayoutRow, RevenueRow } from "@/types/api";
+import type { PersonRow, PayoutRow, Project, RevenueRow } from "@/types/api";
 import {
   buildPersonProjectMoneyRows,
   filterProjectsTab,
@@ -64,15 +64,9 @@ function ProjectRow({ row }: { row: PersonProjectMoneyRow }) {
         <MoneyBadge label="Advance" value={row.advance} tone="sky" />
         <MoneyBadge label="Pending" value={row.pending} tone="rose" />
         <Link
-          href={`/revenues?project=${encodeURIComponent(row.projectId)}`}
-          className="ml-1 shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-[var(--purity-accent)] shadow-sm transition hover:bg-slate-50"
-        >
-          Edit payments
-        </Link>
-        <Link
-          href="/projects"
+          href={`/projects/${encodeURIComponent(row.projectId)}`}
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
-          aria-label={`Open projects · ${row.projectName}`}
+          aria-label={`Open project · ${row.projectName}`}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path d="M7 17 17 7M7 7h10v10" strokeLinecap="round" strokeLinejoin="round" />
@@ -90,6 +84,7 @@ export default function PersonDetailPage() {
   const [person, setPerson] = useState<PersonRow | null>(null);
   const [payouts, setPayouts] = useState<PayoutRow[]>([]);
   const [revenues, setRevenues] = useState<RevenueRow[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"all" | "coding">("all");
@@ -100,14 +95,16 @@ export default function PersonDetailPage() {
     setError(null);
     try {
       getApiBase();
-      const [p, po, rev] = await Promise.all([
+      const [p, po, rev, pr] = await Promise.all([
         apiGet<PersonRow>(`${API_PEOPLE}/${id}`),
         fetchJson<PayoutRow[]>("/payouts"),
         fetchJson<RevenueRow[]>("/revenues"),
+        fetchJson<Project[]>("/projects"),
       ]);
       setPerson(p);
       setPayouts(Array.isArray(po) ? po : []);
       setRevenues(Array.isArray(rev) ? rev : []);
+      setProjects(Array.isArray(pr) ? pr : []);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
         setError("Person not found.");
@@ -126,8 +123,8 @@ export default function PersonDetailPage() {
 
   const projectRows = useMemo(() => {
     if (!person) return [];
-    return buildPersonProjectMoneyRows(person._id, person.assignedProjects, payouts, revenues);
-  }, [person, payouts, revenues]);
+    return buildPersonProjectMoneyRows(person._id, person.assignedProjects, payouts, revenues, projects);
+  }, [person, payouts, revenues, projects]);
 
   const filteredRows = useMemo(() => filterProjectsTab(projectRows, tab), [projectRows, tab]);
 
