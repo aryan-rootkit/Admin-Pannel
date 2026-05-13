@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { fetchJson, getApiBase } from "@/lib/fetchApi";
+import { fetchJson } from "@/lib/fetchApi";
 import { ApiError, apiDelete, apiPost, apiPut } from "@/lib/api";
 import type { Project, RevenuePaymentType, RevenueRow, RevenueStatus } from "@/types/api";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -56,23 +56,6 @@ function paymentReceivedInGroup(r: RevenueRow): number {
   const st = r.status || "Received";
   if (st !== "Received") return 0;
   return paymentLineAmount(r);
-}
-
-/** Persists client debug NDJSON via API (session header required server-side). */
-function mirrorClientDebugLog(payload: Record<string, unknown>) {
-  try {
-    const base = getApiBase();
-    fetch(`${base}/debug-session-log`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "978955",
-      },
-      body: JSON.stringify(payload),
-    }).catch(() => {});
-  } catch {
-    /* missing NEXT_PUBLIC_API_BASE_URL */
-  }
 }
 
 function statusBadgeClass(s: FinancialLifecycle): string {
@@ -133,53 +116,6 @@ function RevenuesPageContent() {
     ]);
     const rowArr = Array.isArray(r) ? r : [];
     const projArr = Array.isArray(p) ? p : [];
-    // #region agent log
-    fetch("http://127.0.0.1:7810/ingest/2353a7f2-1034-4773-8e38-18bdf10d5d38", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "978955",
-      },
-      body: JSON.stringify({
-        sessionId: "978955",
-        runId: "post-fix",
-        hypothesisId: "H2,H3,H4",
-        location: "revenues/page.tsx:load",
-        message: "revenues/projects fetch merged",
-        data: {
-          revenueRows: rowArr.length,
-          projects: projArr.length,
-          projectIdShapes: rowArr.slice(0, 30).map((x) => ({
-            kind: typeof x.projectId,
-            isObj: typeof x.projectId === "object" && x.projectId !== null,
-          })),
-          amountFieldZeros: rowArr.filter((x) => {
-            const a = Number(x.amount ?? x.totalAmount ?? 0) || 0;
-            return a === 0;
-          }).length,
-        },
-      }),
-    }).catch(() => {});
-    mirrorClientDebugLog({
-      sessionId: "978955",
-      runId: "post-fix",
-      hypothesisId: "H2,H3,H4",
-      location: "revenues/page.tsx:load",
-      message: "revenues/projects fetch merged",
-      data: {
-        revenueRows: rowArr.length,
-        projects: projArr.length,
-        projectIdShapes: rowArr.slice(0, 30).map((x) => ({
-          kind: typeof x.projectId,
-          isObj: typeof x.projectId === "object" && x.projectId !== null,
-        })),
-        amountFieldZeros: rowArr.filter((x) => {
-          const a = Number(x.amount ?? x.totalAmount ?? 0) || 0;
-          return a === 0;
-        }).length,
-      },
-    });
-    // #endregion
     setRows(rowArr);
     setProjects(projArr);
   }, []);
@@ -254,76 +190,6 @@ function RevenuesPageContent() {
     const sorted = [...map.values()].sort((a, b) =>
       a.projectName.localeCompare(b.projectName, undefined, { sensitivity: "base" })
     );
-    // #region agent log
-    fetch("http://127.0.0.1:7810/ingest/2353a7f2-1034-4773-8e38-18bdf10d5d38", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "978955",
-      },
-      body: JSON.stringify({
-        sessionId: "978955",
-        runId: "post-fix",
-        hypothesisId: "H2,H3,H5",
-        location: "revenues/page.tsx:groupedByProject",
-        message: "UI revenue groups computed",
-        data: {
-          rowCount: rows.length,
-          projectCount: projects.length,
-          groups: sorted.map((g) => {
-            const sumAllLines = g.payments.reduce((s, r) => s + paymentLineAmount(r), 0);
-            const sumReceivedLines = g.payments.reduce(
-              (s, r) => s + paymentReceivedInGroup(r),
-              0
-            );
-            return {
-              projectId: g.projectId,
-              hasProjectRef: Boolean(g.project),
-              rawProjectStatus: g.project?.status ?? null,
-              financialStatus: g.financialStatus,
-              totalProjectValue: g.totalProjectValue,
-              totalReceived: g.totalReceived,
-              pendingAmount: g.pendingAmount,
-              cancelledBalance: g.cancelledBalance,
-              paymentLines: g.payments.length,
-              sumAllLines,
-              sumReceivedLines,
-              mismatchAllVsReceived: sumAllLines !== sumReceivedLines,
-            };
-          }),
-        },
-      }),
-    }).catch(() => {});
-    mirrorClientDebugLog({
-      sessionId: "978955",
-      runId: "post-fix",
-      hypothesisId: "H2,H3,H5",
-      location: "revenues/page.tsx:groupedByProject",
-      message: "UI revenue groups computed",
-      data: {
-        rowCount: rows.length,
-        projectCount: projects.length,
-        groups: sorted.map((g) => {
-          const sumAllLines = g.payments.reduce((s, r) => s + paymentLineAmount(r), 0);
-          const sumReceivedLines = g.payments.reduce((s, r) => s + paymentReceivedInGroup(r), 0);
-          return {
-            projectId: g.projectId,
-            hasProjectRef: Boolean(g.project),
-            rawProjectStatus: g.project?.status ?? null,
-            financialStatus: g.financialStatus,
-            totalProjectValue: g.totalProjectValue,
-            totalReceived: g.totalReceived,
-            pendingAmount: g.pendingAmount,
-            cancelledBalance: g.cancelledBalance,
-            paymentLines: g.payments.length,
-            sumAllLines,
-            sumReceivedLines,
-            mismatchAllVsReceived: sumAllLines !== sumReceivedLines,
-          };
-        }),
-      },
-    });
-    // #endregion
     return sorted;
   }, [rows, projects]);
 
