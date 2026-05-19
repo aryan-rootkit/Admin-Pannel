@@ -55,3 +55,17 @@ export function payoutRowToKind(row: {
   const hit = PAYOUT_KIND_OPTIONS.find((o) => o.label === cat);
   return (hit?.value ?? "dev_payout") as PayoutKindValue;
 }
+
+/** Project-linked payout costs (dev, design, marketing, etc.) — excludes subscriptions. */
+export function isProjectCostPayout(row: {
+  type?: string;
+  category?: string;
+  projectId?: string | { _id: string } | null;
+}): boolean {
+  if (payoutKindIsSubscription(payoutRowToKind(row))) return false;
+  if (row.type === "subscription") return false;
+  const pid = row.projectId;
+  if (pid == null) return false;
+  if (typeof pid === "string") return pid.length > 0;
+  return Boolean(pid._id);
+}

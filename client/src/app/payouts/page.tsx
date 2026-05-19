@@ -37,7 +37,11 @@ import {
   validatePayoutPerson,
   validatePayoutProject,
 } from "@/lib/formValidation";
-import { buildPayoutPayload, payoutRowToKind } from "@/lib/payoutPayload";
+import {
+  buildPayoutPayload,
+  isProjectCostPayout,
+  payoutRowToKind,
+} from "@/lib/payoutPayload";
 import { useToast } from "@/components/providers/ToastProvider";
 import { glassCard, kpiCard, sectionLabel, valueHero } from "@/components/dashboard/dashboardStyles";
 
@@ -281,16 +285,17 @@ export default function PayoutsPage() {
         }, 0)
       : 0;
 
-    const projectCost = filterProjectId
-      ? rows.reduce((s, row) => {
-          const k = payoutRowToKind(row);
-          if (k !== "dev_payout") return s;
-          const pid = refId(row.projectId);
-          if (pid !== filterProjectId) return s;
-          const amt = Number(row.amount) || 0;
-          return s + Math.max(0, amt);
-        }, 0)
-      : 0;
+    const projectCostRows = filterProjectId
+      ? rows.filter((row) => {
+          if (!isProjectCostPayout(row)) return false;
+          return refId(row.projectId) === filterProjectId;
+        })
+      : [];
+
+    const projectCost = projectCostRows.reduce(
+      (s, row) => s + Math.max(0, Number(row.amount) || 0),
+      0
+    );
 
     const netLeft = filterProjectId ? revenueForProject - projectCost : 0;
 
@@ -302,6 +307,7 @@ export default function PayoutsPage() {
       projectCost,
       netLeft,
       devPayoutCount: devPayouts.length,
+      projectCostLineCount: projectCostRows.length,
     };
   }, [filterProjectId, filterPeopleId, projects, people, rows, revenues]);
 
@@ -412,7 +418,11 @@ export default function PayoutsPage() {
                 {filterProjectId ? formatMoney(filteredSummary.netLeft, "INR") : "—"}
               </p>
             </div>
-            <p className="mt-2 text-[10px] leading-snug text-purity-muted">Cost uses dev payouts only</p>
+            <p className="mt-2 text-[10px] leading-snug text-purity-muted">
+              {filterProjectId
+                ? `Revenue minus all project payouts (${filteredSummary.projectCostLineCount} lines: dev, design, marketing, etc.)`
+                : "Select a project to compute"}
+            </p>
           </article>
         </div>
       </section>

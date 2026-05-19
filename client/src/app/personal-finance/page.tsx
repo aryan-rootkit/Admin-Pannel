@@ -15,6 +15,7 @@ import type {
 import { PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
 import { stackSections } from "@/components/dashboard/dashboardStyles";
 import { PfKpiSection } from "@/components/personalFinance/PfKpiSection";
+import { PfRootkitMoneySection } from "@/components/personalFinance/PfRootkitMoneySection";
 import { PfCashflowCharts } from "@/components/personalFinance/PfCashflowCharts";
 import { PfInsightsBlock } from "@/components/personalFinance/PfInsightsBlock";
 import { PfLoansSection } from "@/components/personalFinance/PfLoansSection";
@@ -359,6 +360,11 @@ export default function PersonalFinancePage() {
 
   const subRows = subscriptions;
   const insightLines = summary?.insights || [];
+  const monthLabel = useMemo(() => {
+    const [y, m] = month.split("-").map(Number);
+    if (!y || !m) return month;
+    return new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
+  }, [month]);
 
   return (
     <div className={`min-w-0 ${stackSections}`}>
@@ -392,6 +398,7 @@ export default function PersonalFinancePage() {
         </div>
       ) : (
         <>
+          <PfRootkitMoneySection data={summary?.rootkitBusiness} monthLabel={monthLabel} />
           <PfKpiSection kpis={summary?.kpis ?? null} />
           <PfCashflowCharts series={summary?.cashflowSeries ?? []} categories={summary?.categoryBreakdown ?? []} />
           <div className="grid gap-6 lg:grid-cols-3">

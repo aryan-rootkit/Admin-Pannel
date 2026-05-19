@@ -8,6 +8,7 @@ const {
   PfStatementLine,
 } = require("./model");
 const { parseBankCsv } = require("./csvParse");
+const { computeRootkitBusinessMonth } = require("./rootkitBusiness");
 
 function oid(id) {
   try {
@@ -196,6 +197,8 @@ const getSummary = async (req, res) => {
       loans,
       subs,
       pendingImportLines,
+      rootkitCurr,
+      rootkitPrev,
     ] = await Promise.all([
       cashNetLifetime(),
       monthlyNonTransfer("in", start, end),
@@ -210,6 +213,8 @@ const getSummary = async (req, res) => {
       PfLoan.find().sort({ updatedAt: -1 }).limit(50).lean(),
       PfSubscription.find({ active: true }).sort({ nextDueDate: 1 }).lean(),
       PfStatementLine.countDocuments({ status: "pending" }),
+      computeRootkitBusinessMonth(start, end),
+      computeRootkitBusinessMonth(prev.start, prev.end),
     ]);
 
     const netWorth = cashNet + receivableOutstanding - debtOutstanding;
@@ -238,6 +243,10 @@ const getSummary = async (req, res) => {
     }, 0);
 
     const prevBurnProxy = expensePrev / 3;
+
+    const estimatedSavings = rootkitCurr.rootkitNet - expenseCurr;
+    const spendRatePct =
+      rootkitCurr.rootkitNet > 0 ? (expenseCurr / rootkitCurr.rootkitNet) * 100 : null;
 
     const insights = [];
     if (biggestCategory && expenseCurr > 0) {
@@ -283,6 +292,25 @@ const getSummary = async (req, res) => {
         text: `${pendingImportLines} bank import line(s) waiting for review.`,
       });
     }
+    if (rootkitCurr.revenueReceived > 0 || rootkitCurr.projectPayoutCost > 0) {
+      insights.push({
+        id: "rootkit_margin",
+        text: `Rootkit margin this month (rev − project payouts): ₹${Math.round(rootkitCurr.rootkitMargin).toLocaleString("en-IN")} before company subscriptions & expenses.`,
+      });
+    }
+    if (rootkitCurr.rootkitNet !== 0 && expenseCurr > 0) {
+      if (estimatedSavings >= 0) {
+        insights.push({
+          id: "rootkit_savings",
+          text: `After personal spend (₹${Math.round(expenseCurr).toLocaleString("en-IN")}), about ₹${Math.round(estimatedSavings).toLocaleString("en-IN")} of business net may be available to keep this month.`,
+        });
+      } else {
+        insights.push({
+          id: "rootkit_overspend",
+          text: `Personal spend exceeds business net by ₹${Math.round(Math.abs(estimatedSavings)).toLocaleString("en-IN")} this month — you're drawing more than Rootkit earned after costs.`,
+        });
+      }
+    }
 
     const loansWithOut = await Promise.all(
       loans.map(async (L) => {
@@ -322,6 +350,20 @@ const getSummary = async (req, res) => {
       loans: loansWithOut,
       insights,
       pendingImportLines,
+      rootkitBusiness: {
+        revenueReceived: rootkitCurr.revenueReceived,
+        projectPayoutCost: rootkitCurr.projectPayoutCost,
+        projectPayoutLineCount: rootkitCurr.projectPayoutLineCount,
+        operatingExpenses: rootkitCurr.operatingExpenses,
+        rootkitMargin: rootkitCurr.rootkitMargin,
+        rootkitNet: rootkitCurr.rootkitNet,
+        ledgerRootkitIncome: rootkitCurr.ledgerRootkitIncome,
+        estimatedSavings,
+        spendRatePct,
+        personalSpend: expenseCurr,
+        momMargin: momMeta(rootkitCurr.rootkitMargin, rootkitPrev.rootkitMargin),
+        momNet: momMeta(rootkitCurr.rootkitNet, rootkitPrev.rootkitNet),
+      },
     });
   } catch (err) {
     return res.status(500).json({ message: err.message || "Server error" });

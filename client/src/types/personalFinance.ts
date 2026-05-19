@@ -43,8 +43,27 @@ export type PfSubscriptionRow = {
   updatedAt?: string;
 };
 
+export type PfRootkitBusiness = {
+  revenueReceived: number;
+  projectPayoutCost: number;
+  projectPayoutLineCount: number;
+  operatingExpenses: number;
+  /** Revenue minus all project payouts (dev, design, marketing, etc.) */
+  rootkitMargin: number;
+  /** Margin minus company subscriptions / operating payouts */
+  rootkitNet: number;
+  ledgerRootkitIncome: number;
+  personalSpend: number;
+  /** rootkitNet − personalSpend — what you may keep after life + business ops */
+  estimatedSavings: number;
+  spendRatePct: number | null;
+  momMargin: PfMomMeta;
+  momNet: PfMomMeta;
+};
+
 export type PfSummaryResponse = {
   month: string;
+  rootkitBusiness?: PfRootkitBusiness | null;
   kpis: {
     totalBalance: number;
     cashNet: number;
