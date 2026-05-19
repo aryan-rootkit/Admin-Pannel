@@ -61,9 +61,26 @@ export type PfRootkitBusiness = {
   momNet: PfMomMeta;
 };
 
+export type PfPersonalPosition = {
+  moneyIn: number;
+  moneyOut: number;
+  moneyToReceive: number;
+  netPosition: number;
+  monthSurplus: number;
+};
+
+export type PfLoanRepaymentRow = {
+  _id: string;
+  loanId: string;
+  amount: number;
+  paidAt: string;
+  notes?: string;
+};
+
 export type PfSummaryResponse = {
   month: string;
   rootkitBusiness?: PfRootkitBusiness | null;
+  personalPosition?: PfPersonalPosition | null;
   kpis: {
     totalBalance: number;
     cashNet: number;

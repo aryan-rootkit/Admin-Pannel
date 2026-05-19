@@ -9,6 +9,7 @@ const {
   createLoan,
   updateLoan,
   deleteLoan,
+  listRepayments,
   addRepayment,
   deleteRepayment,
   listSubscriptions,
@@ -37,6 +38,7 @@ router.get("/loans", listLoans);
 router.post("/loans", createLoan);
 router.put("/loans/:id", updateLoan);
 router.delete("/loans/:id", deleteLoan);
+router.get("/loans/:id/repayments", listRepayments);
 router.post("/loans/:id/repayments", addRepayment);
 router.delete("/loans/:id/repayments/:rid", deleteRepayment);
 

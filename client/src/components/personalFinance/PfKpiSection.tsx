@@ -81,7 +81,9 @@ export function PfKpiSection({ kpis }: Props) {
           </p>
         </div>
         <Trend meta={kpis.momIncome} />
-        <p className="mt-auto pt-2 text-[10px] leading-snug text-purity-muted">Inflows excl. transfers · this month</p>
+        <p className="mt-auto pt-2 text-[10px] leading-snug text-purity-muted">
+          Ledger inflows · use My money card for Rootkit profit
+        </p>
       </article>
 
       <article className={kpiCard}>

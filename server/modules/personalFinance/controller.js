@@ -324,8 +324,17 @@ const getSummary = async (req, res) => {
       })
     );
 
+    const personalPosition = {
+      moneyIn: rootkitCurr.rootkitNet,
+      moneyOut: debtOutstanding,
+      moneyToReceive: receivableOutstanding,
+      netPosition: rootkitCurr.rootkitNet + receivableOutstanding - debtOutstanding,
+      monthSurplus: estimatedSavings,
+    };
+
     return res.json({
       month: utcMonthBounds(ym).ym,
+      personalPosition,
       kpis: {
         totalBalance: cashNet,
         cashNet,
@@ -512,24 +521,81 @@ const deleteLoan = async (req, res) => {
   }
 };
 
+async function loanWithBalances(loanDoc) {
+  const rep = await repaidTotal(loanDoc._id);
+  const pr = Number(loanDoc.principal) || 0;
+  const outstanding = Math.max(0, pr - rep);
+  return {
+    ...loanDoc.toObject ? loanDoc.toObject() : loanDoc,
+    repaid: rep,
+    outstanding,
+  };
+}
+
+const listRepayments = async (req, res) => {
+  try {
+    const loan = await PfLoan.findById(req.params.id).lean();
+    if (!loan) return res.status(404).json({ message: "Loan not found" });
+    const rows = await PfLoanRepayment.find({ loanId: loan._id })
+      .sort({ paidAt: -1 })
+      .limit(50)
+      .lean();
+    return res.json(rows);
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Server error" });
+  }
+};
+
 const addRepayment = async (req, res) => {
   try {
     const loan = await PfLoan.findById(req.params.id);
     if (!loan) return res.status(404).json({ message: "Loan not found" });
     const { amount, paidAt, notes } = req.body || {};
     if (amount == null || Number(amount) <= 0) return res.status(400).json({ message: "amount required" });
+
+    const repaidSoFar = await repaidTotal(loan._id);
+    const principal = Number(loan.principal) || 0;
+    const outstandingBefore = Math.max(0, principal - repaidSoFar);
+    const payAmount = Number(amount);
+    if (payAmount > outstandingBefore + 0.01) {
+      return res.status(400).json({
+        message: `Amount exceeds outstanding balance (₹${Math.round(outstandingBefore).toLocaleString("en-IN")})`,
+      });
+    }
+
+    const paidDate = paidAt ? new Date(paidAt) : new Date();
     const rep = await PfLoanRepayment.create({
       loanId: loan._id,
-      amount: Number(amount),
-      paidAt: paidAt ? new Date(paidAt) : new Date(),
+      amount: payAmount,
+      paidAt: paidDate,
       notes: notes != null ? String(notes) : "",
     });
+
+    const isLent = loan.loanKind === "lent_to_person";
+    await PfTransaction.create({
+      flow: isLent ? "in" : "out",
+      category: isLent ? "personal_income" : "loan_repayment",
+      amount: payAmount,
+      occurredAt: paidDate,
+      title: isLent
+        ? `Received from ${loan.partyName}`
+        : `Repayment to ${loan.partyName}`,
+      notes: notes != null ? String(notes) : `Loan repayment ${rep._id}`,
+      source: "manual",
+      loanId: loan._id,
+    });
+
     const totalRep = await repaidTotal(loan._id);
-    if (totalRep >= loan.principal - 1e-6) {
+    if (totalRep >= principal - 1e-6) {
       loan.status = "settled";
       await loan.save();
+    } else if (loan.status === "settled") {
+      loan.status = "active";
+      await loan.save();
     }
-    return res.status(201).json(rep);
+
+    const updatedLoan = await loanWithBalances(loan);
+    return res.status(201).json({ repayment: rep, loan: updatedLoan });
   } catch (err) {
     return res.status(500).json({ message: err.message || "Server error" });
   }
@@ -779,6 +845,7 @@ module.exports = {
   createLoan,
   updateLoan,
   deleteLoan,
+  listRepayments,
   addRepayment,
   deleteRepayment,
   listSubscriptions,

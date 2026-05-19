@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_PERSONAL_FINANCE, fetchJson, getApiBase } from "@/lib/fetchApi";
-import { apiDelete, apiPost, apiPut } from "@/lib/api";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import type {
   PfActivityItem,
   PfLoanRow,
   PfStatementImportRow,
   PfStatementLineRow,
+  PfLoanRepaymentRow,
   PfSubscriptionRow,
   PfSummaryResponse,
   PfTransactionRow,
@@ -16,6 +17,7 @@ import { PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
 import { stackSections } from "@/components/dashboard/dashboardStyles";
 import { PfKpiSection } from "@/components/personalFinance/PfKpiSection";
 import { PfRootkitMoneySection } from "@/components/personalFinance/PfRootkitMoneySection";
+import { PfPositionKpi } from "@/components/personalFinance/PfPositionKpi";
 import { PfCashflowCharts } from "@/components/personalFinance/PfCashflowCharts";
 import { PfInsightsBlock } from "@/components/personalFinance/PfInsightsBlock";
 import { PfLoansSection } from "@/components/personalFinance/PfLoansSection";
@@ -30,6 +32,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FormattedNumberInput } from "@/components/ui/FormattedNumberInput";
 import { useToast } from "@/components/providers/ToastProvider";
+import { formatMoney } from "@/lib/format";
 
 function utcMonthRange(ym: string) {
   const [y, m] = ym.split("-").map(Number);
@@ -80,6 +83,7 @@ export default function PersonalFinancePage() {
   const [repayAmount, setRepayAmount] = useState<number | undefined>(undefined);
   const [repayDate, setRepayDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [repayNotes, setRepayNotes] = useState("");
+  const [repayHistory, setRepayHistory] = useState<PfLoanRepaymentRow[]>([]);
 
   const [subOpen, setSubOpen] = useState(false);
   const [editingSub, setEditingSub] = useState<PfSubscriptionRow | null>(null);
@@ -260,11 +264,38 @@ export default function PersonalFinancePage() {
     }
   }
 
+  async function openRepayModal(loan: PfLoanRow) {
+    setRepayLoan(loan);
+    setRepayAmount(undefined);
+    setRepayNotes("");
+    setRepayDate(new Date().toISOString().slice(0, 10));
+    setRepayOpen(true);
+    try {
+      const history = await apiGet<PfLoanRepaymentRow[]>(
+        `${API_PERSONAL_FINANCE}/loans/${loan._id}/repayments`
+      );
+      setRepayHistory(Array.isArray(history) ? history : []);
+    } catch {
+      setRepayHistory([]);
+    }
+  }
+
+  function payFullOutstanding() {
+    if (!repayLoan) return;
+    const out = Number(repayLoan.outstanding) || 0;
+    if (out > 0) setRepayAmount(out);
+  }
+
   async function saveRepayment() {
     if (!repayLoan || repayAmount == null || repayAmount <= 0) return;
+    const outstanding = Number(repayLoan.outstanding) || 0;
+    if (repayAmount > outstanding + 0.01) {
+      toast.error();
+      return;
+    }
     setBusy(true);
     try {
-      await apiPost(`${API_PERSONAL_FINANCE}/loans/${repayLoan._id}/repayments`, {
+      await apiPost<{ loan: PfLoanRow }>(`${API_PERSONAL_FINANCE}/loans/${repayLoan._id}/repayments`, {
         amount: repayAmount,
         paidAt: new Date(repayDate).toISOString(),
         notes: repayNotes,
@@ -274,6 +305,7 @@ export default function PersonalFinancePage() {
       setRepayLoan(null);
       setRepayAmount(undefined);
       setRepayNotes("");
+      setRepayHistory([]);
       await refreshCore();
     } catch {
       toast.error();
@@ -398,6 +430,7 @@ export default function PersonalFinancePage() {
         </div>
       ) : (
         <>
+          <PfPositionKpi position={summary?.personalPosition} monthLabel={monthLabel} />
           <PfRootkitMoneySection data={summary?.rootkitBusiness} monthLabel={monthLabel} />
           <PfKpiSection kpis={summary?.kpis ?? null} />
           <PfCashflowCharts series={summary?.cashflowSeries ?? []} categories={summary?.categoryBreakdown ?? []} />
@@ -409,6 +442,8 @@ export default function PersonalFinancePage() {
           </div>
           <PfLoansSection
             loans={loans}
+            rootkitBusiness={summary?.rootkitBusiness}
+            personalPosition={summary?.personalPosition}
             onAdd={() => {
               setEditingLoan(null);
               setLoanKind("borrowed_person");
@@ -418,10 +453,7 @@ export default function PersonalFinancePage() {
               setLoanDue("");
               setLoanOpen(true);
             }}
-            onRepay={(l) => {
-              setRepayLoan(l);
-              setRepayOpen(true);
-            }}
+            onRepay={(l) => void openRepayModal(l)}
             onEdit={(l) => {
               setEditingLoan(l);
               setLoanKind(l.loanKind);
@@ -604,12 +636,36 @@ export default function PersonalFinancePage() {
       >
         {repayLoan ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-600">
-              <span className="font-semibold text-slate-900">{repayLoan.partyName}</span> · Outstanding{" "}
-              <span className="tabular-nums font-semibold">{repayLoan.outstanding?.toLocaleString("en-IN")}</span>
-            </p>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm">
+              <p className="font-semibold text-slate-900">{repayLoan.partyName}</p>
+              <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <dt className="text-slate-500">Principal</dt>
+                  <dd className="font-semibold tabular-nums">{formatMoney(repayLoan.principal, "INR")}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Repaid</dt>
+                  <dd className="font-semibold tabular-nums text-emerald-700">
+                    {formatMoney(repayLoan.repaid ?? 0, "INR")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Outstanding</dt>
+                  <dd className="font-semibold tabular-nums text-rose-800">
+                    {formatMoney(repayLoan.outstanding ?? 0, "INR")}
+                  </dd>
+                </div>
+              </dl>
+            </div>
             <FormField label="Amount">
-              <FormattedNumberInput value={repayAmount} onChange={setRepayAmount} />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <FormattedNumberInput value={repayAmount} onChange={setRepayAmount} />
+                </div>
+                <Button type="button" variant="secondary" className="shrink-0 text-xs" onClick={payFullOutstanding}>
+                  Pay full outstanding
+                </Button>
+              </div>
             </FormField>
             <FormField label="Date">
               <Input type="date" value={repayDate} onChange={(e) => setRepayDate(e.target.value)} />
@@ -617,6 +673,19 @@ export default function PersonalFinancePage() {
             <FormField label="Notes">
               <Input value={repayNotes} onChange={(e) => setRepayNotes(e.target.value)} />
             </FormField>
+            {repayHistory.length > 0 ? (
+              <div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Recent payments</p>
+                <ul className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-slate-100 bg-white p-2 text-xs">
+                  {repayHistory.map((r) => (
+                    <li key={r._id} className="flex justify-between gap-2 tabular-nums">
+                      <span className="text-slate-600">{new Date(r.paidAt).toLocaleDateString("en-IN")}</span>
+                      <span className="font-semibold text-slate-900">{formatMoney(r.amount, "INR")}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </Modal>
