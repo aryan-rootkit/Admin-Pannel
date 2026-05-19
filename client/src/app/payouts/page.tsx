@@ -266,13 +266,12 @@ export default function PayoutsPage() {
     const selectedProject = filterProjectId ? projects.find((p) => p._id === filterProjectId) : null;
     const selectedPerson = filterPeopleId ? people.find((p) => p._id === filterPeopleId) : null;
 
-    const devPayouts = rows.filter((row) => {
-      const k = payoutRowToKind(row);
-      if (k !== "dev_payout") return false;
+    const paidPayoutRows = rows.filter((row) => {
+      if (!isProjectCostPayout(row)) return false;
       return matchesPayoutFilters(row, filterProjectId, filterPeopleId);
     });
 
-    const totalPaid = devPayouts.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const totalPaid = paidPayoutRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
     const revenueForProject = filterProjectId
       ? revenues.reduce((s, row) => {
@@ -306,7 +305,7 @@ export default function PayoutsPage() {
       revenueForProject,
       projectCost,
       netLeft,
-      devPayoutCount: devPayouts.length,
+      paidPayoutCount: paidPayoutRows.length,
       projectCostLineCount: projectCostRows.length,
     };
   }, [filterProjectId, filterPeopleId, projects, people, rows, revenues]);
@@ -390,14 +389,14 @@ export default function PayoutsPage() {
         </div>
         <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3 sm:gap-4 sm:p-5">
           <article className={`${kpiCard} p-4!`}>
-            <p className={sectionLabel}>Paid (dev payouts)</p>
+            <p className={sectionLabel}>Paid (project payouts)</p>
             <div className={`${valueHero} mt-2`}>
               <p className="text-lg font-bold tabular-nums tracking-tight text-slate-900">
                 {formatMoney(filteredSummary.totalPaid, "INR")}
               </p>
             </div>
             <p className="mt-2 text-[10px] leading-snug text-purity-muted">
-              {filteredSummary.devPayoutCount} payout lines
+              {filteredSummary.paidPayoutCount} payout lines · dev, design, marketing, etc.
             </p>
           </article>
           <article className={`${kpiCard} p-4!`}>
