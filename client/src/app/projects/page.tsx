@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_PEOPLE, fetchJson, getApiBase } from "@/lib/fetchApi";
 import { apiPost, apiPut } from "@/lib/api";
 import type { Client, PersonRow, Project } from "@/types/api";
@@ -22,6 +22,7 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { resolveAssignedTeamNames, resolveClientName } from "@/lib/relations";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { ProjectsGridSkeleton } from "@/components/projects/ProjectsGridSkeleton";
+import { sortProjectsForList } from "@/lib/projectSort";
 
 function refId(v: string | { _id: string } | undefined | null): string {
   if (v == null) return "";
@@ -174,6 +175,8 @@ export default function ProjectsPage() {
     statusOptions.push(status as (typeof PROJECT_STATUS_OPTIONS)[number]);
   }
 
+  const sortedProjects = useMemo(() => sortProjectsForList(projects), [projects]);
+
   return (
     <div className="min-w-0">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -207,7 +210,7 @@ export default function ProjectsPage() {
 
       {!loading && !error && projects.length > 0 ? (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {projects.map((p) => {
+          {sortedProjects.map((p) => {
             const contractNum = Number(p.totalValue ?? p.budget ?? 0);
             const contractDisplay =
               p.totalValue != null || p.budget != null ? `₹ ${formatListAmount(contractNum)}` : "—";

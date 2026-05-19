@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FormattedNumberInput } from "@/components/ui/FormattedNumberInput";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/formOptions";
+import { projectStatusBucket } from "@/lib/projectFinance";
 import {
   validateClientId,
   validateContractValuePositive,
@@ -27,6 +28,13 @@ import {
   sumSharePercents,
   validateTeamShares,
 } from "@/lib/projectTeamShares";
+
+function toInputDate(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
 
 function refId(v: unknown): string {
   if (typeof v === "string") return v;
@@ -88,6 +96,7 @@ export default function ProjectDetailPage() {
   const [clientId, setClientId] = useState("");
   const [contractAmount, setContractAmount] = useState<number | undefined>(undefined);
   const [status, setStatus] = useState<string>(PROJECT_STATUS_OPTIONS[0]);
+  const [completedAt, setCompletedAt] = useState("");
   const [shares, setShares] = useState<TeamMemberShare[]>([]);
   const [addPersonId, setAddPersonId] = useState("");
   const [fieldErrors, setFieldErrors] = useState<ProjectFormErrors>({});
@@ -110,6 +119,7 @@ export default function ProjectDetailPage() {
       const v = pr.totalValue ?? pr.budget;
       setContractAmount(v != null && Number.isFinite(Number(v)) ? Number(v) : undefined);
       setStatus(pr.status && pr.status.trim() ? pr.status : PROJECT_STATUS_OPTIONS[0]);
+      setCompletedAt(toInputDate(pr.completedAt ?? null));
       setShares(sharesFromProject(pr));
       setClients(Array.isArray(c) ? c : []);
       setPeople(Array.isArray(t) ? t : []);
@@ -211,10 +221,12 @@ export default function ProjectDetailPage() {
     if (!id || !validateForm()) return;
     setSaving(true);
     try {
+      const isCompleted = projectStatusBucket(status) === "completed";
       const body = {
         name: name.trim(),
         clientId,
         status: status.trim(),
+        completedAt: isCompleted ? completedAt || null : null,
         totalValue: contractAmount,
         budget: contractAmount,
         teamMemberShares: shares.map((s) => ({
@@ -224,6 +236,7 @@ export default function ProjectDetailPage() {
       };
       const updated = await apiPut<Project>(`/projects/${id}`, body);
       setProject(updated);
+      setCompletedAt(toInputDate(updated.completedAt ?? null));
       setShares(sharesFromProject(updated));
       toast.updated();
     } catch (e) {
@@ -250,6 +263,18 @@ export default function ProjectDetailPage() {
   const statusOptions = [...PROJECT_STATUS_OPTIONS];
   if (status && !statusOptions.includes(status as (typeof PROJECT_STATUS_OPTIONS)[number])) {
     statusOptions.push(status as (typeof PROJECT_STATUS_OPTIONS)[number]);
+  }
+
+  const showCompletionDate = projectStatusBucket(status) === "completed";
+
+  function onStatusChange(next: string) {
+    setStatus(next);
+    if (projectStatusBucket(next) === "completed" && !completedAt) {
+      setCompletedAt(toInputDate(new Date().toISOString()));
+    }
+    if (projectStatusBucket(next) !== "completed") {
+      setCompletedAt("");
+    }
   }
 
   if (!id) {
@@ -308,7 +333,7 @@ export default function ProjectDetailPage() {
                   </Select>
                 </FormField>
                 <FormField label="Status">
-                  <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+                  <Select value={status} onChange={(e) => onStatusChange(e.target.value)}>
                     {statusOptions.map((s) => (
                       <option key={s} value={s}>
                         {s}
@@ -316,6 +341,15 @@ export default function ProjectDetailPage() {
                     ))}
                   </Select>
                 </FormField>
+                {showCompletionDate ? (
+                  <FormField label="Date of completion">
+                    <Input
+                      type="date"
+                      value={completedAt}
+                      onChange={(e) => setCompletedAt(e.target.value)}
+                    />
+                  </FormField>
+                ) : null}
                 <FormField label="Contract value (total)" error={fieldErrors.contract} className="md:col-span-2">
                   <FormattedNumberInput
                     value={contractAmount}

@@ -6,6 +6,3 @@ dist
 .DS_Store
 
 
-
-#Ignore cursor AI rules
-.cursor\rules\codacy.mdc

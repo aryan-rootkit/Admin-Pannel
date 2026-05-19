@@ -22,6 +22,8 @@ const ProjectSchema = new mongoose.Schema(
     /** @deprecated prefer `assignedTeam` */
     teamIds: [{ type: Types.ObjectId, ref: "People", index: true }],
     status: { type: String, trim: true, default: "Active" },
+    /** Set when status is Completed; used to order finished projects. */
+    completedAt: { type: Date },
   },
   { timestamps: true, collection: "projects" }
 );

@@ -22,7 +22,7 @@ const getPeople = async (_req, res) => {
     const people = await People.find()
       .populate({
         path: "assignedProjects",
-        select: "name budget clientId",
+        select: "name budget clientId status",
         populate: { path: "clientId", select: "name email contact" },
       })
       .sort({ _id: -1 })

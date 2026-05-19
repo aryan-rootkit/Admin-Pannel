@@ -7,6 +7,29 @@
 const { Project } = require("./model");
 const { People } = require("../peoples/model");
 const { memberIdsFromProjectLean } = require("../lib/memberIndex");
+const { projectStatusBucket, compareProjectsForList } = require("../lib/projectFinance");
+
+function parseOptionalDate(value) {
+  if (value === null || value === "") return null;
+  if (value === undefined) return undefined;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d;
+}
+
+function applyCompletedAtOnSave(project, { status, completedAt }) {
+  if (completedAt !== undefined) {
+    project.completedAt = completedAt;
+  }
+  if (status !== undefined) {
+    project.status = status;
+    if (projectStatusBucket(status) === "completed") {
+      if (!project.completedAt) project.completedAt = new Date();
+    } else if (completedAt === undefined) {
+      project.completedAt = null;
+    }
+  }
+}
 
 async function hydrateAssignedTeamForProjects(projectsLean) {
   const needIds = new Set();
@@ -80,13 +103,13 @@ const getProjects = async (_req, res) => {
       .populate("clientId", "name email contact phone")
       .populate("assignedTeam", "name email contact")
       .populate("teamMemberShares.peopleId", "name email contact")
-      .sort({ createdAt: -1 })
       .lean();
     await hydrateAssignedTeamForProjects(projects);
     for (const p of projects) {
       if (Array.isArray(p.assignedTeam))
         p.assignedTeam = p.assignedTeam.filter(Boolean);
     }
+    projects.sort(compareProjectsForList);
     console.log("[GET /api/projects] count:", projects.length);
     return res.json(projects);
   } catch (err) {
@@ -96,8 +119,18 @@ const getProjects = async (_req, res) => {
 
 const createProject = async (req, res) => {
   try {
-    const { name, clientId, budget, totalValue, status, assignedTeam, peopleIds, teamIds, teamMemberShares } =
-      req.body || {};
+    const {
+      name,
+      clientId,
+      budget,
+      totalValue,
+      status,
+      completedAt,
+      assignedTeam,
+      peopleIds,
+      teamIds,
+      teamMemberShares,
+    } = req.body || {};
     if (!name) return res.status(400).json({ message: "name is required" });
     if (!clientId) return res.status(400).json({ message: "clientId is required" });
 
@@ -120,15 +153,24 @@ const createProject = async (req, res) => {
       ),
     ].filter(Boolean);
 
+    const parsedCompletedAt = parseOptionalDate(completedAt);
     const project = await Project.create({
       name,
       clientId,
       budget,
       totalValue: totalValue != null ? Number(totalValue) : undefined,
       status,
+      completedAt: parsedCompletedAt === undefined ? undefined : parsedCompletedAt,
       assignedTeam: mergedTeam.length ? mergedTeam : undefined,
       teamMemberShares: normalizedShares.length ? normalizedShares : undefined,
     });
+    if (
+      projectStatusBucket(project.status) === "completed" &&
+      !project.completedAt
+    ) {
+      project.completedAt = new Date();
+      await project.save();
+    }
 
     if (mergedTeam.length) {
       await People.updateMany(
@@ -166,8 +208,18 @@ async function syncProjectMembers(projectId, memberIds) {
 
 const updateProject = async (req, res) => {
   try {
-    const { name, clientId, budget, totalValue, status, assignedTeam, peopleIds, teamIds, teamMemberShares } =
-      req.body || {};
+    const {
+      name,
+      clientId,
+      budget,
+      totalValue,
+      status,
+      completedAt,
+      assignedTeam,
+      peopleIds,
+      teamIds,
+      teamMemberShares,
+    } = req.body || {};
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
@@ -202,7 +254,10 @@ const updateProject = async (req, res) => {
     if (clientId !== undefined) project.clientId = clientId;
     if (budget !== undefined) project.budget = budget;
     if (totalValue !== undefined) project.totalValue = totalValue;
-    if (status !== undefined) project.status = status;
+    applyCompletedAtOnSave(project, {
+      status,
+      completedAt: parseOptionalDate(completedAt),
+    });
     if (assignedTeam !== undefined || peopleIds !== undefined || teamIds !== undefined || teamMemberShares !== undefined) {
       project.assignedTeam = mergedTeam.length ? mergedTeam : [];
     }

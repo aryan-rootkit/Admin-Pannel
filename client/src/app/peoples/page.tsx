@@ -22,6 +22,7 @@ import {
 import { useToast } from "@/components/providers/ToastProvider";
 import { totalPayoutsForPerson } from "@/lib/personFinance";
 import { PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
+import { buildProjectStatusMap, sortPeopleForList } from "@/lib/peopleSort";
 
 type PeopleFormErrors = {
   name?: string;
@@ -207,6 +208,12 @@ export default function PeoplesPage() {
     roleOptions.push(role as (typeof PEOPLE_ROLE_OPTIONS)[number]);
   }
 
+  const projectStatusById = useMemo(() => buildProjectStatusMap(projects), [projects]);
+  const sortedPeople = useMemo(
+    () => sortPeopleForList(people, projectStatusById),
+    [people, projectStatusById]
+  );
+
   return (
     <div className="min-w-0">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -233,7 +240,7 @@ export default function PeoplesPage() {
 
       {!loading && !error && people.length > 0 ? (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {people.map((p) => (
+          {sortedPeople.map((p) => (
             <PeopleCard
               key={p._id}
               id={p._id}

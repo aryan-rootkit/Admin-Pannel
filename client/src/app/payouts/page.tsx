@@ -39,6 +39,7 @@ import {
 } from "@/lib/formValidation";
 import { buildPayoutPayload, payoutRowToKind } from "@/lib/payoutPayload";
 import { useToast } from "@/components/providers/ToastProvider";
+import { glassCard, kpiCard, sectionLabel, valueHero } from "@/components/dashboard/dashboardStyles";
 
 function refId(v: string | { _id: string } | undefined | null): string {
   if (v == null) return "";
@@ -51,6 +52,28 @@ function toInputDate(iso?: string | null) {
   if (Number.isNaN(d.getTime())) return "";
   return d.toISOString().slice(0, 10);
 }
+
+function payoutRowDateMs(row: PayoutRow): number {
+  const d = new Date(row.paymentDate || row.paidAt || 0);
+  const t = d.getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function matchesPayoutFilters(
+  row: PayoutRow,
+  filterProjectId: string,
+  filterPeopleId: string
+): boolean {
+  if (!filterProjectId && !filterPeopleId) return true;
+  const pid = refId(row.projectId);
+  const peid = refId(row.peopleId) || refId(row.personId);
+  if (filterProjectId && pid !== filterProjectId) return false;
+  if (filterPeopleId && peid !== filterPeopleId) return false;
+  return true;
+}
+
+const filterSelectClass =
+  "mt-1.5 min-h-10 w-full rounded-xl border-0 bg-slate-100/90 px-3 py-2 text-sm text-slate-900 outline-none ring-1 ring-slate-200/60 transition focus:bg-white focus:ring-2 focus:ring-blue-500/20";
 
 type PayoutFormErrors = {
   kind?: string;
@@ -218,6 +241,23 @@ export default function PayoutsPage() {
 
   const showProjectPerson = !payoutKindIsSubscription(kind);
 
+  const hasActiveFilters = Boolean(filterProjectId || filterPeopleId);
+
+  const filteredRows = useMemo(
+    () =>
+      rows
+        .filter((row) => matchesPayoutFilters(row, filterProjectId, filterPeopleId))
+        .sort((a, b) => payoutRowDateMs(b) - payoutRowDateMs(a)),
+    [rows, filterProjectId, filterPeopleId]
+  );
+
+  const listEmptyMessage =
+    rows.length === 0
+      ? "No data"
+      : hasActiveFilters
+        ? "No payouts match these filters"
+        : "No data";
+
   const filteredSummary = useMemo(() => {
     const selectedProject = filterProjectId ? projects.find((p) => p._id === filterProjectId) : null;
     const selectedPerson = filterPeopleId ? people.find((p) => p._id === filterPeopleId) : null;
@@ -225,11 +265,7 @@ export default function PayoutsPage() {
     const devPayouts = rows.filter((row) => {
       const k = payoutRowToKind(row);
       if (k !== "dev_payout") return false;
-      const pid = refId(row.projectId);
-      const peid = refId(row.peopleId) || refId(row.personId);
-      if (filterProjectId && pid !== filterProjectId) return false;
-      if (filterPeopleId && peid !== filterPeopleId) return false;
-      return true;
+      return matchesPayoutFilters(row, filterProjectId, filterPeopleId);
     });
 
     const totalPaid = devPayouts.reduce((s, r) => s + (Number(r.amount) || 0), 0);
@@ -280,71 +316,106 @@ export default function PayoutsPage() {
         }
       />
 
-      <div className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-purity-border bg-purity-card p-4 shadow-sm lg:grid-cols-12">
-        <div className="lg:col-span-4">
-          <FormField label="Filter by project">
-            <Select value={filterProjectId} onChange={(e) => setFilterProjectId(e.target.value)}>
-              <option value="">All projects</option>
-              {[...projects]
-                .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
-                .map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.name}
-                  </option>
-                ))}
-            </Select>
-          </FormField>
-        </div>
-        <div className="lg:col-span-4">
-          <FormField label="Filter by developer">
-            <Select value={filterPeopleId} onChange={(e) => setFilterPeopleId(e.target.value)}>
-              <option value="">All developers</option>
-              {[...people]
-                .sort((a, b) => (a.name || a.email || "").localeCompare(b.name || b.email || ""))
-                .map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.name || p.email || p._id}
-                  </option>
-                ))}
-            </Select>
-          </FormField>
-        </div>
-        <div className="lg:col-span-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <div className="rounded-lg border border-purity-border bg-purity-bg px-3 py-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-purity-muted">
-                Paid (dev payouts)
-              </div>
-              <div className="mt-1 text-lg font-semibold tabular-nums text-purity-text">
-                {formatMoney(filteredSummary.totalPaid, "INR")}
-              </div>
-              <div className="mt-0.5 text-xs text-purity-muted">
-                {filteredSummary.devPayoutCount} payout lines
-              </div>
+      <section className={`${glassCard} mb-6 overflow-hidden`} aria-label="Payout filters and summary">
+        <div className="border-b border-slate-100 bg-gradient-to-b from-slate-50/90 to-white px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="min-w-0 flex-1 basis-44">
+              <label htmlFor="payout-filter-project" className={sectionLabel}>
+                Project
+              </label>
+              <select
+                id="payout-filter-project"
+                value={filterProjectId}
+                onChange={(e) => setFilterProjectId(e.target.value)}
+                className={filterSelectClass}
+              >
+                <option value="">All projects</option>
+                {[...projects]
+                  .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                  .map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name}
+                    </option>
+                  ))}
+              </select>
             </div>
-            <div className="rounded-lg border border-purity-border bg-purity-bg px-3 py-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-purity-muted">
-                Project revenue (received)
-              </div>
-              <div className="mt-1 text-lg font-semibold tabular-nums text-purity-text">
-                {filterProjectId ? formatMoney(filteredSummary.revenueForProject, "INR") : "—"}
-              </div>
-              <div className="mt-0.5 text-xs text-purity-muted">Select a project to compute</div>
+            <div className="min-w-0 flex-1 basis-44">
+              <label htmlFor="payout-filter-developer" className={sectionLabel}>
+                Developer
+              </label>
+              <select
+                id="payout-filter-developer"
+                value={filterPeopleId}
+                onChange={(e) => setFilterPeopleId(e.target.value)}
+                className={filterSelectClass}
+              >
+                <option value="">All developers</option>
+                {[...people]
+                  .sort((a, b) => (a.name || a.email || "").localeCompare(b.name || b.email || ""))
+                  .map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name || p.email || p._id}
+                    </option>
+                  ))}
+              </select>
             </div>
-            <div className="rounded-lg border border-purity-border bg-purity-bg px-3 py-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-purity-muted">
-                Left with Rootkit (rev − cost)
-              </div>
-              <div className="mt-1 text-lg font-semibold tabular-nums text-purity-text">
-                {filterProjectId ? formatMoney(filteredSummary.netLeft, "INR") : "—"}
-              </div>
-              <div className="mt-0.5 text-xs text-purity-muted">
-                Cost uses dev payouts only
-              </div>
-            </div>
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterProjectId("");
+                  setFilterPeopleId("");
+                }}
+                className="shrink-0 rounded-full border border-slate-200/90 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+              >
+                Clear filters
+              </button>
+            ) : null}
           </div>
+          {hasActiveFilters ? (
+            <p className="mt-3 text-xs text-purity-muted">
+              Showing {filteredRows.length} of {rows.length} payouts
+              {filteredSummary.selectedProject ? ` · ${filteredSummary.selectedProject.name}` : ""}
+              {filteredSummary.selectedPerson
+                ? ` · ${filteredSummary.selectedPerson.name || filteredSummary.selectedPerson.email}`
+                : ""}
+            </p>
+          ) : null}
         </div>
-      </div>
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3 sm:gap-4 sm:p-5">
+          <article className={`${kpiCard} p-4!`}>
+            <p className={sectionLabel}>Paid (dev payouts)</p>
+            <div className={`${valueHero} mt-2`}>
+              <p className="text-lg font-bold tabular-nums tracking-tight text-slate-900">
+                {formatMoney(filteredSummary.totalPaid, "INR")}
+              </p>
+            </div>
+            <p className="mt-2 text-[10px] leading-snug text-purity-muted">
+              {filteredSummary.devPayoutCount} payout lines
+            </p>
+          </article>
+          <article className={`${kpiCard} p-4!`}>
+            <p className={sectionLabel}>Project revenue (received)</p>
+            <div className={`${valueHero} mt-2`}>
+              <p className="text-lg font-bold tabular-nums tracking-tight text-slate-900">
+                {filterProjectId ? formatMoney(filteredSummary.revenueForProject, "INR") : "—"}
+              </p>
+            </div>
+            <p className="mt-2 text-[10px] leading-snug text-purity-muted">
+              {filterProjectId ? "Received payments for selected project" : "Select a project to compute"}
+            </p>
+          </article>
+          <article className={`${kpiCard} p-4!`}>
+            <p className={sectionLabel}>Left with Rootkit (rev − cost)</p>
+            <div className={`${valueHero} mt-2`}>
+              <p className="text-lg font-bold tabular-nums tracking-tight text-slate-900">
+                {filterProjectId ? formatMoney(filteredSummary.netLeft, "INR") : "—"}
+              </p>
+            </div>
+            <p className="mt-2 text-[10px] leading-snug text-purity-muted">Cost uses dev payouts only</p>
+          </article>
+        </div>
+      </section>
 
       {loading ? <ListPageSkeleton rows={10} /> : null}
       {error ? (
@@ -363,11 +434,11 @@ export default function PayoutsPage() {
               <div className="col-span-2">Date</div>
               <div className="col-span-2 text-right">Actions</div>
             </div>
-            {!loading && !error && rows.length === 0 ? (
-              <EmptyState message="No data" />
+            {!loading && !error && filteredRows.length === 0 ? (
+              <EmptyState message={listEmptyMessage} />
             ) : null}
             {!loading &&
-              rows.map((r) => (
+              filteredRows.map((r) => (
                 <div key={r._id} className={`${listBodyRowClass()} grid-cols-12`}>
                   <div className="col-span-2 font-semibold text-purity-text">
                     {formatMoney(Number(r.amount) || 0, r.currency || "INR")}
@@ -404,13 +475,13 @@ export default function PayoutsPage() {
         }
         cards={
           <>
-            {!loading && !error && rows.length === 0 ? (
+            {!loading && !error && filteredRows.length === 0 ? (
               <div className="rounded-xl border border-purity-border bg-purity-card px-4 py-10 text-center text-sm text-purity-muted">
-                No data
+                {listEmptyMessage}
               </div>
             ) : null}
             {!loading &&
-              rows.map((r) => (
+              filteredRows.map((r) => (
                 <div
                   key={r._id}
                   className="rounded-xl border border-purity-border bg-purity-card p-4 shadow-sm"

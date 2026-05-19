@@ -22,6 +22,8 @@ export type Project = {
   name: string;
   clientId: string | PopulatedRef;
   status?: string;
+  /** ISO date when the project was marked completed */
+  completedAt?: string | null;
   budget?: number;
   totalValue?: number;
   assignedTeam?: Array<PopulatedRef | string>;
@@ -33,7 +35,7 @@ export type Project = {
   updatedAt?: string;
 };
 
-export type AssignedProjectRef = { _id: string; name: string };
+export type AssignedProjectRef = { _id: string; name: string; status?: string };
 
 export type PersonRow = {
   _id: string;
