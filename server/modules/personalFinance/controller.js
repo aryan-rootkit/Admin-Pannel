@@ -9,6 +9,7 @@ const {
 } = require("./model");
 const { parseBankCsv } = require("./csvParse");
 const { computeRootkitBusinessMonth } = require("./rootkitBusiness");
+const { computeLinkedFlows } = require("./linkedFlows");
 
 function oid(id) {
   try {
@@ -199,6 +200,7 @@ const getSummary = async (req, res) => {
       pendingImportLines,
       rootkitCurr,
       rootkitPrev,
+      linkedFlows,
     ] = await Promise.all([
       cashNetLifetime(),
       monthlyNonTransfer("in", start, end),
@@ -215,6 +217,7 @@ const getSummary = async (req, res) => {
       PfStatementLine.countDocuments({ status: "pending" }),
       computeRootkitBusinessMonth(start, end),
       computeRootkitBusinessMonth(prev.start, prev.end),
+      computeLinkedFlows(start, end, { prevStart: prev.start, prevEnd: prev.end }),
     ]);
 
     const netWorth = cashNet + receivableOutstanding - debtOutstanding;
@@ -311,6 +314,25 @@ const getSummary = async (req, res) => {
         });
       }
     }
+    if (linkedFlows?.cards?.rootkitEarnings?.amount > 0) {
+      insights.push({
+        id: "linked_rootkit",
+        text: `Rootkit-tagged income this month: ₹${Math.round(linkedFlows.cards.rootkitEarnings.amount).toLocaleString("en-IN")} (${linkedFlows.cards.rootkitEarnings.lineCount} payment line${linkedFlows.cards.rootkitEarnings.lineCount === 1 ? "" : "s"} from Revenues).`,
+      });
+    }
+    if (linkedFlows?.cards?.paidToPerson?.totalPaid > 0) {
+      const pp = linkedFlows.cards.paidToPerson;
+      insights.push({
+        id: "linked_person",
+        text: `${pp.label}: ₹${Math.round(pp.totalPaid).toLocaleString("en-IN")} paid all-time${pp.pending > 0 ? ` · ₹${Math.round(pp.pending).toLocaleString("en-IN")} pending` : ""}.`,
+      });
+    }
+    if (linkedFlows?.cards?.personalWithdrawals?.amount > 0) {
+      insights.push({
+        id: "linked_withdrawals",
+        text: `Owner / personal transfers this month: ₹${Math.round(linkedFlows.cards.personalWithdrawals.amount).toLocaleString("en-IN")} from Payouts.`,
+      });
+    }
 
     const loansWithOut = await Promise.all(
       loans.map(async (L) => {
@@ -373,6 +395,7 @@ const getSummary = async (req, res) => {
         momMargin: momMeta(rootkitCurr.rootkitMargin, rootkitPrev.rootkitMargin),
         momNet: momMeta(rootkitCurr.rootkitNet, rootkitPrev.rootkitNet),
       },
+      linkedFlows,
     });
   } catch (err) {
     return res.status(500).json({ message: err.message || "Server error" });
@@ -787,12 +810,16 @@ const approveLine = async (req, res) => {
   }
 };
 
-const getActivity = async (_req, res) => {
+const getActivity = async (req, res) => {
   try {
-    const [txns, reps, imps] = await Promise.all([
+    const ym = req.query.month || ymNow();
+    const { start, end } = utcMonthBounds(ym);
+
+    const [txns, reps, imps, linked] = await Promise.all([
       PfTransaction.find().sort({ occurredAt: -1 }).limit(25).lean(),
       PfLoanRepayment.find().sort({ paidAt: -1 }).limit(15).populate("loanId", "partyName loanKind").lean(),
       PfStatementImport.find().sort({ createdAt: -1 }).limit(8).lean(),
+      computeLinkedFlows(start, end),
     ]);
     const items = [];
     for (const t of txns) {
@@ -828,8 +855,21 @@ const getActivity = async (_req, res) => {
         flow: null,
       });
     }
+    for (const e of linked.recentEvents || []) {
+      items.push({
+        id: e.id,
+        kind: `linked_${e.sourceType}`,
+        at: e.at,
+        title: e.title,
+        detail: e.detail || e.bucketLabel,
+        amount: e.amount,
+        flow: e.flow,
+        bucket: e.bucket,
+        source: "app",
+      });
+    }
     items.sort((a, b) => new Date(b.at) - new Date(a.at));
-    return res.json(items.slice(0, 40));
+    return res.json(items.slice(0, 50));
   } catch (err) {
     return res.status(500).json({ message: err.message || "Server error" });
   }

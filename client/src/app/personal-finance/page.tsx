@@ -17,6 +17,7 @@ import { PAGE_TITLE_CLASS } from "@/components/layout/PageHeader";
 import { stackSections } from "@/components/dashboard/dashboardStyles";
 import { PfKpiSection } from "@/components/personalFinance/PfKpiSection";
 import { PfRootkitMoneySection } from "@/components/personalFinance/PfRootkitMoneySection";
+import { PfLinkedFlowsSection } from "@/components/personalFinance/PfLinkedFlowsSection";
 import { PfPositionKpi } from "@/components/personalFinance/PfPositionKpi";
 import { PfCashflowCharts } from "@/components/personalFinance/PfCashflowCharts";
 import { PfInsightsBlock } from "@/components/personalFinance/PfInsightsBlock";
@@ -112,7 +113,9 @@ export default function PersonalFinancePage() {
     getApiBase();
     const [sum, act, tx, ln, sub, im] = await Promise.all([
       fetchJson<PfSummaryResponse>(`${API_PERSONAL_FINANCE}/summary?month=${encodeURIComponent(month)}`),
-      fetchJson<PfActivityItem[]>(`${API_PERSONAL_FINANCE}/activity`),
+      fetchJson<PfActivityItem[]>(
+        `${API_PERSONAL_FINANCE}/activity?month=${encodeURIComponent(month)}`
+      ),
       fetchJson<PfTransactionRow[]>(`${API_PERSONAL_FINANCE}/transactions?${txnQuery}`),
       fetchJson<PfLoanRow[]>(`${API_PERSONAL_FINANCE}/loans`),
       fetchJson<PfSubscriptionRow[]>(`${API_PERSONAL_FINANCE}/subscriptions`),
@@ -432,6 +435,7 @@ export default function PersonalFinancePage() {
         <>
           <PfPositionKpi position={summary?.personalPosition} monthLabel={monthLabel} />
           <PfRootkitMoneySection data={summary?.rootkitBusiness} monthLabel={monthLabel} />
+          <PfLinkedFlowsSection data={summary?.linkedFlows} monthLabel={monthLabel} />
           <PfKpiSection kpis={summary?.kpis ?? null} />
           <PfCashflowCharts series={summary?.cashflowSeries ?? []} categories={summary?.categoryBreakdown ?? []} />
           <div className="grid gap-6 lg:grid-cols-3">

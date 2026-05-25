@@ -26,6 +26,7 @@ export function PfActivityBlock({ items }: Props) {
                 <p className="text-xs text-slate-500">{a.detail}</p>
                 <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
                   {formatDate(a.at)} · {a.kind.replace(/_/g, " ")}
+                  {a.source === "app" ? " · from app data" : ""}
                 </p>
               </div>
               {a.amount != null && a.flow ? (

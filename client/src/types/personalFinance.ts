@@ -77,9 +77,43 @@ export type PfLoanRepaymentRow = {
   notes?: string;
 };
 
+export type PfLinkedFlowCard = {
+  label: string;
+  amount?: number;
+  lineCount?: number;
+  momPct?: number | null;
+  ownerDrawings?: number;
+  businessToPersonal?: number;
+  personName?: string;
+  totalPaid?: number;
+  paidThisMonth?: number;
+  pending?: number;
+};
+
+export type PfLinkedFlows = {
+  personalRelatedPeople: { id: string; name: string }[];
+  cards: {
+    rootkitEarnings: PfLinkedFlowCard;
+    personalWithdrawals: PfLinkedFlowCard;
+    paidToPerson: PfLinkedFlowCard;
+    businessToPersonal: PfLinkedFlowCard;
+  };
+  recentEvents?: Array<{
+    id: string;
+    sourceType: string;
+    bucket: string;
+    at: string;
+    amount: number;
+    flow: string;
+    title: string;
+    detail?: string;
+  }>;
+};
+
 export type PfSummaryResponse = {
   month: string;
   rootkitBusiness?: PfRootkitBusiness | null;
+  linkedFlows?: PfLinkedFlows | null;
   personalPosition?: PfPersonalPosition | null;
   kpis: {
     totalBalance: number;
@@ -148,6 +182,8 @@ export type PfActivityItem = {
   detail: string;
   amount: number | null;
   flow: "in" | "out" | null;
+  bucket?: string;
+  source?: "app" | "ledger";
 };
 
 export const PF_EXPENSE_CATEGORIES = [
